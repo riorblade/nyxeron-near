@@ -4,6 +4,7 @@ import { createApp } from './app.ts'
 import type { Identity, Profile } from './auth.ts'
 import { type Config, loadConfig } from './config.ts'
 import { openDb, run } from './db.ts'
+import type { Quotes } from './quotes.ts'
 
 // Token "tok-alice" signs in as did:privy:alice with alice@test.io and a NEAR account derived from the id.
 export function fakeIdentity(overrides: Partial<Record<string, Profile | 'down'>> = {}): Identity {
@@ -21,10 +22,21 @@ export function fakeIdentity(overrides: Partial<Record<string, Profile | 'down'>
   }
 }
 
-export function testApp(env: Record<string, string> = {}, identity = fakeIdentity()) {
+// Fixed prices: TSLA $400, NVDA $200, SPY $600.
+export const fakeQuotes: Quotes = {
+  async latest() {
+    const q = (usd: number) => ({ usd, xstockUsd: usd, change24h: 0 })
+    return { at: 0, stale: false, prices: { tsla: q(400), nvda: q(200), spy: q(600) } }
+  },
+  async spot(id) {
+    return (await this.latest()).prices[id]!.usd
+  },
+}
+
+export function testApp(env: Record<string, string> = {}, identity = fakeIdentity(), quotes = fakeQuotes) {
   const cfg: Config = loadConfig({ PRIVY_APP_ID: 'app', PRIVY_APP_SECRET: 'secret', ...env })
   const db = openDb(':memory:')
-  const app = createApp({ cfg, db, identity })
+  const app = createApp({ cfg, db, identity, quotes })
   const call = (method: string, path: string, token?: string, body?: unknown) =>
     app.request(path, {
       method,

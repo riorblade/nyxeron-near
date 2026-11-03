@@ -5,8 +5,9 @@ import type { Config } from './config.ts'
 import type { Db } from './db.ts'
 import { AppError } from './http.ts'
 import { playerRoutes } from './players.ts'
+import { type Quotes, quoteRoutes } from './quotes.ts'
 
-export type Deps = { cfg: Config; db: Db; identity: Identity }
+export type Deps = { cfg: Config; db: Db; identity: Identity; quotes: Quotes }
 
 export function createApp(deps: Deps) {
   const app = new Hono()
@@ -18,6 +19,7 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'internal' }, 500)
     })
     .get('/health', (c) => c.json({ ok: true, network: deps.cfg.NEAR_NETWORK }))
+    .route('/quotes', quoteRoutes(deps.quotes))
     .route('/me', playerRoutes(deps))
   return app
 }
