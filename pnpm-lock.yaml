@@ -43,6 +43,9 @@ importers:
       '@hono/zod-validator':
         specifier: 0.9.1
         version: 0.9.1(hono@4.13.16)(zod@4.6.7)
+      '@nyxeron/game':
+        specifier: workspace:*
+        version: link:../../packages/game
       hono:
         specifier: 4.13.16
         version: 4.13.16
