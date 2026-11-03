@@ -13,21 +13,21 @@ dikendalikan akun NEAR via Chain Signatures.
 | Orang     | GitHub        | Bagian                                                                                            |
 | --------- | ------------- | ------------------------------------------------------------------------------------------------- |
 | **Ghoza** | @ghozzza      | Smart contract: kontrak NEP-245, Chain Signatures (MPC), deploy kontrak                           |
-| **Kiel**  | @riorblade    | Backend (`services/api`, `apps/agent`, deploy) dan visual (art, aset UI, visual video/post)       |
-| **Wisnu** | @AdityaWisnuu | Frontend + UX (`apps/web`, `packages/game`), README juri, video demo, post X, submission, sisanya |
+| **Kiel**  | @riorblade    | Backend (`services/api`, `apps/agent`, deploy), alur game (`packages/game`) dan visual            |
+| **Wisnu** | @AdityaWisnuu | Frontend + back office UI + UX (`apps/web`), README juri, video demo, post X, submission, sisanya |
 
 Repo: `riorblade/nyxeron-near` (private sampai tim setuju dibuka; wajib publik sebelum 14 Nov 23:59 UTC).
 
 ## Tanggal penting (UTC)
 
-| Kapan               | Apa                                                                                             |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| Sel 3 Nov           | Plan + spec + pembagian tugas                                                                   |
-| **Rab 4 Nov**       | **Dikunci**: interface kontrak (Ghoza), game loop di kertas (Wisnu), bentuk endpoint api (Kiel) |
-| **Sen 9 Nov malam** | **Titik keputusan Chain Signatures**: jalan, atau fallback D4                                   |
-| Jum 13 Nov          | **Target submit internal** (sehari cadangan)                                                    |
-| Sab 14 Nov 23:59    | Batas akhir: repo publik, post X, submission (= Min 15 Nov 06:59 WIB)                           |
-| 16–18 Nov           | Penjurian; demo hosted tetap hidup sampai minimal 18 Nov (idealnya 25 Nov)                      |
+| Kapan               | Apa                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| Sel 3 Nov           | Plan + spec + pembagian tugas                                                                  |
+| **Rab 4 Nov**       | **Dikunci**: interface kontrak (Ghoza), game loop di kertas (Kiel), bentuk endpoint api (Kiel) |
+| **Sen 9 Nov malam** | **Titik keputusan Chain Signatures**: jalan, atau fallback D4                                  |
+| Jum 13 Nov          | **Target submit internal** (sehari cadangan)                                                   |
+| Sab 14 Nov 23:59    | Batas akhir: repo publik, post X, submission (= Min 15 Nov 06:59 WIB)                          |
+| 16–18 Nov           | Penjurian; demo hosted tetap hidup sampai minimal 18 Nov (idealnya 25 Nov)                     |
 
 ## Tugas per orang
 
@@ -47,10 +47,12 @@ Selesai = tes hijau (`pnpm test`, `pnpm lint`, `pnpm test:contract`).
 | 12 Nov    | Bagian "Contract" di README: alamat, method, cara cek `mt_supply` dan `is_used_proof`                                                                                         |
 | Stretch   | Cap belanja agent on-chain (track `security`); burn NEP-245 → kirim xStock asli ke pemain                                                                                     |
 
-### Kiel · Backend + visual
+### Kiel · Backend + alur game + visual
 
 | Kapan            | Tugas                                                                                                                                                                                     |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3–4 Nov          | **Game loop di kertas** (SPEC §3: tiap 30 detik / 5 menit / sesi), disetujui tim                                                                                                          |
+| 5–8 Nov          | `packages/game`: simulasi pesta murni + seeded RNG (tamu, energi crowd, penjualan, harga), fast-forward; tes Vitest                                                                       |
 | 3–4 Nov          | Scaffold monorepo (pnpm workspace, TS, Vitest, ESLint, Prettier, CI). Kunci bentuk endpoint api. Spike S2: sumber harga saham live                                                        |
 | 5–7 Nov          | `services/api`: verifikasi token Privy, akun NEAR dari Privy REST, ledger kredit, venue/pesta/penjualan (hold → settle), SQLite                                                           |
 | 6–8 Nov          | Klien NEAR (near-kit), tabel `chain_ops` + worker, settle → `settle` on-chain, portofolio dari `mt_balance_of`                                                                            |
@@ -62,43 +64,43 @@ Selesai = tes hijau (`pnpm test`, `pnpm lint`, `pnpm test:contract`).
 
 ### Wisnu · Frontend + UX + sisanya
 
-| Kapan     | Tugas                                                                                                                                                                               |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3–4 Nov   | **Game loop di kertas** (SPEC §3: tiap 30 detik / 5 menit / sesi), disetujui tim. **Spike**: Privy `createWallet({ chainType: 'near' })` di app Privy kita (fallback NEAR Auth, D5) |
-| 5–8 Nov   | `packages/game`: simulasi pesta murni + seeded RNG (tamu, energi crowd, penjualan, harga), fast-forward; tes Vitest                                                                 |
-| 5–9 Nov   | `apps/web`: landing, dashboard club, layar pesta, laporan malam, mode Practice tanpa login                                                                                          |
-| 7–9 Nov   | Login Privy NEAR, profil akun NEAR + nearblocks; UI top-up (chain + token, deposit address, status)                                                                                 |
-| 9–11 Nov  | City (venue, pesta live), portofolio on-chain, `/proof`, UI `DEMO_MODE`                                                                                                             |
-| Terus     | UX: alur juri tanpa hambatan dari browser bersih; teks UI bahasa Inggris                                                                                                            |
-| 11–12 Nov | README juri AI (SPEC §10): masalah, produk, peran NEAR, "do X, see Y", bukti mainnet, daftar library (Q-005), LICENSE                                                               |
-| 12 Nov    | Deploy web, jalankan langkah juri dari awal sampai akhir                                                                                                                            |
-| 12–13 Nov | Video demo ≤ 3 menit; draft post X (tim yang posting)                                                                                                                               |
-| 13 Nov    | Kumpulkan data submission dari tim, cetak payload, kirim **hanya setelah tim setuju**                                                                                               |
+| Kapan     | Tugas                                                                                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 3–4 Nov   | **Spike**: Privy `createWallet({ chainType: 'near' })` di app Privy kita (fallback NEAR Auth, D5)                                 |
+| 5–8 Nov   | `apps/web` back office: login admin, daftar pemain, top-up, penjualan, stok, audit (endpoint dari Kiel, tipe dari `@nyxeron/api`) |
+| 5–9 Nov   | `apps/web`: landing, dashboard club, layar pesta, laporan malam, mode Practice tanpa login                                        |
+| 7–9 Nov   | Login Privy NEAR, profil akun NEAR + nearblocks; UI top-up (chain + token, deposit address, status)                               |
+| 9–11 Nov  | City (venue, pesta live), portofolio on-chain, `/proof`, UI `DEMO_MODE`                                                           |
+| Terus     | UX: alur juri tanpa hambatan dari browser bersih; teks UI bahasa Inggris                                                          |
+| 11–12 Nov | README juri AI (SPEC §10): masalah, produk, peran NEAR, "do X, see Y", bukti mainnet, daftar library (Q-005), LICENSE             |
+| 12 Nov    | Deploy web, jalankan langkah juri dari awal sampai akhir                                                                          |
+| 12–13 Nov | Video demo ≤ 3 menit; draft post X (tim yang posting)                                                                             |
+| 13 Nov    | Kumpulkan data submission dari tim, cetak payload, kirim **hanya setelah tim setuju**                                             |
 
 ## Ketergantungan
 
-| Yang dibutuhkan                     | Dari         | Untuk                             | Paling lambat |
-| ----------------------------------- | ------------ | --------------------------------- | ------------- |
-| Interface kontrak                   | Ghoza        | Kiel, Wisnu                       | 4 Nov         |
-| Game loop disetujui                 | Wisnu        | Kiel (aturan pesta di api), semua | 4 Nov         |
-| Bentuk endpoint api (stub boleh)    | Kiel         | Wisnu                             | 4 Nov         |
-| Token warna + komponen dasar        | Kiel         | Wisnu                             | 5 Nov         |
-| Hasil spike Privy NEAR              | Wisnu        | Kiel                              | 4 Nov         |
-| Kontrak testnet + function-call key | Ghoza        | Kiel                              | 6 Nov         |
-| `packages/game` (API simulasi)      | Wisnu        | Kiel (validasi server)            | 7 Nov         |
-| `chainsig.ts`                       | Ghoza        | Kiel (agent)                      | 9 Nov         |
-| Tx bukti mainnet                    | Ghoza + Kiel | Wisnu (README, video)             | 11 Nov        |
+| Yang dibutuhkan                     | Dari         | Untuk                 | Paling lambat |
+| ----------------------------------- | ------------ | --------------------- | ------------- |
+| Interface kontrak                   | Ghoza        | Kiel, Wisnu           | 4 Nov         |
+| Game loop disetujui                 | Kiel         | Wisnu (layar), semua  | 4 Nov         |
+| Bentuk endpoint api (stub boleh)    | Kiel         | Wisnu                 | 4 Nov         |
+| Token warna + komponen dasar        | Kiel         | Wisnu                 | 5 Nov         |
+| Hasil spike Privy NEAR              | Wisnu        | Kiel                  | 4 Nov         |
+| Kontrak testnet + function-call key | Ghoza        | Kiel                  | 6 Nov         |
+| `packages/game` (API simulasi)      | Kiel         | Wisnu (layar pesta)   | 7 Nov         |
+| `chainsig.ts`                       | Ghoza        | Kiel (agent)          | 9 Nov         |
+| Tx bukti mainnet                    | Ghoza + Kiel | Wisnu (README, video) | 11 Nov        |
 
 ## Risiko
 
-| Risiko                                                   | Pemilik | Mitigasi                                                                                |
-| -------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
-| Membangun game dari nol dalam 11 hari                    | Wisnu   | Game loop kecil dan jelas (SPEC §3); visual 2D, tanpa 3D; fast-forward dulu baru polish |
-| Chain Signatures + swap Solana lebih lama dari perkiraan | Ghoza   | Spike hari pertama; fallback D4 pada 9 Nov                                              |
-| Privy NEAR tidak tersedia di plan kita                   | Wisnu   | Spike; fallback NEAR Auth                                                               |
-| 1Click tanpa testnet                                     | Kiel    | Quote `dry: true` untuk dev; mainnet hanya nominal kecil                                |
-| Saldo kontrak habis untuk storage                        | Ghoza   | Pantau saldo, isi ulang                                                                 |
-| Scope melebar                                            | Semua   | Stretch hanya setelah semua tugas 13 Nov selesai                                        |
+| Risiko                                                   | Pemilik      | Mitigasi                                                                                |
+| -------------------------------------------------------- | ------------ | --------------------------------------------------------------------------------------- |
+| Membangun game dari nol dalam 11 hari                    | Kiel + Wisnu | Game loop kecil dan jelas (SPEC §3); visual 2D, tanpa 3D; fast-forward dulu baru polish |
+| Chain Signatures + swap Solana lebih lama dari perkiraan | Ghoza        | Spike hari pertama; fallback D4 pada 9 Nov                                              |
+| Privy NEAR tidak tersedia di plan kita                   | Wisnu        | Spike; fallback NEAR Auth                                                               |
+| 1Click tanpa testnet                                     | Kiel         | Quote `dry: true` untuk dev; mainnet hanya nominal kecil                                |
+| Saldo kontrak habis untuk storage                        | Ghoza        | Pantau saldo, isi ulang                                                                 |
+| Scope melebar                                            | Semua        | Stretch hanya setelah semua tugas 13 Nov selesai                                        |
 
 ## Keputusan terbuka
 

@@ -100,7 +100,7 @@ harga CEO maksimum 3× grosir; fee top-up 1%, min $3, cap $20/hari dan $100 tota
 | Bagian              | Isi                                                                         | Stack (usul)                                      |
 | ------------------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
 | `contracts/nyxeron` | NEP-245 unit saham, gudang, settle                                          | Rust, near-sdk 5.x, near-workspaces               |
-| `apps/web`          | Game client, login, top-up, portofolio, `/proof`                            | React + Vite + Tailwind                           |
+| `apps/web`          | Game client, back office (`/admin`), login, top-up, portofolio, `/proof`    | React + Vite + Tailwind                           |
 | `services/api`      | Akun, kredit, pesta, penjualan, top-up 1Click, outbox ke NEAR, rekonsiliasi | TypeScript (Node), near-kit / near-api-js, SQLite |
 | `apps/agent`        | Restock gudang: quote, swap via Chain Signatures, report                    | TypeScript                                        |
 | `packages/game`     | Simulasi pesta (murni, deterministik, seeded RNG), dipakai web dan api      | TypeScript                                        |
@@ -275,5 +275,5 @@ Bukti mainnet di README: tx top-up 1Click, tx swap MPC di Solana, tx `mint_wareh
 | D3  | Dana mainnet untuk bukti                                            | ~$20: 2 top-up kecil + 2 swap $3–5                                                               |
 | D4  | Fallback kalau Chain Signatures meleset (9 Nov)                     | Unit diterbitkan dari USDC treasury dan ditandai "not yet backed"; Chain Signatures jadi stretch |
 | D5  | Login: Privy NEAR vs NEAR Auth                                      | Privy; NEAR Auth kalau Privy NEAR tidak tersedia                                                 |
-| S1  | Bahasa backend                                                      | TypeScript (library NEAR paling matang)                                                          |
-| S2  | Sumber harga saham live                                             | Pilih di spike: API harga publik gratis dan stabil, cache di server                              |
+| S1  | **Diputuskan:** bahasa backend                                      | TypeScript: simulasi game dipakai bersama browser dan server, library NEAR paling matang         |
+| S2  | **Diputuskan:** sumber harga saham live                             | Jupiter Price API v3: harga xStock + harga saham asli (`stockData`) dalam satu panggilan         |

@@ -4,8 +4,11 @@ NEAR HACKATHON entry, deadline 2026-11-14 23:59 UTC. Built on NEAR from scratch.
 
 - Read plan.md (tasks per person), SPEC.md (design) and HACKATHON.md (rules; re-read the live
   https://nearhackathon.com/HACKATHON.md before submitting).
-- Lanes: Ghoza (@ghozzza) contracts/ + Chain Signatures; Kiel (@riorblade) services/, apps/agent, deploy, visuals;
-  Wisnu (@AdityaWisnuu) apps/web, packages/game, UX, README for judges, demo, submission.
+- Lanes: Ghoza (@ghozzza) contracts/ + Chain Signatures; Kiel (@riorblade) services/, apps/agent, packages/game
+  (game flow), deploy, visuals; Wisnu (@AdityaWisnuu) apps/web (game client + back office), UX, README for judges,
+  demo, submission. Each folder's README says what belongs there.
+- Team flow (CONTRIBUTING.md): GitHub issue first → your `dev-<name>` branch → small commits → PR with
+  `Closes #<n>` → merge. Never commit to main directly.
 - Use the NEAR skills in .claude/skills (near-smart-contracts, near-intents, near-api-js, near-kit, near-dapp,
   near-contract-audit, near-cli-rs, near-ai-cloud). Contract ids, endpoints, asset ids and SDK versions come from
   https://docs.near.org/llms.txt, https://docs.near-intents.org/llms.txt or 1Click `/v0/tokens`; never guess them.

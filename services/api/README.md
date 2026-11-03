@@ -1,0 +1,39 @@
+# services/api
+
+**Owner:** Kiel (@riorblade). Spec: [SPEC.md §6](../../SPEC.md).
+
+The game server. Everything that moves credits, stock units or access is decided here, never in the browser.
+
+## Stack
+
+Node 24 (runs `.ts` directly, no build step), [Hono](https://hono.dev), `node:sqlite`, zod, jose.
+
+## Layout
+
+One file per domain, routes and logic together; a test file next to each.
+
+```
+src/
+  main.ts      start: config, database, server, background jobs
+  app.ts       all routes mounted under /api; exports AppType for the web's typed client
+  config.ts    environment, validated at start
+  db.ts        SQLite, migrations, tx()
+  http.ts      error shape { error: "<code>" }, request validation
+  ledger.ts    moveCredits: the only way credits change
+  …            one file per domain as it lands: auth, players, quotes, admin, parties, topups, chain, agent
+```
+
+## Run
+
+```sh
+cp services/api/.env.example services/api/.env   # fill in the Privy app id and secret
+pnpm dev:api                                     # http://localhost:8788/api/health
+```
+
+## Rules
+
+- Money is integers: credits, units. Never floats.
+- A credit change and its cause are written in the same `tx()`, with a ledger row.
+- New tables or columns: a new migration at the end of `db.ts`; never edit a released one.
+- Every error is `{ error: "<code>" }` with a fitting status; clients branch on the code.
+- Every route and every money rule has a test.
