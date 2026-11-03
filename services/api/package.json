@@ -1,0 +1,19 @@
+{
+  "name": "@nyxeron/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/main.ts",
+    "start": "node src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.6",
+    "@hono/zod-validator": "0.9.1",
+    "hono": "4.13.16",
+    "zod": "4.6.7"
+  }
+}
