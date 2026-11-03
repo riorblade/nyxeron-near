@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
+import { adminRoutes } from './admin.ts'
 import type { Identity } from './auth.ts'
 import type { Config } from './config.ts'
 import type { Db } from './db.ts'
@@ -21,6 +22,7 @@ export function createApp(deps: Deps) {
     .get('/health', (c) => c.json({ ok: true, network: deps.cfg.NEAR_NETWORK }))
     .route('/quotes', quoteRoutes(deps.quotes))
     .route('/me', playerRoutes(deps))
+    .route('/admin', adminRoutes(deps))
   return app
 }
 
