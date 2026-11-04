@@ -71,7 +71,7 @@ Pitch: _"Minum di nightclub, pulang bawa saham Tesla asli. Bayar dari chain apa 
 Mode: **Practice** (gratis, poin main, tanpa login, pintu masuk juri), **City** (uang asli), **Fast-forward**
 (seminggu pesta dalam semenit).
 
-Angka awal: 1 unit = 0,001 saham; harga grosir = harga token × 0,001, dibulatkan ke atas ke sen USDC; harga CEO ≤ 3×
+Angka awal: 1 unit = 0,001 saham; harga grosir = harga token × 0,001 × 1,01 (buffer biaya swap ≈ 0,2 % + gas), dibulatkan ke atas ke sen USDC; harga CEO ≤ 3×
 grosir; top-up minimal $1, cap $20/hari dan $100 total per pemain selama hackathon.
 
 ## 5. Alur uang

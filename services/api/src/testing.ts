@@ -25,7 +25,7 @@ export function fakeIdentity(overrides: Partial<Record<string, Profile | 'down'>
 // Fixed prices: TSLA $400, NVDA $200, SPY $600.
 export const fakeQuotes: Quotes = {
   async latest() {
-    const q = (usd: number) => ({ usd, xstockUsd: usd, change24h: 0 })
+    const q = (usd: number) => ({ usd, change24h: 0, liquidityUsd: 1_000_000 })
     return { at: 0, stale: false, prices: { tsla: q(400), nvda: q(200), spy: q(600) } }
   },
   async spot(id) {
