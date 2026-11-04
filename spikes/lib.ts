@@ -28,7 +28,12 @@ export async function rpc<T>(network: Network, method: string, params: unknown):
   return body.result as T
 }
 
-export async function view<T>(network: Network, contractId: string, method: string, args: object = {}): Promise<T> {
+export async function view<T>(
+  network: Network,
+  contractId: string,
+  method: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
   return provider(network).callFunction({ contractId, method, args }) as Promise<T>
 }
 
