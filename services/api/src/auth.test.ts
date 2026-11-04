@@ -47,7 +47,7 @@ describe('privyIdentity.profile', () => {
     }) as typeof fetch
     const id = privyIdentity('app', 'secret', { fetch: fakeFetch })
     expect(await id.profile('did:privy:alice')).toEqual({ email: '', nearAccount: 'f'.repeat(64) })
-    expect(seen!.url).toBe('https://auth.privy.io/api/v1/users/did%3Aprivy%3Aalice')
+    expect(seen!.url).toBe('https://api.privy.io/v1/users/did%3Aprivy%3Aalice')
     expect(seen!.headers.get('authorization')).toBe(`Basic ${btoa('app:secret')}`)
     expect(seen!.headers.get('privy-app-id')).toBe('app')
   })
