@@ -1,0 +1,14 @@
+{
+  "spike": "02-testnet-account",
+  "ranAt": "2026-11-04T07:14:27.241Z",
+  "faucet": "https://helper.nearprotocol.com/account",
+  "createdBothMs": 5516,
+  "player": "nyx-player-mw1s6tmj.testnet",
+  "relayer": "nyx-relayer-mw1s6vvb.testnet",
+  "startingBalanceYocto": "10000000000000000000000000",
+  "firstTransfer": {
+    "hash": "DGia2rxMiWVAtQdVju8oyuB4tDGD34eu54TiNxMJsuFV",
+    "untilFinalMs": 2768
+  },
+  "explorer": "https://testnet.nearblocks.io/txns/DGia2rxMiWVAtQdVju8oyuB4tDGD34eu54TiNxMJsuFV"
+}
