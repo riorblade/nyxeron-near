@@ -33,6 +33,7 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Can a NEAR account sign Robinhood Chain (EVM) transactions?              | Yes: testnet MPC signed a real 3.3 KB USDG → TSLA swap in 5.7 s; the recovered signer = the derived address                                                         | 16     |
 | Can we reach Robinhood from Indonesia?                                   | Robinhood's own domains (docs, official RPC) resolve to an ISP block page; public RPCs (publicnode, drpc) work                                                      | 15     |
 | Which stocks can we offer on Robinhood Chain?                            | **201 genuine stock tokens** (verified on-chain); 80 have > $10k DEX liquidity; the deepest 25 all fill a $5 USDG buy at ≈ $5.00                                    | 18     |
+| Does the relay wire format work end to end?                              | Yes: a zero-NEAR player's delegate travels as 296 bytes of base64 borsh, decodes, verifies and relays in 2.8 s; `/api/onboard` + `/api/relay` work against testnet  | 19, 20 |
 
 ## Still to test
 
@@ -383,3 +384,34 @@ DexScreener liquidity → a $5 USDG route on KyberSwap for the deepest 25.
   never look a stock up by name or ticker.
 - Discovery came from CoinGecko's list, so a genuine token CoinGecko doesn't list would be missed. Fine for picking a
   menu; the official `/assets` API (blocked here) is the full source.
+
+## 19 · Relay wire format (testnet, 2026-11-04)
+
+**Ran:** a fresh implicit account (created by a 0 NEAR transfer) signs a delegate with near-api-js; the delegate is
+encoded with `encodeSignedDelegate` and base64 (what the browser sends), decoded with borsh `SCHEMA.SignedDelegate`,
+its Ed25519 signature checked with Node, and relayed as decoded.
+
+**Saw:** 296 bytes on the wire; `signatureValid: true`; relayed in
+2770 ms with `SuccessValue` ([`4sFTBD…`](https://testnet.nearblocks.io/txns/4sFTBDCVXTvhhtYa1HiUFL6rbVcrUTCeUuhA8QDKpJ13)).
+near-api-js exports `SignedDelegate` only as a type; the decoded object relays as is.
+
+**Means:** this is the format `/api/relay` accepts.
+
+## 20 · `/api/onboard` and `/api/relay` against testnet (2026-11-04)
+
+**Ran:** the real api code in-process (only the Privy login faked), the relayer from spike 02, Circle's testnet USDC.
+A new player with 0 NEAR: onboard, then a drink payment (USDC `ft_transfer_call` to `nyxeron.testnet`, 1 yocto).
+
+**Saw:**
+
+- Onboard: account created ([`5JqYrq…`](https://testnet.nearblocks.io/txns/5JqYrqQkKvEkSVpMgGJg1NwLK4f3wsPqBPbujNH3KDsV)) and registered on USDC
+  ([`AVP72W…`](https://testnet.nearblocks.io/txns/AVP72WqsFPrJmvZoX2jSzv9Pn5UoEKPLwmv9Ybf239Uj)) in 7.5 s.
+- Relay: checked, signed by the player, submitted by the relayer, recorded; on chain the USDC contract refused it
+  (`The account doesn't have enough balance`: the player holds no testnet USDC), so the api answered 422 and kept the
+  record with `ok: 0`.
+- A delegate to any other receiver: 403 `receiver_not_allowed`, never sent.
+- Found and fixed on the way: `Account.callFunction` returns the method's value, not the transaction, so the
+  registration hash was lost; `register` now uses `signAndSendTransaction`.
+
+**Means:** the browser only needs Privy to sign the delegate (spike 10). A paid drink needs testnet USDC (Circle
+faucet or our own test token, SPEC §10).

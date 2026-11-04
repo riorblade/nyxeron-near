@@ -36,3 +36,5 @@ node spikes/01-near-rpc.ts          # Node 24 runs .ts directly
 | `15-robinhood.ts`            | Robinhood Chain: genuine tokens, issuer controls, swaps, Intents funding               |
 | `16-chain-signatures-evm.ts` | NEAR MPC signs a Robinhood Chain (EVM) swap; signer recovered                          |
 | `18-robinhood-stocks.ts`     | every genuine Robinhood stock token, liquidity, $5 buy routes                          |
+| `19-relay-wire.ts`           | NEP-366 delegate as base64 borsh: encode, decode, verify, relay                        |
+| `20-api-relay-live.ts`       | `/api/onboard` and `/api/relay` in-process against testnet                             |
