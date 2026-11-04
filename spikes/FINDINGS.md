@@ -23,6 +23,9 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                 | 07     |
 | Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                         | 08     |
 | Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                   | 08     |
+| Is there a second market for Ondo tokens on NEAR (Rhea)?                 | **No**: 0 Rhea pools hold TSLAon/NVDAon/SPYon (of 2,465 pools)                                                                                             | 09     |
+| Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                   | 09     |
+| Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                        | 09     |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -213,3 +216,25 @@ called `sign` with the message bytes (1 yocto, 250 TGas); verified the signature
 - Not tested: broadcasting (needs SOL and USDC on the derived address = mainnet money) and the mainnet MPC
   (`v1.signer`, which derives a different address for the same path).
 - The response shape differs from the docs: parse both.
+
+## 09 · Sponsors: Rhea, OutLayer price oracle, NEAR AI Cloud (2026-11-04, read-only)
+
+**Ran:** Rhea's indexer `list-top-pools`; `price-oracle.near` `get_price_data` for `wrap.near` and Ondo Tesla;
+`GET https://cloud-api.near.ai/v1/models`.
+
+**Saw:**
+
+- **Rhea:** 2465 pools listed, **none** with an Ondo stock token. Deepest USDC pools: USM/USDC
+  ($1.95M TVL), USDC/wNEAR ($1.34M), USDt/USDC ($0.60M).
+- **OutLayer oracle:** `get_price_data` answered with `price: null` for both `wrap.near` and TSLAon
+  (`recency_duration_sec` 600). Its docs say the free view can be stale; fresh prices need a paid `oracle_call` /
+  `request_price_data` (0.02 NEAR deposit). Docs list 21 supported tokens, all crypto, plus "custom data from any
+  HTTP API" through OutLayer's TEE.
+- **NEAR AI Cloud:** model list is public, 64 models, e.g. anthropic/claude-fable-5, anthropic/claude-fable-5-1, anthropic/claude-haiku-4-5, anthropic/claude-haiku-5-5, anthropic/claude-opus-4-6, anthropic/claude-opus-4-7, … ; inference needs an API key.
+
+**Means:**
+
+- Intents is the only route to Ondo liquidity on NEAR, and it's thin (spike 05).
+- No on-chain stock price on NEAR today. A contract that must check a stock price needs a price signed by our server
+  (or a custom OutLayer TEE job, untested).
+- AI guests/NPCs are possible later via NEAR AI Cloud; not needed for the core loop.
