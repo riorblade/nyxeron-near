@@ -46,12 +46,18 @@ importers:
       '@nyxeron/game':
         specifier: workspace:*
         version: link:../../packages/game
+      borsh:
+        specifier: 2.0.0
+        version: 2.0.0
       hono:
         specifier: 4.13.16
         version: 4.13.16
       jose:
         specifier: 6.2.15
         version: 6.2.15
+      near-api-js:
+        specifier: 7.4.0
+        version: 7.4.0
       viem:
         specifier: 2.57.16
         version: 2.57.16(typescript@6.0.3)(zod@4.6.7)
@@ -61,6 +67,9 @@ importers:
 
   spikes:
     dependencies:
+      borsh:
+        specifier: 2.0.0
+        version: 2.0.0
       near-api-js:
         specifier: 7.4.0
         version: 7.4.0

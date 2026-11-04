@@ -14,8 +14,10 @@
     "@hono/node-server": "2.1.6",
     "@hono/zod-validator": "0.9.1",
     "@nyxeron/game": "workspace:*",
+    "borsh": "2.0.0",
     "hono": "4.13.16",
     "jose": "6.2.15",
+    "near-api-js": "7.4.0",
     "viem": "2.57.16",
     "zod": "4.6.7"
   }
