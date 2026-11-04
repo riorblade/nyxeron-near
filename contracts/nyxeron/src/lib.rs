@@ -7,8 +7,11 @@ use near_sdk::{
     AccountId, BorshStorageKey, PanicOnDefault, env,
     json_types::U128,
     near, require,
-    store::{IterableMap, LookupSet},
+    store::{IterableMap, LookupMap, LookupSet},
 };
+
+mod drinks;
+pub use drinks::{Config, MAX_QUOTE_LEN, Owed, PartyPot, Quote};
 use near_sdk_contract_tools::hook::Hook;
 use near_sdk_contract_tools::mt::{
     Nep245Burn, Nep245Controller, Nep245Mint, Nep245Transfer,
@@ -21,7 +24,7 @@ use near_sdk_contract_tools::mt::{
 pub const MAX_SETTLE_TRANSFERS: usize = 32;
 /// Longest token id or op id. Both go into every settle event.
 pub const MAX_KEY_LEN: usize = 64;
-/// Longest proof or write-off reason. A Solana signature is 88 chars, a NEAR tx hash 44.
+/// Longest proof or write-off reason. A Robinhood Chain (EVM) tx hash is 66 chars, a NEAR tx hash 44.
 pub const MAX_PROOF_LEN: usize = 128;
 
 /// near-sdk-contract-tools 4.0.0 reads both balances before writing either, so a transfer to yourself adds `amount`
@@ -43,7 +46,7 @@ impl<C> Hook<C, Nep245Transfer<'_>> for NoSelfTransfer {
 pub struct TokenInfo {
     /// Ticker shown to players, e.g. "TSLA".
     pub symbol: String,
-    /// What backs the units, e.g. "solana:<xStock mint>" or "near:<Ondo token contract>".
+    /// What backs the units, e.g. "robinhood:<token address>".
     pub backing: String,
     /// Shares one unit stands for, as a decimal string, e.g. "0.001".
     pub shares_per_unit: String,
@@ -63,6 +66,10 @@ enum StorageKey {
     Tokens,
     UsedProofs,
     Settled,
+    UsedQuotes,
+    Pots,
+    Owed,
+    Claimable,
 }
 
 #[derive(PanicOnDefault, Nep245, Nep245Metadata)]
@@ -77,6 +84,13 @@ pub struct Contract {
     token_info: IterableMap<String, TokenInfo>,
     used_proofs: LookupSet<String>,
     settled: LookupSet<String>,
+    quote_key: Option<near_sdk::PublicKey>,
+    usdc: Option<AccountId>,
+    treasury: Option<AccountId>,
+    used_quotes: LookupSet<String>,
+    pots: LookupMap<String, PartyPot>,
+    owed: LookupMap<String, Vec<Owed>>,
+    claimable: LookupMap<AccountId, u128>,
 }
 
 #[near]
@@ -89,6 +103,13 @@ impl Contract {
             token_info: IterableMap::new(StorageKey::Tokens),
             used_proofs: LookupSet::new(StorageKey::UsedProofs),
             settled: LookupSet::new(StorageKey::Settled),
+            quote_key: None,
+            usdc: None,
+            treasury: None,
+            used_quotes: LookupSet::new(StorageKey::UsedQuotes),
+            pots: LookupMap::new(StorageKey::Pots),
+            owed: LookupMap::new(StorageKey::Owed),
+            claimable: LookupMap::new(StorageKey::Claimable),
         };
         contract.set_contract_metadata(&ContractMetadata::new("NYXERON stock units"));
         contract
@@ -142,8 +163,9 @@ impl Contract {
         .unwrap_or_else(|e| env::panic_str(&e.to_string()));
     }
 
-    /// Moves units from the warehouse to guests, all or nothing. `op_id` (e.g. "party:42") runs once.
-    pub fn settle(&mut self, op_id: String, transfers: Vec<SettleTransfer>) {
+    /// Moves units from the warehouse to a party's guests, all or nothing. Each guest gets at most what they are owed
+    /// for that party (`owed`). `op_id` (e.g. "party:42:1") runs once.
+    pub fn settle(&mut self, party: String, op_id: String, transfers: Vec<SettleTransfer>) {
         self.require_owner();
         self.require_not_paused();
         require_len(&op_id, "op_id", MAX_KEY_LEN);
@@ -159,6 +181,7 @@ impl Contract {
             self.require_registered(&t.token_id);
             require!(t.amount.0 > 0, "amount must be positive");
             require!(t.account_id != warehouse, "cannot settle to the warehouse");
+            self.take_owed(&party, &t.account_id, &t.token_id, t.amount.0);
             Nep245Controller::transfer(
                 self,
                 &Nep245Transfer::single(
