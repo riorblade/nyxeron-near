@@ -60,21 +60,21 @@ Selesai = tes hijau (`pnpm lint`, `pnpm test`, `cargo test`), lewat issue → `d
 
 ### Wisnu · Frontend + UX + sisanya
 
-| Kapan       | Tugas                                                                                                                                                                                                 |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **4–5 Nov** | **Spike 10 (Privy):** `createWallet({ chainType: 'near' })`, `signRawHash` tanpa UI (login pertama, login ulang, Safari mobile), tanda tangan delegate lalu kirim ke `/api/relay`. Butuh app id Privy |
-| 5–8 Nov     | Scaffold `apps/web`, landing, Practice, dashboard club, layar pesta, laporan malam                                                                                                                    |
-| 7–9 Nov     | Login Privy NEAR, saldo dolar, Add money / Cash out (1Click), bayar minuman lewat relayer                                                                                                             |
-| 9–11 Nov    | City, portofolio (unit + USDC), "Collect shares", `/proof`, back office `/admin`                                                                                                                      |
-| 11–12 Nov   | README juri (SPEC §11), deploy web, jalankan langkah juri dari browser bersih                                                                                                                         |
-| 12–13 Nov   | Video ≤ 3 menit, draft post X, data submission (kirim hanya setelah tim setuju)                                                                                                                       |
+| Kapan       | Tugas                                                                                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **4–5 Nov** | **Spike 10 (Privy):** `createWallet({ chainType: 'near' })`, `signRawHash` tanpa UI (login pertama, login ulang, Safari mobile), tanda tangan delegate lalu kirim ke `/api/relay`. Wisnu buat app Privy sendiri |
+| 5–8 Nov     | Scaffold `apps/web`, landing, Practice, dashboard club, layar pesta, laporan malam                                                                                                                              |
+| 7–9 Nov     | Login Privy NEAR, saldo dolar, Add money / Cash out (1Click), bayar minuman lewat relayer                                                                                                                       |
+| 9–11 Nov    | City, portofolio (unit + USDC), "Collect shares", `/proof`, back office `/admin`                                                                                                                                |
+| 11–12 Nov   | README juri (SPEC §11), deploy web, jalankan langkah juri dari browser bersih                                                                                                                                   |
+| 12–13 Nov   | Video ≤ 3 menit, draft post X, data submission (kirim hanya setelah tim setuju)                                                                                                                                 |
 
 ## Ketergantungan
 
 | Butuh                                    | Dari         | Untuk                           | Paling lambat |
 | ---------------------------------------- | ------------ | ------------------------------- | ------------- |
 | `/api/relay` + `/api/onboard` di testnet | Kiel         | Wisnu (spike 10)                | 5 Nov         |
-| App id + secret Privy                    | Kiel         | Wisnu                           | 4 Nov         |
+| App id + secret Privy (untuk `.env` api) | Wisnu        | Kiel                            | 5 Nov         |
 | Hasil spike 10                           | Wisnu        | semua (lanjut atau fallback D4) | 5 Nov         |
 | Interface kontrak v2                     | Ghoza        | Kiel, Wisnu                     | 6 Nov         |
 | `chainsig.ts` EVM                        | Ghoza        | Kiel (settlement)               | 8 Nov         |
