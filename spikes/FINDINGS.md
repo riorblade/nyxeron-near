@@ -4,14 +4,15 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 
 ## Decisions so far
 
-| Question                                                              | Answer from spikes                                                               | Spike |
-| --------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----- |
-| Is NEAR fast enough for on-chain purchases during a party?            | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                  | 01    |
-| Can we make testnet accounts for demos without a wallet?              | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                | 02    |
-| Can the player act with zero NEAR, gas paid by us?                    | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call          | 03    |
-| Who pays the 1 yocto that `ft_transfer_call` needs?                   | The relayer (tested)                                                             | 03    |
-| Can a session key (function-call key) do purchases that need 1 yocto? | **No**: `DepositWithFunctionCall` error, even through a relayer                  | 03    |
-| Is one free RPC enough for the backend?                               | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several | 03    |
+| Question                                                              | Answer from spikes                                                                                                                             | Spike |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Is NEAR fast enough for on-chain purchases during a party?            | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                | 01    |
+| Can we make testnet accounts for demos without a wallet?              | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                              | 02    |
+| Can the player act with zero NEAR, gas paid by us?                    | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                        | 03    |
+| Who pays the 1 yocto that `ft_transfer_call` needs?                   | The relayer (tested)                                                                                                                           | 03    |
+| Can a session key (function-call key) do purchases that need 1 yocto? | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                | 03    |
+| Is one free RPC enough for the backend?                               | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                               | 03    |
+| Can a brand-new player with 0 NEAR be onboarded and act?              | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player | 04    |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -66,3 +67,27 @@ seconds later. Measure costs only after refunds.
 - A browser-held function-call key (session key) can't do USDC payments (`ft_transfer_call` needs 1 yocto). Purchases
   need either the player's full key (Privy signs it, spike 10) or a balance already inside our contract.
 - The backend needs several RPC endpoints with failover (or a paid key); one free endpoint is not enough.
+
+## 04 · Onboarding a player with no NEAR (testnet, 2026-11-04)
+
+**Ran:** a fresh ed25519 key → implicit account id (what a Privy NEAR wallet is). Then, all paid by the relayer: a
+0 NEAR transfer, USDC `storage_deposit`, one call signed by the player, and adding a function-call key, both through
+meta transactions.
+
+**Saw** (player `3cae3a05…93dc`):
+
+| Step                                       | Result                                                                                                        | Relayer paid                         | Player account after                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ------------------------------------ |
+| Before anything                            | account does not exist (`UNKNOWN_ACCOUNT`)                                                                    | —                                    | —                                    |
+| 0 NEAR transfer                            | created, 2.2 s ([`CPNPdF…`](https://testnet.nearblocks.io/txns/CPNPdFrASHBTbeTPQRgzBCvS2Aw1d93hPXmsw9bCwGPT)) | 0.00711 NEAR                         | balance 0, storage 182 B             |
+| USDC `storage_deposit` (registration only) | registered, 3.5 s                                                                                             | 0.00149 NEAR (0.00125 deposit + gas) | `storage_balance_of` = 0.00125       |
+| Player call via relayer                    | ✅ ([`7SFxuf…`](https://testnet.nearblocks.io/txns/7SFxufzbbebpjLqX1qSGQ8CnCWZPq6waS8B1crJNa2QA))             | ~0.00024 NEAR                        | balance still 0                      |
+| Add a function-call key via relayer        | ✅ 4.8 s ([`DhJSck…`](https://testnet.nearblocks.io/txns/DhJSckhKya2Fei111G6ihHsBo62sUQvaeMs62uSqP8iP))       | ~0.00024 NEAR                        | storage 319 B (under the free 770 B) |
+
+**Means:**
+
+- A Privy NEAR wallet can be made usable with no NEAR from the player: one relayer transfer + one USDC registration,
+  **≈ 0.0086 NEAR (≈ $0.034 at $3.94) per player**, once.
+- The player's account can hold an extra session key without any NEAR (stays under the free storage).
+- 1Click also registers USDC on delivery (spike 05), so our registration is only needed if the player receives USDC
+  from us first.

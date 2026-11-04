@@ -1,0 +1,55 @@
+{
+  "spike": "04-onboarding",
+  "ranAt": "2026-11-04T07:20:20.722Z",
+  "playerId": "3cae3a05d839587374ef759ecb3b74334634867cdbc911508ddf56ee2b7993dc",
+  "beforeFunding": "Error: query: {\"cause\":{\"info\":{\"block_hash\":\"DrdaBJndJmqQATVUDS6V3eYgr21F3Un8hyhToYDbTVTq\",\"block_height\":276163271,\"requested_account_id\":\"3cae3a05d839587374e",
+  "create": {
+    "ms": 3911,
+    "hash": "CPNPdFrASHBTbeTPQRgzBCvS2Aw1d93hPXmsw9bCwGPT",
+    "relayerPaidYocto": "7114989537500000000000",
+    "account": {
+      "amount": "0",
+      "block_hash": "C8QcrfPEM8HcwMiYsMZnDnPYRgd8cdE2TkfKt6pZntEb",
+      "block_height": 276163291,
+      "code_hash": "11111111111111111111111111111111",
+      "locked": "0",
+      "storage_paid_at": 0,
+      "storage_usage": 182
+    }
+  },
+  "usdcRegistration": {
+    "ms": 2554,
+    "relayerPaidYocto": "1486847912553800000000",
+    "storageBalance": {
+      "total": "1250000000000000000000",
+      "available": "0"
+    }
+  },
+  "zeroNearPlayerCall": {
+    "ms": 4502,
+    "hash": "7SFxufzbbebpjLqX1qSGQ8CnCWZPq6waS8B1crJNa2QA",
+    "account": {
+      "amount": "0",
+      "block_hash": "Bw4H2P6WJBV1T9R6MRCUjcDTvmnnyef85kWq24zchyMH",
+      "block_height": 276163316,
+      "code_hash": "11111111111111111111111111111111",
+      "locked": "0",
+      "storage_paid_at": 0,
+      "storage_usage": 182
+    }
+  },
+  "addSessionKey": {
+    "ok": true,
+    "ms": 4757,
+    "hash": "DhJSckhKya2Fei111G6ihHsBo62sUQvaeMs62uSqP8iP",
+    "account": {
+      "amount": "0",
+      "block_hash": "GuwKxkyAjenedXbdj1LTMWg8MoYrnhgUUQG3rmwSMhfR",
+      "block_height": 276163331,
+      "code_hash": "11111111111111111111111111111111",
+      "locked": "0",
+      "storage_paid_at": 0,
+      "storage_usage": 319
+    }
+  }
+}
