@@ -1,4 +1,5 @@
 import { appendFileSync, mkdirSync } from 'node:fs'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
@@ -21,7 +22,7 @@ const spikeLog: Plugin = {
 
 export default defineConfig({
   // near-api-js pulls in Node's util, process and Buffer; the browser needs them polyfilled (as near-examples/hello-privy).
-  plugins: [nodePolyfills(), react(), spikeLog],
+  plugins: [nodePolyfills(), react(), tailwindcss(), spikeLog],
   // allowedHosts: phone tests go through a temporary https tunnel (cloudflared), which Privy and crypto.subtle need.
   server: { proxy: { '/api': 'http://localhost:8788' }, allowedHosts: ['.trycloudflare.com'] },
 })
