@@ -87,6 +87,15 @@ impl Env {
             .data)
     }
 
+    async fn storage_usage(&self) -> testresult::TestResult<u64> {
+        Ok(near_api::Account(self.contract.0.clone())
+            .view()
+            .fetch_from(&self.network)
+            .await?
+            .data
+            .storage_usage)
+    }
+
     async fn balance(&self, account: &str) -> testresult::TestResult<u128> {
         let v = self
             .view(
@@ -244,6 +253,7 @@ async fn settle_max_batch_fits() -> testresult::TestResult<()> {
     };
     let amount = u128::MAX / 64;
     let op_id = "p".repeat(MAX_KEY_LEN);
+    let storage_before = env.storage_usage().await?;
     let result = env
         .call(
             "settle",
@@ -253,8 +263,9 @@ async fn settle_max_batch_fits() -> testresult::TestResult<()> {
     let result = result.into_full().unwrap();
     let gas: u64 = result.outcomes().iter().map(|o| o.gas_burnt.as_gas()).sum();
     let log_bytes: usize = result.logs().iter().map(|l| l.len()).sum();
+    let per_holder = (env.storage_usage().await? - storage_before) / MAX_SETTLE_TRANSFERS as u64;
     println!(
-        "settle of {MAX_SETTLE_TRANSFERS} longest transfers: {:.2} TGas, {log_bytes} log bytes of 16384",
+        "settle of {MAX_SETTLE_TRANSFERS} longest transfers: {:.2} TGas, {log_bytes} log bytes of 16384, {per_holder} bytes of storage per new holder",
         gas as f64 / 1e12
     );
     for f in result.failures() {

@@ -34,7 +34,10 @@ has the write-off reason.
 - `settle` of 32 transfers with the longest ids (64-char implicit accounts, 64-char `op_id`): 21.9 TGas and 11,040 of
   the 16,384 log bytes NEAR allows per call. The log cap, not gas, sets the batch limit: every transfer emits an event.
 - Wasm: ~250 KB, so about 2.5 NEAR of the contract's balance is locked for code.
-- Storage for new holders comes out of the contract's balance (no `storage_deposit`); keep it topped up.
+- Storage for new holders comes out of the contract's balance (no `storage_deposit`): 141 bytes ≈ 0.0014 NEAR per new
+  holder with a 64-char implicit account. Keep the balance topped up. A holder could spread units over many new
+  accounts to lock the contract's NEAR, but each new account costs them at least one unit (0.001 share, ~\$0.40 for
+  TSLA) against 0.0014 NEAR locked, so it costs the attacker far more than it costs us.
 
 ## Notes
 
