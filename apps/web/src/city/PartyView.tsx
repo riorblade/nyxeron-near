@@ -101,7 +101,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         </Link>
         <h2 className="text-xl font-bold">{party.title}</h2>
         <p className="text-sm text-muted">
-          Hosted by {party.host.name || 'a host'} ·{' '}
+          {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
           {party.live ? `until ${new Date(party.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}` : 'not open'}
         </p>
         <ul className="mt-3 divide-y divide-line">

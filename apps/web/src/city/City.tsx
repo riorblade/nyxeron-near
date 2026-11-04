@@ -95,7 +95,7 @@ function Parties({ account }: { account: Account }) {
             <Link href={`/city/party/${p.id}`} className="flex items-center justify-between py-3 hover:text-neon">
               <span>
                 <span className="font-semibold">{p.title}</span>
-                <span className="ml-2 text-sm text-muted">by {p.host}</span>
+                <span className="ml-2 text-sm text-muted">by {p.host || 'a host'}</span>
               </span>
               <span className="text-sm text-muted">
                 ends {new Date(p.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}
