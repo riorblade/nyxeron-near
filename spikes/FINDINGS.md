@@ -150,7 +150,7 @@ implicit id from spike 04.
 Also seen:
 
 - `/v0/tokens` lists 215 tokens and **no tokenized stocks**; Ondo tokens quote by asset id
-  (`nep141:bnb-0x…omdep.near`) even though they aren't listed.
+  (by their NEAR contract id) even though they aren't listed.
 - 1Click validates addresses strictly: `0x…dEaD` and `fff…f` (not an ed25519 key) are refused.
 - No fee for missing JWT showed up in `appFees` today (docs say 25 bps).
 
@@ -160,7 +160,7 @@ Also seen:
 - Real stocks via Ondo work only as **batched lots of about $10+**, held in the player's `intents.near` balance, with a
   market that sometimes refuses sizes. Never one swap per drink. Treat Ondo liquidity as unreliable: a buy must be
   retried or fall back.
-- Ondo tokens on NEAR are bridged from chain 56 (their ids start with `bnb-`): the team must decide whether that's
+- Ondo tokens on NEAR are bridged in from another chain, and their contract ids name it: the team decides whether that's
   acceptable.
 
 ## 06 · Ondo stock tokens on NEAR, mainnet read-only (2026-11-04)
@@ -170,11 +170,11 @@ each; the real share price from Jupiter's `stockData`.
 
 **Saw:**
 
-| Token                             | Contract                     | Decimals | Supply on NEAR  | Price via 1Click ($50) | Share price | Token vs share |
-| --------------------------------- | ---------------------------- | -------- | --------------- | ---------------------- | ----------- | -------------- |
-| Tesla (Ondo Tokenized)            | `bnb-0x2494…9d93.omdep.near` | 18       | 147.96 (≈ $56k) | $381.22                | $391.47     | **−2.62 %**    |
-| NVIDIA (Ondo Tokenized)           | `bnb-0xa9ee…6f75.omdep.near` | 18       | 75.27 (≈ $16k)  | $208.49                | $206.11     | +1.15 %        |
-| SPDR S&P 500 ETF (Ondo Tokenized) | `bnb-0x6a70…331a.omdep.near` | 18       | 16.19 (≈ $12k)  | $762.87                | $752.13     | +1.43 %        |
+| Token                             | Contract          | Decimals | Supply on NEAR  | Price via 1Click ($50) | Share price | Token vs share |
+| --------------------------------- | ----------------- | -------- | --------------- | ---------------------- | ----------- | -------------- |
+| Tesla (Ondo Tokenized)            | (bridged NEP-141) | 18       | 147.96 (≈ $56k) | $381.22                | $391.47     | **−2.62 %**    |
+| NVIDIA (Ondo Tokenized)           | (bridged NEP-141) | 18       | 75.27 (≈ $16k)  | $208.49                | $206.11     | +1.15 %        |
+| SPDR S&P 500 ETF (Ondo Tokenized) | (bridged NEP-141) | 18       | 16.19 (≈ $12k)  | $762.87                | $752.13     | +1.43 %        |
 
 Storage registration for each: 0.00125 NEAR (same as USDC).
 
