@@ -20,7 +20,7 @@ src/
   db.ts        SQLite, migrations, tx()
   http.ts      error shape { error: "<code>" }, request validation
   ledger.ts    moveCredits: the only way credits change
-  …            one file per domain as it lands: auth, players, quotes, admin, parties, topups, chain, agent
+  …            one file per domain as it lands: relay, onboard, parties, intents, settlement, chainsig (Ghoza), proof
 ```
 
 ## Run

@@ -4,7 +4,7 @@ NEAR HACKATHON entry, deadline 2026-11-14 23:59 UTC. Built on NEAR from scratch.
 
 - Read plan.md (tasks per person), SPEC.md (design) and HACKATHON.md (rules; re-read the live
   https://nearhackathon.com/HACKATHON.md before submitting).
-- Lanes: Ghoza (@ghozzza) contracts/ + Chain Signatures; Kiel (@riorblade) services/, apps/agent, packages/game
+- Lanes: Ghoza (@ghozzza) contracts/ + Chain Signatures; Kiel (@riorblade) services/, packages/game
   (game flow), deploy, visuals; Wisnu (@AdityaWisnuu) apps/web (game client + back office), UX, README for judges,
   demo, submission. Each folder's README says what belongs there.
 - Team flow (CONTRIBUTING.md): GitHub issue first → your `dev-<name>` branch → small commits → PR with
