@@ -1,0 +1,35 @@
+{
+  "spike": "03-meta-tx",
+  "ranAt": "2026-11-04T07:17:39.625Z",
+  "contract": "guestbook.near-examples.testnet",
+  "player": "nyx-player-mw1s6tmj.testnet",
+  "relayer": "nyx-relayer-mw1s6vvb.testnet",
+  "a_fullKey_noDeposit": {
+    "ok": true,
+    "hash": "Hzo9VFsWJ8ZSDbvhAqoihF6Ems6RuPi1BW6JdeVqmHjD",
+    "ms": 2721,
+    "playerDeltaYocto": "0",
+    "relayerDeltaYocto": "-238835925324500000000",
+    "failures": []
+  },
+  "b_fullKey_oneYocto": {
+    "ok": true,
+    "hash": "Gpep3G6W6LR2FTnJdf6FLJWVkhrKTKLmshz6EZNGgDFL",
+    "ms": 2857,
+    "playerDeltaYocto": "0",
+    "relayerDeltaYocto": "-238835925324500000001",
+    "failures": []
+  },
+  "c_functionCallKey_noDeposit": {
+    "ok": true,
+    "hash": "HijppmcftLXeWyV17BER3zxHrbPRL5FnHmCx62ttPru8",
+    "ms": 2823,
+    "playerDeltaYocto": "189270206074800000000",
+    "relayerDeltaYocto": "-238835925324500000000",
+    "failures": []
+  },
+  "d_functionCallKey_oneYocto": {
+    "ok": false,
+    "error": "AccessKeyDepositWithFunctionCallActionError: Deposit is not allowed with function call"
+  }
+}
