@@ -1,0 +1,35 @@
+{
+  "spike": "20-api-relay-live",
+  "ranAt": "2026-11-04T12:51:34.411Z",
+  "player": "a896796dce8980f5c63944b470572262c4567918562688076901e0741f093ceb",
+  "onboard": {
+    "ms": 7540,
+    "status": 200,
+    "body": {
+      "nearAccount": "a896796dce8980f5c63944b470572262c4567918562688076901e0741f093ceb",
+      "createdTx": "5JqYrqQkKvEkSVpMgGJg1NwLK4f3wsPqBPbujNH3KDsV",
+      "registeredTx": "AVP72WqsFPrJmvZoX2jSzv9Pn5UoEKPLwmv9Ybf239Uj"
+    }
+  },
+  "relayDrinkPayment": {
+    "ms": 3448,
+    "status": 422,
+    "hash": "CpLKMrGWonBkeZ54RDScpLkMVNe4xxy5j3CNF6AnzS33",
+    "ok": false,
+    "error": "{\"Failure\":{\"ActionError\":{\"index\":0,\"kind\":{\"FunctionCallError\":{\"ExecutionError\":\"Smart contract panicked: The account doesn't have enough balance\"}}}}}"
+  },
+  "recorded": [
+    {
+      "receiver": "3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af",
+      "method": "ft_transfer_call",
+      "tx_hash": "CpLKMrGWonBkeZ54RDScpLkMVNe4xxy5j3CNF6AnzS33",
+      "ok": 0
+    }
+  ],
+  "refusedOtherReceiver": {
+    "status": 403,
+    "body": {
+      "error": "receiver_not_allowed"
+    }
+  }
+}
