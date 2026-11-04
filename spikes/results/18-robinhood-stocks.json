@@ -1,0 +1,1780 @@
+{
+  "spike": "18-robinhood-stocks",
+  "ranAt": "2026-11-04T12:24:57.628Z",
+  "candidatesFromCoinGecko": 1438,
+  "withBeaconProxyCode": 201,
+  "genuine": 201,
+  "withLiquidityOver10k": 80,
+  "fakesNamedRobinhoodToken": [
+    {
+      "name": "Chipotle Mexican Grill, Inc. • Robinhood Token",
+      "address": "0x677406e6d47a78dd9416cad79d93f8551282e5f6"
+    },
+    {
+      "name": "Mastercard Incorporated • Robinhood Token",
+      "address": "0xe5885d12fa0ef15c0493b5f3bc2580d693ded777"
+    }
+  ],
+  "fiveDollarUsdgBuy": {
+    "CRCL": 5.015,
+    "USO": 4.988,
+    "MSTR": 5,
+    "SPCX": 5.005,
+    "SPY": 5.001,
+    "QQQ": 5,
+    "NVDA": 5.003,
+    "BABA": 4.999,
+    "SKHY": 4.992,
+    "SGOV": 4.997,
+    "GOOGL": 4.996,
+    "AMZN": 4.994,
+    "META": 4.998,
+    "MU": 5.004,
+    "COST": 5.002,
+    "RDDT": 4.993,
+    "TSM": 4.992,
+    "GME": 4.995,
+    "AMD": 5.004,
+    "TSLA": 5,
+    "MSFT": 5.005,
+    "HIMS": 4.991,
+    "DELL": 4.997,
+    "AVGO": 4.982,
+    "AAPL": 4.996
+  },
+  "tokens": [
+    {
+      "address": "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+      "symbol": "CRCL",
+      "name": "Circle Internet Group • Robinhood Token",
+      "supply": 141521.55028,
+      "liquidityUsd": 2730435,
+      "pools": 1,
+      "priceUsd": 75.26
+    },
+    {
+      "address": "0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344",
+      "symbol": "USO",
+      "name": "United States Oil Fund • Robinhood Token",
+      "supply": 15688.88952,
+      "liquidityUsd": 1940890,
+      "pools": 1,
+      "priceUsd": 155.96
+    },
+    {
+      "address": "0xec262a75e413fafd0df80480274532c79d42da09",
+      "symbol": "MSTR",
+      "name": "Strategy Inc. • Robinhood Token",
+      "supply": 54663.90182,
+      "liquidityUsd": 1898629,
+      "pools": 1,
+      "priceUsd": 136.85
+    },
+    {
+      "address": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+      "symbol": "SPCX",
+      "name": "Space Exploration Technologies Corp. Class A Common Stock • Robinhood Token",
+      "supply": 99508.94520999999,
+      "liquidityUsd": 1764796,
+      "pools": 1,
+      "priceUsd": 133.14
+    },
+    {
+      "address": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+      "symbol": "SPY",
+      "name": "SPDR S&P 500 ETF Trust • Robinhood Token",
+      "supply": 26775.111833889998,
+      "liquidityUsd": 1632612,
+      "pools": 3,
+      "priceUsd": 763.092
+    },
+    {
+      "address": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+      "symbol": "QQQ",
+      "name": "Invesco QQQ • Robinhood Token",
+      "supply": 9159.21962908,
+      "liquidityUsd": 1363082,
+      "pools": 1,
+      "priceUsd": 688.089
+    },
+    {
+      "address": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+      "symbol": "NVDA",
+      "name": "NVIDIA • Robinhood Token",
+      "supply": 87673.58814505,
+      "liquidityUsd": 1125300,
+      "pools": 1,
+      "priceUsd": 206.89
+    },
+    {
+      "address": "0xad25ac6c84d497db898fa1e8387bf6af3532a1c4",
+      "symbol": "BABA",
+      "name": "Alibaba • Robinhood Token",
+      "supply": 14580.83485,
+      "liquidityUsd": 1048369,
+      "pools": 1,
+      "priceUsd": 104.24
+    },
+    {
+      "address": "0x84cab63bc87912e71ad199ff14a0ba45de68fef8",
+      "symbol": "SKHY",
+      "name": "SK hynix Inc. American Depositary Shares • Robinhood Token",
+      "supply": 12386.949083720001,
+      "liquidityUsd": 989155,
+      "pools": 1,
+      "priceUsd": 150.15
+    },
+    {
+      "address": "0x92fd66527192e3e61d4ddd13322aa222de86f9b5",
+      "symbol": "SGOV",
+      "name": "iShares 0-3 Month Treasury Bond • Robinhood Token",
+      "supply": 16204.100725380002,
+      "liquidityUsd": 701283,
+      "pools": 1,
+      "priceUsd": 101.45
+    },
+    {
+      "address": "0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3",
+      "symbol": "GOOGL",
+      "name": "Alphabet Class A • Robinhood Token",
+      "supply": 27473.34049847,
+      "liquidityUsd": 558676,
+      "pools": 1,
+      "priceUsd": 282.67
+    },
+    {
+      "address": "0x12f190a9f9d7d37a250758b26824b97ce941bf54",
+      "symbol": "AMZN",
+      "name": "Amazon • Robinhood Token",
+      "supply": 10942.0013,
+      "liquidityUsd": 538913,
+      "pools": 1,
+      "priceUsd": 258.71
+    },
+    {
+      "address": "0xc0d6457c16cc70d6790dd43521c899c87ce02f35",
+      "symbol": "META",
+      "name": "Meta Platforms • Robinhood Token",
+      "supply": 11441.865828819999,
+      "liquidityUsd": 482970,
+      "pools": 1,
+      "priceUsd": 627.31
+    },
+    {
+      "address": "0xff080c8ce2e5feadaca0da81314ae59d232d4afd",
+      "symbol": "MU",
+      "name": "Micron Technology • Robinhood Token",
+      "supply": 5435.64274484,
+      "liquidityUsd": 437024,
+      "pools": 1,
+      "priceUsd": 840.91
+    },
+    {
+      "address": "0x4ea005168d7f09a7a0ba9d1def21a479950e44c2",
+      "symbol": "COST",
+      "name": "Costco • Robinhood Token",
+      "supply": 609.76944908,
+      "liquidityUsd": 393170,
+      "pools": 1,
+      "priceUsd": 1032.15
+    },
+    {
+      "address": "0x05b37fb53a299a1b874a619e1c4c404d52c36f4c",
+      "symbol": "RDDT",
+      "name": "Reddit • Robinhood Token",
+      "supply": 16119.64439,
+      "liquidityUsd": 371512,
+      "pools": 1,
+      "priceUsd": 97.17
+    },
+    {
+      "address": "0x58ffe4a942d3885baa22d7520691f611ef09e7aa",
+      "symbol": "TSM",
+      "name": "Taiwan Semiconductor Manufacturing • Robinhood Token",
+      "supply": 3358.77731748,
+      "liquidityUsd": 368636,
+      "pools": 1,
+      "priceUsd": 405.85
+    },
+    {
+      "address": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+      "symbol": "GME",
+      "name": "GameStop • Robinhood Token",
+      "supply": 110769.65698,
+      "liquidityUsd": 359309,
+      "pools": 1,
+      "priceUsd": 24.08
+    },
+    {
+      "address": "0x86923f96303d656e4aa86d9d42d1e57ad2023fdc",
+      "symbol": "AMD",
+      "name": "AMD • Robinhood Token",
+      "supply": 4313.2281,
+      "liquidityUsd": 351612,
+      "pools": 1,
+      "priceUsd": 491.46
+    },
+    {
+      "address": "0x322f0929c4625ed5bad873c95208d54e1c003b2d",
+      "symbol": "TSLA",
+      "name": "Tesla • Robinhood Token",
+      "supply": 13182.40504,
+      "liquidityUsd": 327852,
+      "pools": 1,
+      "priceUsd": 375.52
+    },
+    {
+      "address": "0xe93237c50d904957cf27e7b1133b510c669c2e74",
+      "symbol": "MSFT",
+      "name": "Microsoft • Robinhood Token",
+      "supply": 3501.01672607,
+      "liquidityUsd": 298628,
+      "pools": 1,
+      "priceUsd": 530.98
+    },
+    {
+      "address": "0xccee82fe024c36fa15e1005ede3e9e4787e23d09",
+      "symbol": "HIMS",
+      "name": "Hims & Hers Health • Robinhood Token",
+      "supply": 91691.64398,
+      "liquidityUsd": 261413,
+      "pools": 1,
+      "priceUsd": 26.02
+    },
+    {
+      "address": "0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd",
+      "symbol": "DELL",
+      "name": "Dell • Robinhood Token",
+      "supply": 1536.8239850300001,
+      "liquidityUsd": 244998,
+      "pools": 1,
+      "priceUsd": 400.54
+    },
+    {
+      "address": "0x156e175dd063a8ce274c50654ef40e0032b3fbcf",
+      "symbol": "AVGO",
+      "name": "Broadcom • Robinhood Token",
+      "supply": 883.46305552,
+      "liquidityUsd": 243170,
+      "pools": 1,
+      "priceUsd": 332.58
+    },
+    {
+      "address": "0xaf3d76f1834a1d425780943c99ea8a608f8a93f9",
+      "symbol": "AAPL",
+      "name": "Apple • Robinhood Token",
+      "supply": 12428.76636266,
+      "liquidityUsd": 238333,
+      "pools": 1,
+      "priceUsd": 335.55
+    },
+    {
+      "address": "0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a",
+      "symbol": "PLTR",
+      "name": "Palantir Technologies • Robinhood Token",
+      "supply": 14159.60425,
+      "liquidityUsd": 235518,
+      "pools": 1,
+      "priceUsd": 168.21
+    },
+    {
+      "address": "0x43b07d15ce533bec5476d70c22a78a1b2b662155",
+      "symbol": "MRNA",
+      "name": "Moderna • Robinhood Token",
+      "supply": 2183.8347400000002,
+      "liquidityUsd": 218084,
+      "pools": 1,
+      "priceUsd": 233.19
+    },
+    {
+      "address": "0xb90a19ff0af67f7779aff50a882a9cff42446400",
+      "symbol": "SNDK",
+      "name": "Sandisk Corporation • Robinhood Token",
+      "supply": 1212.1587000000002,
+      "liquidityUsd": 206356,
+      "pools": 1,
+      "priceUsd": 1115.17
+    },
+    {
+      "address": "0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8",
+      "symbol": "RBLX",
+      "name": "Roblox • Robinhood Token",
+      "supply": 10864.347049999998,
+      "liquidityUsd": 200604,
+      "pools": 1,
+      "priceUsd": 45.26
+    },
+    {
+      "address": "0x6330d8c3178a418788df01a47479c0ce7ccf450b",
+      "symbol": "COIN",
+      "name": "Coinbase • Robinhood Token",
+      "supply": 21769.82245,
+      "liquidityUsd": 192203,
+      "pools": 1,
+      "priceUsd": 146.73
+    },
+    {
+      "address": "0xc72b96e0e48ecd4dc75e1e45396e26300bc39681",
+      "symbol": "INTC",
+      "name": "Intel • Robinhood Token",
+      "supply": 32844.5316,
+      "liquidityUsd": 188812,
+      "pools": 1,
+      "priceUsd": 59.45
+    },
+    {
+      "address": "0x822cc93ffd030293e9842c30bbd678f530701867",
+      "symbol": "BE",
+      "name": "Bloom Energy • Robinhood Token",
+      "supply": 3805.51713,
+      "liquidityUsd": 179690,
+      "pools": 1,
+      "priceUsd": 215.32
+    },
+    {
+      "address": "0x5f10a1c971b69e47e059e1dc91901b59b3fb49c3",
+      "symbol": "CRWV",
+      "name": "CoreWeave • Robinhood Token",
+      "supply": 9077.39223,
+      "liquidityUsd": 165451,
+      "pools": 1,
+      "priceUsd": 50.26
+    },
+    {
+      "address": "0xe0444ef8bf4ed74f74fd73686e2ddf4c1c5591e8",
+      "symbol": "NFLX",
+      "name": "Netflix • Robinhood Token",
+      "supply": 9516.83017,
+      "liquidityUsd": 156306,
+      "pools": 1,
+      "priceUsd": 64.32
+    },
+    {
+      "address": "0x5e81213613b6b86eab4c6c50d718d34359459786",
+      "symbol": "TTWO",
+      "name": "Take-Two Interactive Software • Robinhood Token",
+      "supply": 5237.23565,
+      "liquidityUsd": 153687,
+      "pools": 1,
+      "priceUsd": 198.23
+    },
+    {
+      "address": "0x411efb0e7f985935daec3d4c3ebaea0d0ad7d89f",
+      "symbol": "SLV",
+      "name": "iShares Silver Trust • Robinhood Token",
+      "supply": 24275.6234,
+      "liquidityUsd": 129835,
+      "pools": 1,
+      "priceUsd": 46.87
+    },
+    {
+      "address": "0x9a7842eded60b0fe1e03eec342c82a397c821ed0",
+      "symbol": "BMNR",
+      "name": "BitMine Immersion Technologies • Robinhood Token",
+      "supply": 5544.15143,
+      "liquidityUsd": 127367,
+      "pools": 1,
+      "priceUsd": 20.71
+    },
+    {
+      "address": "0xb0992820e760d836549ba69bc7598b4af75dee03",
+      "symbol": "ORCL",
+      "name": "Oracle • Robinhood Token",
+      "supply": 3553.9328033799998,
+      "liquidityUsd": 127290,
+      "pools": 1,
+      "priceUsd": 121.92
+    },
+    {
+      "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+      "symbol": "LLY",
+      "name": "Eli Lilly • Robinhood Token",
+      "supply": 588.89942226,
+      "liquidityUsd": 110667,
+      "pools": 1,
+      "priceUsd": 1423.59
+    },
+    {
+      "address": "0x1d11f0496982706c5e14a514d4e79f2e6bde4516",
+      "symbol": "DJT",
+      "name": "Trump Media & Technology Group • Robinhood Token",
+      "supply": 206320.44231999997,
+      "liquidityUsd": 105062,
+      "pools": 1,
+      "priceUsd": 5.27
+    },
+    {
+      "address": "0x05a3d1cd21d0c88145e82600e62e7e496e0f222b",
+      "symbol": "AMC",
+      "name": "AMC Entertainment • Robinhood Token",
+      "supply": 499593.65056,
+      "liquidityUsd": 104529,
+      "pools": 1,
+      "priceUsd": 3.27
+    },
+    {
+      "address": "0xc9a981fee1f9dec688bb123ccdecc63d0debfc4e",
+      "symbol": "GLD",
+      "name": "SPDR Gold Trust • Robinhood Token",
+      "supply": 18145.922590000002,
+      "liquidityUsd": 103471,
+      "pools": 1,
+      "priceUsd": 370.53
+    },
+    {
+      "address": "0x9d9c6684f596f66a64c030b93a886d51fd4d7931",
+      "symbol": "NBIS",
+      "name": "Nebius Group • Robinhood Token",
+      "supply": 2576.0638,
+      "liquidityUsd": 77608,
+      "pools": 1,
+      "priceUsd": 148.032
+    },
+    {
+      "address": "0x2d427692e928fa156ec22acfabafa0447c5805b7",
+      "symbol": "GLXY",
+      "name": "Galaxy Digital Inc. • Robinhood Token",
+      "supply": 18955.672140000002,
+      "liquidityUsd": 75670,
+      "pools": 1,
+      "priceUsd": 15.63
+    },
+    {
+      "address": "0x25c288e6d899b9bc30160965ad9644c67e73be0c",
+      "symbol": "F",
+      "name": "Ford Motor • Robinhood Token",
+      "supply": 9495.077428839999,
+      "liquidityUsd": 64336,
+      "pools": 1,
+      "priceUsd": 12.37
+    },
+    {
+      "address": "0x41f4267525a8aff329540ef24fd83d9044758b33",
+      "symbol": "FIG",
+      "name": "Figma • Robinhood Token",
+      "supply": 6813.22985,
+      "liquidityUsd": 61216,
+      "pools": 1,
+      "priceUsd": 21.23
+    },
+    {
+      "address": "0x59818904ab4ce163b3ce4ffb64f2d6ca02c434b4",
+      "symbol": "QUBT",
+      "name": "Quantum Computing • Robinhood Token",
+      "supply": 23344.86059,
+      "liquidityUsd": 53577,
+      "pools": 1,
+      "priceUsd": 6.46
+    },
+    {
+      "address": "0xd917b029c761d264c6a312bbbcda868658ef86a6",
+      "symbol": "USAR",
+      "name": "USA Rare Earth • Robinhood Token",
+      "supply": 41619.8148,
+      "liquidityUsd": 53369,
+      "pools": 1,
+      "priceUsd": 8.78
+    },
+    {
+      "address": "0x9b23573b156b52565012f5ce02cdf60afbaa70be",
+      "symbol": "PENG",
+      "name": "Penguin Solutions • Robinhood Token",
+      "supply": 1330.85509,
+      "liquidityUsd": 53367,
+      "pools": 1,
+      "priceUsd": 52.82
+    },
+    {
+      "address": "0xcef9027c7d6985b85f0ba431125073529a947a68",
+      "symbol": "BULL",
+      "name": "Webull • Robinhood Token",
+      "supply": 25558.19834,
+      "liquidityUsd": 52821,
+      "pools": 1,
+      "priceUsd": 5.24
+    },
+    {
+      "address": "0x501b1b3b79750313ad2c4cccd08586c4c17d7283",
+      "symbol": "DIS",
+      "name": "Disney • Robinhood Token",
+      "supply": 686.96462,
+      "liquidityUsd": 47114,
+      "pools": 1,
+      "priceUsd": 115.84
+    },
+    {
+      "address": "0x2fdaa4604f10f4ae7f66fa48a174bcd25b1ece20",
+      "symbol": "MCD",
+      "name": "McDonald's • Robinhood Token",
+      "supply": 397.21787,
+      "liquidityUsd": 47056,
+      "pools": 1,
+      "priceUsd": 268.62
+    },
+    {
+      "address": "0x408c14038a04f7bd235329e26d2bf569ee20e250",
+      "symbol": "NU",
+      "name": "Nu • Robinhood Token",
+      "supply": 11189.51557,
+      "liquidityUsd": 46525,
+      "pools": 1,
+      "priceUsd": 11.78
+    },
+    {
+      "address": "0x980dcf6766fa79f5cf0c4aadb3ab477ff15a9619",
+      "symbol": "IBM",
+      "name": "IBM • Robinhood Token",
+      "supply": 1761.12384,
+      "liquidityUsd": 43052,
+      "pools": 1,
+      "priceUsd": 252.26
+    },
+    {
+      "address": "0x4d21483a44bf67a86b77e3da301411880797d452",
+      "symbol": "BA",
+      "name": "Boeing • Robinhood Token",
+      "supply": 884.0927499999999,
+      "liquidityUsd": 40039,
+      "pools": 1,
+      "priceUsd": 175.18
+    },
+    {
+      "address": "0x0594134df3f171a354d9c85ebd65b7a6148f6d09",
+      "symbol": "VTI",
+      "name": "Vanguard Morningstar Total Stock Market ETF • Robinhood Token",
+      "supply": 180.1522312,
+      "liquidityUsd": 38780,
+      "pools": 1,
+      "priceUsd": 372.13
+    },
+    {
+      "address": "0x116f00968269b7bfbad4109ce591d6e74c0601d4",
+      "symbol": "NET",
+      "name": "Cloudflare, Inc. Class A common stock • Robinhood Token",
+      "supply": 536.79631,
+      "liquidityUsd": 34385,
+      "pools": 1,
+      "priceUsd": 264.3
+    },
+    {
+      "address": "0x9e7abd3c9139d14e4c86dce0e455aab7a0c2fb3e",
+      "symbol": "WYFI",
+      "name": "WhiteFiber, Inc. • Robinhood Token",
+      "supply": 6860,
+      "liquidityUsd": 30747,
+      "pools": 1,
+      "priceUsd": 10.13
+    },
+    {
+      "address": "0xf6589f11bc40b669e584073f428b05562f568733",
+      "symbol": "SNAP",
+      "name": "Snap • Robinhood Token",
+      "supply": 39428.69902,
+      "liquidityUsd": 29466,
+      "pools": 1,
+      "priceUsd": 5.65
+    },
+    {
+      "address": "0xb1bf26c1d20ff267a4f93550d1e0d06ac40a114b",
+      "symbol": "RIVN",
+      "name": "Rivian Automotive • Robinhood Token",
+      "supply": 23537.24296,
+      "liquidityUsd": 28165,
+      "pools": 1,
+      "priceUsd": 13.37
+    },
+    {
+      "address": "0xba0cab75495255d0cb58e22b648bfed4ecd1f47e",
+      "symbol": "SNOW",
+      "name": "Snowflake • Robinhood Token",
+      "supply": 303.39687,
+      "liquidityUsd": 27960,
+      "pools": 1,
+      "priceUsd": 281.14
+    },
+    {
+      "address": "0x4e62068525ab11fe768e29dfd00ef909b9803016",
+      "symbol": "LULU",
+      "name": "Lululemon • Robinhood Token",
+      "supply": 2785.5008399999997,
+      "liquidityUsd": 27896,
+      "pools": 1,
+      "priceUsd": 108.52
+    },
+    {
+      "address": "0x8ef20885f94e3d9bc7eb3080279188bd5ed7c08c",
+      "symbol": "LITE",
+      "name": "Lumentum • Robinhood Token",
+      "supply": 237.89963,
+      "liquidityUsd": 26323,
+      "pools": 1,
+      "priceUsd": 673.19
+    },
+    {
+      "address": "0x47f93d52cbec7c6d2cfc080e154002370a60daea",
+      "symbol": "ASML",
+      "name": "ASML Holding NV • Robinhood Token",
+      "supply": 92.30865378,
+      "liquidityUsd": 24565,
+      "pools": 1,
+      "priceUsd": 1545.23
+    },
+    {
+      "address": "0x756bc80af765c82da966a788858d65adf14f3793",
+      "symbol": "RUN",
+      "name": "Sunrun • Robinhood Token",
+      "supply": 3663.15389,
+      "liquidityUsd": 23655,
+      "pools": 1,
+      "priceUsd": 8.9
+    },
+    {
+      "address": "0x03dfbbe0ac4e7bcdafd08ed41a400326b77d8c80",
+      "symbol": "JNJ",
+      "name": "Johnson & Johnson • Robinhood Token",
+      "supply": 749.04406281,
+      "liquidityUsd": 22654,
+      "pools": 1,
+      "priceUsd": 271.05
+    },
+    {
+      "address": "0xacef2e09adb47ad6abebad9ff06689e60615c2b6",
+      "symbol": "INDA",
+      "name": "iShares MSCI India ETF • Robinhood Token",
+      "supply": 1937.45764,
+      "liquidityUsd": 22587,
+      "pools": 1,
+      "priceUsd": 49.11
+    },
+    {
+      "address": "0x7066a64c24e4206cd62e83bf198c1e7eb361f51e",
+      "symbol": "PFE",
+      "name": "Pfizer • Robinhood Token",
+      "supply": 7649.05611,
+      "liquidityUsd": 22303,
+      "pools": 1,
+      "priceUsd": 30.072
+    },
+    {
+      "address": "0xf52597345a8edf418bc4071b4a35112472277d3e",
+      "symbol": "WDC",
+      "name": "Western Digital • Robinhood Token",
+      "supply": 294.94000129,
+      "liquidityUsd": 22253,
+      "pools": 1,
+      "priceUsd": 341.24
+    },
+    {
+      "address": "0x75742c18bc1f1c5c5f448f4c9d9c6f66dafaaa38",
+      "symbol": "SOXX",
+      "name": "iShares Semiconductor ETF • Robinhood Token",
+      "supply": 147.40599391,
+      "liquidityUsd": 21320,
+      "pools": 1,
+      "priceUsd": 468.92
+    },
+    {
+      "address": "0xae517a2903e68bd929dfd15be875f8369d53e94a",
+      "symbol": "CEG",
+      "name": "Constellation Energy • Robinhood Token",
+      "supply": 149.03633,
+      "liquidityUsd": 21218,
+      "pools": 1,
+      "priceUsd": 254.34
+    },
+    {
+      "address": "0x329fcaceb9ad6f9580dd5f643fed0646900d043c",
+      "symbol": "LMT",
+      "name": "Lockheed • Robinhood Token",
+      "supply": 152.43214112,
+      "liquidityUsd": 17472,
+      "pools": 1,
+      "priceUsd": 612.39
+    },
+    {
+      "address": "0x44c4f142009036cf477ed2d09932051843137cf1",
+      "symbol": "ZM",
+      "name": "Zoom • Robinhood Token",
+      "supply": 400.69916,
+      "liquidityUsd": 15455,
+      "pools": 1,
+      "priceUsd": 92.18
+    },
+    {
+      "address": "0x3b14c39e89d60d627b42a1a4ca45b5bb45fc12e2",
+      "symbol": "RKLB",
+      "name": "Rocket Lab Corporation • Robinhood Token",
+      "supply": 887.5582300000001,
+      "liquidityUsd": 15426,
+      "pools": 1,
+      "priceUsd": 53.1
+    },
+    {
+      "address": "0x62fd0668e10d8b72339be2dcf7643001688ff13b",
+      "symbol": "MRVL",
+      "name": "Marvell Technology • Robinhood Token",
+      "supply": 1215.65535667,
+      "liquidityUsd": 14249,
+      "pools": 1,
+      "priceUsd": 168.8
+    },
+    {
+      "address": "0xfde6b5d9bb419b10c23268c74e369abff39c0460",
+      "symbol": "RCAT",
+      "name": "Red Cat • Robinhood Token",
+      "supply": 15285.80225,
+      "liquidityUsd": 12002,
+      "pools": 1,
+      "priceUsd": 4.5
+    },
+    {
+      "address": "0x0f17206447090e464c277571124dd2688e48aea9",
+      "symbol": "QCOM",
+      "name": "Qualcomm • Robinhood Token",
+      "supply": 206.14562786000002,
+      "liquidityUsd": 11620,
+      "pools": 1,
+      "priceUsd": 164.69
+    },
+    {
+      "address": "0xa45abdc77918f7b9199b022eee400c0bc5712bd2",
+      "symbol": "PYPL",
+      "name": "PayPal • Robinhood Token",
+      "supply": 1254.3154,
+      "liquidityUsd": 10700,
+      "pools": 1,
+      "priceUsd": 58.9
+    },
+    {
+      "address": "0x9bff87700337babf5099e99f322f888dafb1d551",
+      "symbol": "V",
+      "name": "Visa • Robinhood Token",
+      "supply": 135.78117,
+      "liquidityUsd": 10243,
+      "pools": 1,
+      "priceUsd": 424.86
+    },
+    {
+      "address": "0x59dd09d4900c2e4b5f75b7c0d4e6796fcc234cb1",
+      "symbol": "HPE",
+      "name": "HP Enterprise • Robinhood Token",
+      "supply": 551.59484492,
+      "liquidityUsd": 10142,
+      "pools": 1,
+      "priceUsd": 52.87
+    },
+    {
+      "address": "0x5c90450bbb4273d7b2f17cf6917aeb237a569679",
+      "symbol": "CBRS",
+      "name": "Cerebras Systems • Robinhood Token",
+      "supply": 769.4681099999999,
+      "liquidityUsd": 9997,
+      "pools": 1,
+      "priceUsd": 189.3
+    },
+    {
+      "address": "0xc01aa1fecec0605b13bc84874ff7256c0f5f562a",
+      "symbol": "SMCI",
+      "name": "Super Micro Computer • Robinhood Token",
+      "supply": 469.80873,
+      "liquidityUsd": 9783,
+      "pools": 1,
+      "priceUsd": 33.14
+    },
+    {
+      "address": "0xbbd09f72b025360fee5c928053dca6248d35be54",
+      "symbol": "ON",
+      "name": "ON Semiconductor • Robinhood Token",
+      "supply": 558.47713,
+      "liquidityUsd": 9503,
+      "pools": 1,
+      "priceUsd": 73.68
+    },
+    {
+      "address": "0xf23250dac154d05bb671cb0d0ebef3c635c79ce2",
+      "symbol": "UPS",
+      "name": "UPS • Robinhood Token",
+      "supply": 1111.68677965,
+      "liquidityUsd": 9104,
+      "pools": 1,
+      "priceUsd": 109.29
+    },
+    {
+      "address": "0x98e75885157c80992a8d41b696d8c9c6fb30a926",
+      "symbol": "SOFI",
+      "name": "SoFi Technologies • Robinhood Token",
+      "supply": 2633.95456,
+      "liquidityUsd": 9084,
+      "pools": 1,
+      "priceUsd": 16.73
+    },
+    {
+      "address": "0x48e39e56acdba37b09020c0b734a613c9a2f100a",
+      "symbol": "BB",
+      "name": "Blackberry • Robinhood Token",
+      "supply": 24936.77002,
+      "liquidityUsd": 9076,
+      "pools": 1,
+      "priceUsd": 8.056
+    },
+    {
+      "address": "0xbd335aa5a1693f0121a5c0ef18a080e9958da78b",
+      "symbol": "UBER",
+      "name": "Uber • Robinhood Token",
+      "supply": 946.545,
+      "liquidityUsd": 8137,
+      "pools": 1,
+      "priceUsd": 67.13
+    },
+    {
+      "address": "0xf53f66751b1eff985311b693531e3290f600c410",
+      "symbol": "SHOP",
+      "name": "Shopify • Robinhood Token",
+      "supply": 484.67075,
+      "liquidityUsd": 7478,
+      "pools": 1,
+      "priceUsd": 142.67
+    },
+    {
+      "address": "0x28babd556b60e53663b8615036479a29c2cdd1bf",
+      "symbol": "ANET",
+      "name": "Arista • Robinhood Token",
+      "supply": 26.70801,
+      "liquidityUsd": 7381,
+      "pools": 1,
+      "priceUsd": 190.34
+    },
+    {
+      "address": "0xd95b44124e475743a7589e68f3d74008a5536d44",
+      "symbol": "CRM",
+      "name": "Salesforce • Robinhood Token",
+      "supply": 120.21798096,
+      "liquidityUsd": 7242,
+      "pools": 1,
+      "priceUsd": 229.19
+    },
+    {
+      "address": "0xfb2664f07b6aadd29ea7a59d8859b1aeb8645cda",
+      "symbol": "PATH",
+      "name": "UiPath • Robinhood Token",
+      "supply": 1418.5543400000001,
+      "liquidityUsd": 7149,
+      "pools": 1,
+      "priceUsd": 13.39
+    },
+    {
+      "address": "0x63b814ddbd6bf339f25fed8c36158a008d5b373e",
+      "symbol": "GE",
+      "name": "General Electric • Robinhood Token",
+      "supply": 90.74805045999999,
+      "liquidityUsd": 7023,
+      "pools": 1,
+      "priceUsd": 318.12
+    },
+    {
+      "address": "0x1af6446f07eb1d97c546afc8c9544cbdf3ad5137",
+      "symbol": "ASTS",
+      "name": "AST SpaceMobile • Robinhood Token",
+      "supply": 662.3660000000001,
+      "liquidityUsd": 6501,
+      "pools": 1,
+      "priceUsd": 38.32
+    },
+    {
+      "address": "0x27c99fbde9d0d2aa4f4bfb4943f237843ddf6958",
+      "symbol": "DDOG",
+      "name": "Datadog • Robinhood Token",
+      "supply": 374.01761000000005,
+      "liquidityUsd": 6164,
+      "pools": 1,
+      "priceUsd": 179.86
+    },
+    {
+      "address": "0x39ec44bee4f6a116c6f9b8de566848a985c53c60",
+      "symbol": "ELF",
+      "name": "e.l.f. Beauty • Robinhood Token",
+      "supply": 67.85741,
+      "liquidityUsd": 5565,
+      "pools": 1,
+      "priceUsd": 111.64
+    },
+    {
+      "address": "0xf0ab0c93be6f41369d302e55db1a96b3c430212d",
+      "symbol": "IREN",
+      "name": "IREN Limited • Robinhood Token",
+      "supply": 7556.12971,
+      "liquidityUsd": 5083,
+      "pools": 1,
+      "priceUsd": 22.96
+    },
+    {
+      "address": "0x1cdad396db64bda184d5182a97dd9b3c62100b7d",
+      "symbol": "P",
+      "name": "Everpure • Robinhood Token",
+      "supply": 128.80585,
+      "liquidityUsd": 5011,
+      "pools": 1,
+      "priceUsd": 120.93
+    },
+    {
+      "address": "0x62200915e7deab1ec7f79fb246dadbb80eacddd0",
+      "symbol": "CLOV",
+      "name": "Clover Health Investments • Robinhood Token",
+      "supply": 2240.82802,
+      "liquidityUsd": 4994,
+      "pools": 1,
+      "priceUsd": 4.37
+    },
+    {
+      "address": "0x521cf887e6531c6f667b5bc4d896e5d9bfe8eb2e",
+      "symbol": "AAOI",
+      "name": "Applied Optoelectronics • Robinhood Token",
+      "supply": 203.69823,
+      "liquidityUsd": 4910,
+      "pools": 1,
+      "priceUsd": 64.46
+    },
+    {
+      "address": "0x9651342cea770ae9a2969ba2a52611523146aef9",
+      "symbol": "CCL",
+      "name": "Carnival Corporation • Robinhood Token",
+      "supply": 723.97746825,
+      "liquidityUsd": 4697,
+      "pools": 1,
+      "priceUsd": 30.22
+    },
+    {
+      "address": "0x348be1a8663f15edde5cdf8a96bb69078f7ab6fd",
+      "symbol": "WULF",
+      "name": "TeraWulf • Robinhood Token",
+      "supply": 1372.58401,
+      "liquidityUsd": 4626,
+      "pools": 1,
+      "priceUsd": 11.9
+    },
+    {
+      "address": "0x93dbb1d2dc5d63f4abacff30485273f538df68ac",
+      "symbol": "FIX",
+      "name": "Comfort Systems • Robinhood Token",
+      "supply": 10.08699,
+      "liquidityUsd": 3981,
+      "pools": 1,
+      "priceUsd": 1260.11
+    },
+    {
+      "address": "0x232b8ed6377be97813853b0ac104c4cda8378d1b",
+      "symbol": "ADBE",
+      "name": "Adobe • Robinhood Token",
+      "supply": 72.88803,
+      "liquidityUsd": 3505,
+      "pools": 1,
+      "priceUsd": 248.7
+    },
+    {
+      "address": "0x48961813349333209994750ffa89b3c5c22ec969",
+      "symbol": "MXL",
+      "name": "MaxLinear • Robinhood Token",
+      "supply": 120.7484,
+      "liquidityUsd": 3482,
+      "pools": 1,
+      "priceUsd": 64.65
+    },
+    {
+      "address": "0x558378e000d634a36593e338ebacdd6207640efe",
+      "symbol": "IONQ",
+      "name": "IonQ • Robinhood Token",
+      "supply": 330.58301,
+      "liquidityUsd": 2807,
+      "pools": 1,
+      "priceUsd": 33.53
+    },
+    {
+      "address": "0x7f0abef0c07280f82c6a08ead09ded6bae2c13fc",
+      "symbol": "EWY",
+      "name": "iShares MSCI South Korea fund • Robinhood Token",
+      "supply": 711.83863,
+      "liquidityUsd": 2682,
+      "pools": 1,
+      "priceUsd": 154.51
+    },
+    {
+      "address": "0x03bc731ffb162cdd7b98d3c6542bfc291126075d",
+      "symbol": "FLY",
+      "name": "Firefly Aerospace Inc. • Robinhood Token",
+      "supply": 582.1576699999999,
+      "liquidityUsd": 2673,
+      "pools": 1,
+      "priceUsd": 17.3
+    },
+    {
+      "address": "0xbdfa7a06458aa26b8e736e0fc87ad37c3bb8ac2e",
+      "symbol": "GDX",
+      "name": "VanEck Gold Miners ETF • Robinhood Token",
+      "supply": 515.25348,
+      "liquidityUsd": 2590,
+      "pools": 1,
+      "priceUsd": 79.4
+    },
+    {
+      "address": "0x4189f0c66ebbb0bfef1c31f763131361ef32f77c",
+      "symbol": "PR",
+      "name": "Permian Resources • Robinhood Token",
+      "supply": 209.20995987,
+      "liquidityUsd": 2553,
+      "pools": 1,
+      "priceUsd": 26.023
+    },
+    {
+      "address": "0x36046893810a7e7fce501229d57dc3fc8c8716d0",
+      "symbol": "AMAT",
+      "name": "Applied Materials • Robinhood Token",
+      "supply": 228.85050041000002,
+      "liquidityUsd": 2446,
+      "pools": 1,
+      "priceUsd": 383.91
+    },
+    {
+      "address": "0x52d50d0280ad1054b43f052bd70a49a212a1b128",
+      "symbol": "MPWR",
+      "name": "Monolithic Power Systems • Robinhood Token",
+      "supply": 3.84964751,
+      "liquidityUsd": 2418,
+      "pools": 1,
+      "priceUsd": 1283.48
+    },
+    {
+      "address": "0x48d60243c66437c6ac3c2495be94747aed5dfe25",
+      "symbol": "LHX",
+      "name": "L3Harris • Robinhood Token",
+      "supply": 17.33621269,
+      "liquidityUsd": 2375,
+      "pools": 1,
+      "priceUsd": 281.26
+    },
+    {
+      "address": "0xf9b46d3d1b22199d4d1025a9cedb540a33f1a2d5",
+      "symbol": "XOM",
+      "name": "ExxonMobil Holdings Corporation • Robinhood Token",
+      "supply": 202.58371127,
+      "liquidityUsd": 2370,
+      "pools": 1,
+      "priceUsd": 176.13
+    },
+    {
+      "address": "0x561e2a49212b7ccf47f2744ccb83e200722fadbc",
+      "symbol": "VST",
+      "name": "Vistra • Robinhood Token",
+      "supply": 111.83071799,
+      "liquidityUsd": 2330,
+      "pools": 1,
+      "priceUsd": 139.07
+    },
+    {
+      "address": "0xbef75684c43c4ea7bd18dd532a2244674ee8b926",
+      "symbol": "NNE",
+      "name": "Nano Nuclear Energy • Robinhood Token",
+      "supply": 15690.934159999999,
+      "liquidityUsd": 2216,
+      "pools": 1,
+      "priceUsd": 11.56
+    },
+    {
+      "address": "0xb1969f6604ca1ae7a2cd3f1827876e914594ca2d",
+      "symbol": "TE",
+      "name": "T1 Energy • Robinhood Token",
+      "supply": 2598.14336,
+      "liquidityUsd": 1788,
+      "pools": 1,
+      "priceUsd": 3.12
+    },
+    {
+      "address": "0x82da4646242e1d962e96e932269dc644c94a9caa",
+      "symbol": "WDAY",
+      "name": "Workday • Robinhood Token",
+      "supply": 154.81833,
+      "liquidityUsd": 1644,
+      "pools": 1,
+      "priceUsd": 195.82
+    },
+    {
+      "address": "0xcf364ea52787e289de6f32077834056e3e70d6a8",
+      "symbol": "UNH",
+      "name": "UnitedHealth • Robinhood Token",
+      "supply": 55.13666775,
+      "liquidityUsd": 1292,
+      "pools": 1,
+      "priceUsd": 403.77
+    },
+    {
+      "address": "0x9ece29a4a2397c0a35fb5fa8ee2b9509130a98cc",
+      "symbol": "FISV",
+      "name": "Fiserv • Robinhood Token",
+      "supply": 69.21,
+      "liquidityUsd": 1061,
+      "pools": 1,
+      "priceUsd": 56.073
+    },
+    {
+      "address": "0x07c44da0848960bff894f17584db8b2f60b2409e",
+      "symbol": "JPM",
+      "name": "JPMorgan Chase • Robinhood Token",
+      "supply": 129.73875,
+      "liquidityUsd": 1006,
+      "pools": 1,
+      "priceUsd": 341.51
+    },
+    {
+      "address": "0x3fb8976980d486084b2eb4a404bd12e72823958f",
+      "symbol": "FTNT",
+      "name": "Fortinet • Robinhood Token",
+      "supply": 30.64462,
+      "liquidityUsd": 558,
+      "pools": 1,
+      "priceUsd": 138.7
+    },
+    {
+      "address": "0xb8dbf92f9741c9ac1c32115e78581f23509916fd",
+      "symbol": "APLD",
+      "name": "Applied Digital • Robinhood Token",
+      "supply": 1031.16765,
+      "liquidityUsd": 462,
+      "pools": 1,
+      "priceUsd": 17.5
+    },
+    {
+      "address": "0x0b5fb4031cae9163db10b169ee72685f0edc8545",
+      "symbol": "TTD",
+      "name": "Trade Desk • Robinhood Token",
+      "supply": 442.26899999999995,
+      "liquidityUsd": 351,
+      "pools": 1,
+      "priceUsd": 12.5
+    },
+    {
+      "address": "0xbe6702d7b70315376dc48a3293f24f0982f86386",
+      "symbol": "NVTS",
+      "name": "Navitas Semiconductor • Robinhood Token",
+      "supply": 286.12002,
+      "liquidityUsd": 164,
+      "pools": 1,
+      "priceUsd": 9.1
+    },
+    {
+      "address": "0xc27dbd474af5181c5a8777903690d8d262d12648",
+      "symbol": "AXON",
+      "name": "Axon • Robinhood Token",
+      "supply": 10.85401,
+      "liquidityUsd": 133,
+      "pools": 1,
+      "priceUsd": 439.048
+    },
+    {
+      "address": "0x3139d77ace0cbaa5bdfd38bd1f1911a794af0b0e",
+      "symbol": "ABCL",
+      "name": "Abcellera Biologics • Robinhood Token",
+      "supply": 458.987,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xfaf9cb261b5fcc1f404bb10cd39c5c6c1974e612",
+      "symbol": "AEIS",
+      "name": "Advanced Energy • Robinhood Token",
+      "supply": 16.169,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x5f604fba1162193a4388a5dfa56f556f3e133cc2",
+      "symbol": "AEHR",
+      "name": "Aehr • Robinhood Token",
+      "supply": 36.061,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xf6290b5e7c26502e2da514c31509849718ea76a5",
+      "symbol": "AVAV",
+      "name": "AeroVironment • Robinhood Token",
+      "supply": 27.78399,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x99d9d8663545151603863c5acbd6fc3218899009",
+      "symbol": "AMBA",
+      "name": "Ambarella • Robinhood Token",
+      "supply": 86.38100999999999,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xdd356aa38f40a7b7076755ac854b6fbb1f0d305b",
+      "symbol": "AMKR",
+      "name": "Amkor Technology • Robinhood Token",
+      "supply": 71.8605676,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xa249baf1063af884807c1e1400aef7784836917e",
+      "symbol": "APP",
+      "name": "AppLovin • Robinhood Token",
+      "supply": 117.7974,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x748c32c3ca24edf31ea597db1f3d330a7a6da3dc",
+      "symbol": "ALAB",
+      "name": "Astera Labs, Inc. • Robinhood Token",
+      "supply": 22.809,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x5b97476b922f3305131b8f0b9d333172e87f4aae",
+      "symbol": "TEAM",
+      "name": "Atlassian Corporation • Robinhood Token",
+      "supply": 14.12301,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x373c06c4f7bde527d7dae4ba169e42b55e393ced",
+      "symbol": "AUR",
+      "name": "Aurora Innovation • Robinhood Token",
+      "supply": 949.3747500000001,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x141eea040c2250eec0314e336975e81f85f6585e",
+      "symbol": "AXTI",
+      "name": "AXT • Robinhood Token",
+      "supply": 71.03701,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xa4f319104089fe321dc8093c6e707d4fe190a988",
+      "symbol": "CVNA",
+      "name": "Carvana • Robinhood Token",
+      "supply": 93.77388,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xbf449977089c718c004a66c554b26b94ef3ad4de",
+      "symbol": "CLS",
+      "name": "Celestica • Robinhood Token",
+      "supply": 24.89402,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x8cf07c5a878945185d327aaa6e33faa95f95e7bf",
+      "symbol": "CELH",
+      "name": "Celsius • Robinhood Token",
+      "supply": 214.61201999999997,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x44f6d488021f8233b9416294d1fe9b1fee28382d",
+      "symbol": "CIEN",
+      "name": "Ciena • Robinhood Token",
+      "supply": 6.818,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xf543967eebb6f1917992ef0e68de63ab07a5a0da",
+      "symbol": "CSCO",
+      "name": "Cisco Systems • Robinhood Token",
+      "supply": 75.36691986,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xcbb95bbf36099d34da091dc6fa6f49efa257cee3",
+      "symbol": "CLSK",
+      "name": "CleanSpark • Robinhood Token",
+      "supply": 2021.839,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x63d5a3b6939a33f1e75d8bcd85759858239600db",
+      "symbol": "CTSH",
+      "name": "Cognizant • Robinhood Token",
+      "supply": 24.82641,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x92f9f459f1a9a5ad266b182be7bffd1c6c666894",
+      "symbol": "COHR",
+      "name": "Coherent • Robinhood Token",
+      "supply": 23.68501,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x7c04e6a3368f2a1de3874f0e80d2e0a1a9915da6",
+      "symbol": "GLW",
+      "name": "Corning • Robinhood Token",
+      "supply": 15.5708,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x4d67253bc223e6b0e104f1084c1fb2b669ddc41b",
+      "symbol": "CRDO",
+      "name": "Credo Technology Group • Robinhood Token",
+      "supply": 46.81801,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xea72ecca2d0f6bfa1394dbbcff85b52cd4233931",
+      "symbol": "CRWD",
+      "name": "CrowdStrike Holdings • Robinhood Token",
+      "supply": 8.887425,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xc02f12b9fe9e707079ec0d546f3050d3f6c1f8bd",
+      "symbol": "DOCN",
+      "name": "DigitalOcean • Robinhood Token",
+      "supply": 48.33874,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xc583c60aef9dc401da72cec1b404743a93cea1cc",
+      "symbol": "QBTS",
+      "name": "D-Wave Quantum Inc. Common Stock • Robinhood Token",
+      "supply": 557.8449999999999,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x95052ddcd5dc25641657424a8cf04834997e1730",
+      "symbol": "SATS",
+      "name": "EchoStar • Robinhood Token",
+      "supply": 0.103,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xa48f22a46c0f1c46ca7d111cb6c137c271987180",
+      "symbol": "FICO",
+      "name": "Fair Isaac • Robinhood Token",
+      "supply": 6.639,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x282e87451e10fa6679bc7d76c69be44cd3fc777c",
+      "symbol": "FLNC",
+      "name": "Fluence Energy • Robinhood Token",
+      "supply": 715.351,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xeb30663bdff0622ef4e4e5cbb4e975f19f33f51d",
+      "symbol": "FUTU",
+      "name": "Futu Holdings • Robinhood Token",
+      "supply": 193.601,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x94b8aae43a1ccc08aa64b7d1f29b4d920af4a0c9",
+      "symbol": "GEV",
+      "name": "GE Vernova • Robinhood Token",
+      "supply": 5.341,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xaea445c5f3db1a462998ccc422a875a361ee5d99",
+      "symbol": "HWM",
+      "name": "Howmet Aerospace • Robinhood Token",
+      "supply": 30.68526,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xeb61c0ed490a367d4e3631ccf8a74b3bfc7e775d",
+      "symbol": "HII",
+      "name": "Huntington Ingalls • Robinhood Token",
+      "supply": 17.76102,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x7c148f74ac7445d1f28366b7fcdc6792a9fcd0cf",
+      "symbol": "IBRX",
+      "name": "ImmunityBio, • Robinhood Token",
+      "supply": 654.82602,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xb853bc83a753342a4f8320ea680b4b1e84118d21",
+      "symbol": "INFQ",
+      "name": "Infleqtion • Robinhood Token",
+      "supply": 1980.97011,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xf1953dab6fad537488d5a022361ffaa8b4c95ec6",
+      "symbol": "INOD",
+      "name": "Innodata • Robinhood Token",
+      "supply": 89.96702,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xa5d4968421ba94814be3b136b15cf422101ac1a3",
+      "symbol": "LUNR",
+      "name": "Intuitive Machines • Robinhood Token",
+      "supply": 626.3029300000001,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x56d23bee5f41a7120170b0c603dae30128e460e9",
+      "symbol": "INTU",
+      "name": "Intuit • Robinhood Token",
+      "supply": 24.64694592,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xad622320e520de39e72d41ef07438c3fd3354875",
+      "symbol": "SPMO",
+      "name": "Invesco S&P 500 Momentum ETF • Robinhood Token",
+      "supply": 37.37533928,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xbe274710bf3d9567e1b290ef6a5f9f90ca016fd8",
+      "symbol": "SHY",
+      "name": "iShares 1-3 Year Treasury Bond ETF • Robinhood Token",
+      "supply": 100.28517982,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x1c690498150252222c275a5ced69d3a6b1f52d5e",
+      "symbol": "EWT",
+      "name": "iShares MSCI Taiwan Capped ETF • Robinhood Token",
+      "supply": 87.446,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xeaf2512dfc1beac608f8794b3793cd4e02894aa6",
+      "symbol": "JBL",
+      "name": "Jabil Inc. • Robinhood Token",
+      "supply": 15.10801,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xb334c5ce741b80b5b671f47f5c269cb193fe8e24",
+      "symbol": "JOBY",
+      "name": "Joby Aviation • Robinhood Token",
+      "supply": 1441.216,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x96b933c74ecb4a0926b9210cef7b743ef46be2e9",
+      "symbol": "KLAC",
+      "name": "KLA • Robinhood Token",
+      "supply": 16.826,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x12e3c047bf9aecaf9ddc98c05c31bfd1dd043993",
+      "symbol": "KSS",
+      "name": "Kohls Corporation • Robinhood Token",
+      "supply": 315.92465562,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x7fd06a4d81ccfa3f351394e144d5191874c31313",
+      "symbol": "KTOS",
+      "name": "Kratos Defense & Security Solutions • Robinhood Token",
+      "supply": 83.18476,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x57b0030166db0c31690d1a5aa167e2e26e2c29a4",
+      "symbol": "LRCX",
+      "name": "Lam Research Corp • Robinhood Token",
+      "supply": 11.09282379,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xc93f4d80e268ab922e871bd169156c3cc41894e6",
+      "symbol": "MTSI",
+      "name": "MACOM • Robinhood Token",
+      "supply": 14.49103,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xc6cbad1016b38b797610c25e1dc7d95988b1f362",
+      "symbol": "MOD",
+      "name": "Modine • Robinhood Token",
+      "supply": 56.46302,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xddf2266b79abf0b48898959b0ed6e6adf512be74",
+      "symbol": "MDB",
+      "name": "MongoDB • Robinhood Token",
+      "supply": 23.01637,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xf7181b63fdb858558a74ba96bc42732684cd7965",
+      "symbol": "NAVN",
+      "name": "Navan • Robinhood Token",
+      "supply": 93.97300999999999,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x1eebee7f74517e0279dfb09d25b0407beec3fdd6",
+      "symbol": "SMR",
+      "name": "NuScale Power • Robinhood Token",
+      "supply": 1590.34536,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x8b2f88497f15a18e9d4ffa1a8ffb8538399ae774",
+      "symbol": "OKLO",
+      "name": "Oklo • Robinhood Token",
+      "supply": 311.408,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x8ff63eaeee3fe54ba450c4f5538064ec5a893aef",
+      "symbol": "ONTO",
+      "name": "Onto Innovation • Robinhood Token",
+      "supply": 16.821,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x40e7a279850e443f582059ae5dc1c3b6563e6395",
+      "symbol": "OUST",
+      "name": "Ouster • Robinhood Token",
+      "supply": 121.188,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xb039597ed45cba7b6e2fb9e8be51802969cee5be",
+      "symbol": "PANW",
+      "name": "Palo Alto Networks • Robinhood Token",
+      "supply": 15.18901,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xaa4d64474c172010ab57719cb9951e6142a100d3",
+      "symbol": "PL",
+      "name": "Planet Labs • Robinhood Token",
+      "supply": 266.02902,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xcf6b2d875361be807eafa57458c80f28521f9333",
+      "symbol": "POET",
+      "name": "POET Technologies • Robinhood Token",
+      "supply": 1835.24902,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x237c16d66590f67b886d978acd362eaead8b18c7",
+      "symbol": "POWL",
+      "name": "Powell Industries • Robinhood Token",
+      "supply": 42.065,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x9ab02ead789b6903c3c44d0ed32f9c707cdf12fd",
+      "symbol": "PWR",
+      "name": "Quanta • Robinhood Token",
+      "supply": 3.912,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x92ef19e82bd8ff36661de838d5eae7e5cef0effe",
+      "symbol": "RDW",
+      "name": "Redwire • Robinhood Token",
+      "supply": 1390.221,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x284358abc07f9359f19f4b5b4ac91901be2597ba",
+      "symbol": "RGTI",
+      "name": "Rigetti Computing • Robinhood Token",
+      "supply": 608.8209999999999,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xd63abb2c13d7a8421a8017a712802053568e3c1d",
+      "symbol": "SCHD",
+      "name": "Schwab US Dividend Equity ETF • Robinhood Token",
+      "supply": 222.42516445,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x285b231728c7e4333799183df1094d775246a535",
+      "symbol": "SLS",
+      "name": "SELLAS Life Sciences • Robinhood Token",
+      "supply": 306,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x0c3260af4b8f13a69c4c2dfb84fd667890cdfa14",
+      "symbol": "NOW",
+      "name": "ServiceNow • Robinhood Token",
+      "supply": 56.02563,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x77e655e37f4d913fb9540e0d541d824171a60e81",
+      "symbol": "SIMO",
+      "name": "Silicon Motion • Robinhood Token",
+      "supply": 25.59169,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x6e3dfd9f7e1649baa14d25cac18c94d62db10a54",
+      "symbol": "SOUN",
+      "name": "SoundHound AI • Robinhood Token",
+      "supply": 7888.69138,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x15cd20759ce7f3285c29a319de2d1a2e098c6f43",
+      "symbol": "XLK",
+      "name": "State Street Technology Select Sector SPDR ETF • Robinhood Token",
+      "supply": 45.752466520000006,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xb1cc0ec7db69cf43539119814df40071b9d61793",
+      "symbol": "TEM",
+      "name": "Tempus AI • Robinhood Token",
+      "supply": 79.216,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x2778c5024d5ca2cdb0f8ead671ffc69963adcd9c",
+      "symbol": "TER",
+      "name": "Teradyne • Robinhood Token",
+      "supply": 23.65431535,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x89776d4cd68193597a2fc132cfac1fde36ccea8a",
+      "symbol": "TSEM",
+      "name": "Tower Semiconductor • Robinhood Token",
+      "supply": 33.40201,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x0e6e67ba88e7b5d9b67636a215c76779b948de79",
+      "symbol": "UMC",
+      "name": "United Microelectronics • Robinhood Token",
+      "supply": 182.072,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x072f979c2cac8e1391b0162a87fee094bf8744a0",
+      "symbol": "SMH",
+      "name": "VanEck Semiconductor ETF • Robinhood Token",
+      "supply": 218.988,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xfa78c12e6488814a0262e4e802749a4a737d5fb7",
+      "symbol": "VRT",
+      "name": "Vertiv • Robinhood Token",
+      "supply": 30.0309413,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x26dcbfb34fc83cabd6990f449674efdc6097ff85",
+      "symbol": "VSAT",
+      "name": "ViaSat • Robinhood Token",
+      "supply": 74.845,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x6006ed4b2f94110851ff7509d97d034f0eed9226",
+      "symbol": "VICR",
+      "name": "Vicor • Robinhood Token",
+      "supply": 30.006,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0xa8eb3bccbf2017ee7cbfb652eb51cf2e1b153289",
+      "symbol": "XNDU",
+      "name": "Xanadu Quantum • Robinhood Token",
+      "supply": 564,
+      "liquidityUsd": 0,
+      "pools": 0
+    },
+    {
+      "address": "0x7dc013eb55e436f30d7ed1afe4e36d6e45e3c3f7",
+      "symbol": "ZS",
+      "name": "Zscaler • Robinhood Token",
+      "supply": 14.011,
+      "liquidityUsd": 0,
+      "pools": 0
+    }
+  ]
+}

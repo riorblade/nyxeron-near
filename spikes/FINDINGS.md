@@ -32,6 +32,7 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Can the issuer act on holders?                                           | Yes: the shared implementation has `isBlocked(address)`, `pause()`, `burn(address,uint256)`; the sequencer also filters transactions for compliance                 | 15     |
 | Can a NEAR account sign Robinhood Chain (EVM) transactions?              | Yes: testnet MPC signed a real 3.3 KB USDG → TSLA swap in 5.7 s; the recovered signer = the derived address                                                         | 16     |
 | Can we reach Robinhood from Indonesia?                                   | Robinhood's own domains (docs, official RPC) resolve to an ISP block page; public RPCs (publicnode, drpc) work                                                      | 15     |
+| Which stocks can we offer on Robinhood Chain?                            | **201 genuine stock tokens** (verified on-chain); 80 have > $10k DEX liquidity; the deepest 25 all fill a $5 USDG buy at ≈ $5.00                                    | 18     |
 
 ## Still to test
 
@@ -330,3 +331,55 @@ TGas); signature assembled and the signer recovered with viem.
 
 Both work technically. Robinhood is easier to build (EVM signing) and fills small buys well; Solana has fewer fake
 tokens and no ISP block. Both make the platform a custodian of issuer-controlled tokens.
+
+## 18 · Every genuine Robinhood stock token (2026-11-04)
+
+**Ran:** all 1,438 Robinhood Chain contracts CoinGecko lists → codehash on-chain → for the
+201 with the shared beacon-proxy code, the EIP-1967 beacon slot → name, ticker, supply →
+DexScreener liquidity → a $5 USDG route on KyberSwap for the deepest 25.
+
+**Saw:**
+
+- **201 genuine stock tokens**, all pointing at Robinhood's beacon. 80 have more than
+  $10k of DEX liquidity. 2 contracts CoinGecko lists with "Robinhood Token" in the
+  name are not genuine.
+- Not just stocks: ETFs (SPY, QQQ, SLV, USO), a short Treasury fund (SGOV) and a private company (SPCX, SpaceX).
+- Deepest 25 (USD value received for $5 of USDG in the last column):
+
+| Ticker | Name                                                      | Address                                      | DEX liquidity | $5 USDG buys |
+| ------ | --------------------------------------------------------- | -------------------------------------------- | ------------- | ------------ |
+| CRCL   | Circle Internet Group                                     | `0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5` | $2,730,435    | 5.015        |
+| USO    | United States Oil Fund                                    | `0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344` | $1,940,890    | 4.988        |
+| MSTR   | Strategy Inc.                                             | `0xec262a75e413fafd0df80480274532c79d42da09` | $1,898,629    | 5            |
+| SPCX   | Space Exploration Technologies Corp. Class A Common Stock | `0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea` | $1,764,796    | 5.005        |
+| SPY    | SPDR S&P 500 ETF Trust                                    | `0x117cc2133c37b721f49de2a7a74833232b3b4c0c` | $1,632,612    | 5.001        |
+| QQQ    | Invesco QQQ                                               | `0xd5f3879160bc7c32ebb4dc785f8a4f505888de68` | $1,363,082    | 5            |
+| NVDA   | NVIDIA                                                    | `0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec` | $1,125,300    | 5.003        |
+| BABA   | Alibaba                                                   | `0xad25ac6c84d497db898fa1e8387bf6af3532a1c4` | $1,048,369    | 4.999        |
+| SKHY   | SK hynix Inc. American Depositary Shares                  | `0x84cab63bc87912e71ad199ff14a0ba45de68fef8` | $989,155      | 4.992        |
+| SGOV   | iShares 0-3 Month Treasury Bond                           | `0x92fd66527192e3e61d4ddd13322aa222de86f9b5` | $701,283      | 4.997        |
+| GOOGL  | Alphabet Class A                                          | `0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3` | $558,676      | 4.996        |
+| AMZN   | Amazon                                                    | `0x12f190a9f9d7d37a250758b26824b97ce941bf54` | $538,913      | 4.994        |
+| META   | Meta Platforms                                            | `0xc0d6457c16cc70d6790dd43521c899c87ce02f35` | $482,970      | 4.998        |
+| MU     | Micron Technology                                         | `0xff080c8ce2e5feadaca0da81314ae59d232d4afd` | $437,024      | 5.004        |
+| COST   | Costco                                                    | `0x4ea005168d7f09a7a0ba9d1def21a479950e44c2` | $393,170      | 5.002        |
+| RDDT   | Reddit                                                    | `0x05b37fb53a299a1b874a619e1c4c404d52c36f4c` | $371,512      | 4.993        |
+| TSM    | Taiwan Semiconductor Manufacturing                        | `0x58ffe4a942d3885baa22d7520691f611ef09e7aa` | $368,636      | 4.992        |
+| GME    | GameStop                                                  | `0x1b0e319c6a659f002271b69db8a7df2f911c153e` | $359,309      | 4.995        |
+| AMD    | AMD                                                       | `0x86923f96303d656e4aa86d9d42d1e57ad2023fdc` | $351,612      | 5.004        |
+| TSLA   | Tesla                                                     | `0x322f0929c4625ed5bad873c95208d54e1c003b2d` | $327,852      | 5            |
+| MSFT   | Microsoft                                                 | `0xe93237c50d904957cf27e7b1133b510c669c2e74` | $298,628      | 5.005        |
+| HIMS   | Hims & Hers Health                                        | `0xccee82fe024c36fa15e1005ede3e9e4787e23d09` | $261,413      | 4.991        |
+| DELL   | Dell                                                      | `0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd` | $244,998      | 4.997        |
+| AVGO   | Broadcom                                                  | `0x156e175dd063a8ce274c50654ef40e0032b3fbcf` | $243,170      | 4.982        |
+| AAPL   | Apple                                                     | `0xaf3d76f1834a1d425780943c99ea8a608f8a93f9` | $238,333      | 4.996        |
+
+- Next 55 with > $10k liquidity: PLTR, MRNA, SNDK, RBLX, COIN, INTC, BE, CRWV, NFLX, TTWO, SLV, BMNR, ORCL, LLY, DJT, AMC, GLD, NBIS, GLXY, F, FIG, QUBT, USAR, PENG, BULL, DIS, MCD, NU, IBM, BA, VTI, NET, WYFI, SNAP, RIVN, SNOW, LULU, LITE, ASML, RUN, JNJ, INDA, PFE, WDC, SOXX, CEG, LMT, ZM, RKLB, MRVL, RCAT, QCOM, PYPL, V, HPE.
+- Liquidity sits mostly in one pool per token.
+
+**Means:**
+
+- The drink menu can carry dozens of real stocks and ETFs, not just three. Pin the menu to addresses from this list;
+  never look a stock up by name or ticker.
+- Discovery came from CoinGecko's list, so a genuine token CoinGecko doesn't list would be missed. Fine for picking a
+  menu; the official `/assets` API (blocked here) is the full source.
