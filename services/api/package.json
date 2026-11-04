@@ -16,6 +16,7 @@
     "@nyxeron/game": "workspace:*",
     "hono": "4.13.16",
     "jose": "6.2.15",
+    "viem": "2.57.16",
     "zod": "4.6.7"
   }
 }
