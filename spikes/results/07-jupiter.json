@@ -1,0 +1,63 @@
+{
+  "spike": "07-jupiter",
+  "ranAt": "2026-11-04T07:29:01.353Z",
+  "priceLite": {
+    "status": 200,
+    "ms": 128,
+    "item": {
+      "createdAt": "2025-06-11T09:41:10Z",
+      "liquidity": 1791556.370492183,
+      "usdPrice": 379.85052745468505,
+      "blockId": 465217909,
+      "decimals": 8,
+      "priceChange24h": -5.32464006142486,
+      "stockData": {
+        "id": "xstocks",
+        "price": 391.473,
+        "mcap": 1596191490384.46,
+        "updatedAt": "2026-11-04T07:28:48.372Z"
+      }
+    }
+  },
+  "priceApi": {
+    "status": 200,
+    "ms": 117,
+    "item": {
+      "createdAt": "2025-06-11T09:41:10Z",
+      "liquidity": 1791556.370492183,
+      "usdPrice": 379.85052745468505,
+      "blockId": 465217909,
+      "decimals": 8,
+      "priceChange24h": -5.32464006142486,
+      "stockData": {
+        "id": "xstocks",
+        "price": 391.473,
+        "mcap": 1596191490384.46,
+        "updatedAt": "2026-11-04T07:28:48.372Z"
+      }
+    }
+  },
+  "swapOrders": [
+    {
+      "usd": 1,
+      "status": 200,
+      "ms": 331,
+      "outAmount": "262843",
+      "priceImpactPct": "0.029596374597852085",
+      "router": "metis",
+      "routes": ["Riptide"],
+      "txBytes": 478,
+      "lastValidBlockHeight": "443238866"
+    },
+    {
+      "usd": 5,
+      "status": 200,
+      "ms": 325,
+      "outAmount": "1307428",
+      "priceImpactPct": "0.02427923045142571",
+      "router": "jupiterz",
+      "routes": ["JupiterZ"],
+      "txBytes": 697
+    }
+  ]
+}

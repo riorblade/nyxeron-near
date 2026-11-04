@@ -4,20 +4,23 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 
 ## Decisions so far
 
-| Question                                                                 | Answer from spikes                                                                                                                             | Spike |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                | 01    |
-| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                              | 02    |
-| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                        | 03    |
-| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                           | 03    |
-| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                | 03    |
-| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                               | 03    |
-| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player | 04    |
-| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                          | 05    |
-| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                     | 05    |
-| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                      | 05    |
-| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill   | 05    |
-| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                      | 06    |
+| Question                                                                 | Answer from spikes                                                                                                                                         | Spike  |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                            | 01     |
+| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                                          | 02     |
+| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                                    | 03     |
+| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                                       | 03     |
+| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                            | 03     |
+| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                                           | 03     |
+| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player             | 04     |
+| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                                      | 05     |
+| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                                 | 05     |
+| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                                  | 05     |
+| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill               | 05     |
+| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                                  | 06     |
+| Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC) | 06, 07 |
+| Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                | 07     |
+| Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                 | 07     |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -161,3 +164,26 @@ Storage registration for each: 0.00125 NEAR (same as USDC).
 - A token can sit a few percent off its share. Pricing drinks from the share price while buying Ondo tokens would
   leave a gap the game has to absorb or show.
 - Not tested yet: withdrawing an Ondo token from the `intents.near` balance into the player's own NEAR account.
+
+## 07 · Jupiter, Solana read-only (2026-11-04, 07:29 UTC, US market closed)
+
+**Ran:** `price/v3` on `lite-api.jup.ag` and `api.jup.ag`; `swap/v2/order` USDC → TSLAx for $1 and $5 with a taker
+address (nothing signed or sent).
+
+**Saw:**
+
+- Both price hosts answered 200 without a key, same data: TSLAx `usdPrice` **$379.85**, `stockData.price`
+  **$391.473** (updated 07:28 UTC), `priceChange24h` −5.3 %, liquidity $1.79M. `stockData` and `scaledUiConfig`
+  aren't in Jupiter's docs.
+- `$1` order: 200 in 331 ms, route Riptide (router `metis`), out 262,843 raw (0.00262843 TSLAx), price impact
+  0.03 %, **unsigned tx 478 bytes**.
+- `$5` order: route JupiterZ (RFQ), out 1,307,428 raw, impact 0.02 %, **unsigned tx 697 bytes**.
+
+**Means:**
+
+- The token-vs-share gap seen in spike 06 is mostly market hours: tokens trade 24/7, `stockData` holds the last
+  close. A drink must be priced from the token we actually buy (xStock or Ondo market price), or the platform sells
+  below cost overnight. Fix `services/api/src/quotes.ts` accordingly.
+- Solana liquidity for xStocks is much deeper than Ondo on NEAR: $1 swaps fill.
+- Swap transactions fit inside the Chain Signatures payload limit, so an MPC-controlled Solana address can buy.
+- `lite-api.jup.ag` still works but is being phased out: use `api.jup.ag`.
