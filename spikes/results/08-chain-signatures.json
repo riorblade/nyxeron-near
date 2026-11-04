@@ -1,0 +1,24 @@
+{
+  "spike": "08-chain-signatures",
+  "ranAt": "2026-11-04T07:31:30.377Z",
+  "mpcContract": "v1.signer-prod.testnet",
+  "mpcRootEd25519": "ed25519:6vSEtQxrQj6txUMh33WC4ERyCWmNMRTdufDWAaDY3Un2",
+  "path": "nyxeron-warehouse-sol",
+  "predecessor": "nyx-player-mw1s6tmj.testnet",
+  "derivedKey": "ed25519:DXAHvbovcp8CEYeUGLV2unndKp7ro3N8v6NVmzf8SbQQ",
+  "solanaAddress": "DXAHvbovcp8CEYeUGLV2unndKp7ro3N8v6NVmzf8SbQQ",
+  "jupiter": {
+    "router": "swap/v1",
+    "v2Refusal": "Insufficient funds",
+    "v2FeeBps": 10,
+    "txBytes": 485,
+    "signersNeeded": 1,
+    "messageBytes": 420
+  },
+  "signRequest": {
+    "ms": 6226,
+    "signatureBytes": 64,
+    "resultShape": ["scheme", "signature"]
+  },
+  "signatureVerifies": true
+}

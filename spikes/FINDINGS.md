@@ -21,6 +21,8 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC) | 06, 07 |
 | Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                | 07     |
 | Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                 | 07     |
+| Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                         | 08     |
+| Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                   | 08     |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -187,3 +189,27 @@ address (nothing signed or sent).
 - Solana liquidity for xStocks is much deeper than Ondo on NEAR: $1 swaps fill.
 - Swap transactions fit inside the Chain Signatures payload limit, so an MPC-controlled Solana address can buy.
 - `lite-api.jup.ag` still works but is being phased out: use `api.jup.ag`.
+
+## 08 · Chain Signatures → Solana, testnet MPC (2026-11-04)
+
+**Ran:** on `v1.signer-prod.testnet` (version 3.18.0): `public_key {domain_id: 1}`, `derived_public_key` for our
+account + path `nyxeron-warehouse-sol`; built a real $1 USDC → TSLAx Jupiter transaction for the derived address;
+called `sign` with the message bytes (1 yocto, 250 TGas); verified the signature with Node's Ed25519.
+
+**Saw:**
+
+- Root Ed25519 key `ed25519:6vSE…3Un2`; derived key `ed25519:DXAH…SbQQ`. The derived key's base58 string **is** the
+  Solana address `DXAHvbovcp8CEYeUGLV2unndKp7ro3N8v6NVmzf8SbQQ` (same 32 bytes, same encoding).
+- Jupiter Swap **v2** refused the unfunded address (`Insufficient funds`, and shows a 10 bps fee); Swap **v1** built a
+  485-byte v0 transaction with one signer and a 420-byte message.
+- `sign` returned in **6.2 s** with `{ scheme, signature }` (64 bytes), not the `{ Ed25519: { signature } }` shape in
+  the docs. **The signature verifies** over the message with the derived key.
+- `rpc.testnet.near.org` and `rpc.mainnet.near.org` now answer every call with `-429 … ENDPOINT IS DEPRECATED`.
+
+**Means:**
+
+- A NEAR account (or our contract) can own and operate a Solana address with no private key anywhere. Signing takes
+  seconds, well inside a Solana blockhash's validity.
+- Not tested: broadcasting (needs SOL and USDC on the derived address = mainnet money) and the mainnet MPC
+  (`v1.signer`, which derives a different address for the same path).
+- The response shape differs from the docs: parse both.
