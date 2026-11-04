@@ -1,0 +1,24 @@
+{
+  "spike": "16-chain-signatures-evm",
+  "ranAt": "2026-11-04T11:24:02.857Z",
+  "mpcContract": "v1.signer-prod.testnet",
+  "path": "nyxeron-warehouse-hood",
+  "predecessor": "nyx-player-mw1s6tmj.testnet",
+  "derivedKey": "secp256k1:2NvRjCJ8ahbGaVH9EkDx22ApyhGiQ35tUSwUpfTksuH94wdhERX4YQstmvMg95koHapXwcjv6N1B3wL5cXniTy6u",
+  "evmAddress": "0x7ACa80ff325f7fa47D365631D22597d3f354ee1a",
+  "swap": {
+    "router": "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5",
+    "calldataBytes": 3172,
+    "tslaOut": 0.002620533521513179
+  },
+  "txHash": "0xf76177e013760df1377d000c64417e8122eb20918ad8f889342102f23aa6ab79",
+  "signRequest": {
+    "ms": 5678,
+    "resultKeys": ["scheme", "big_r", "s", "recovery_id"],
+    "recoveryId": 1
+  },
+  "signedTxBytes": 3283,
+  "recovered": "0x7ACa80ff325f7fa47D365631D22597d3f354ee1a",
+  "signerMatches": true,
+  "note": "not broadcast: the address holds no USDG or ETH"
+}
