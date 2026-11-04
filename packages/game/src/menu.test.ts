@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isTokenId, maxPriceMicroUsdc, tokenIds, tokens, wholesaleMicroUsdc } from './index.ts'
+import { isTokenId, maxPriceMicroUsdc, tokenIds, tokens, wholesaleMicroUsdc } from './menu.ts'
 
 describe('menu', () => {
   it('has ten pinned Robinhood stock tokens with distinct addresses', () => {
