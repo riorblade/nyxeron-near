@@ -22,3 +22,16 @@ export function validate<T extends ZodType>(target: 'json' | 'query' | 'param', 
     }
   })
 }
+
+// At most `limit` calls per key per window; throws 429 `too_many` beyond that.
+// ponytail: in-memory, per process; fine for one api instance, move to the database if we ever run several.
+export function rateLimit(limit: number, windowMs: number, now = Date.now) {
+  const hits = new Map<string, number[]>()
+  return (key: string) => {
+    const t = now()
+    const recent = (hits.get(key) ?? []).filter((at) => t - at < windowMs)
+    if (recent.length >= limit) throw new AppError(429, 'too_many')
+    recent.push(t)
+    hits.set(key, recent)
+  }
+}

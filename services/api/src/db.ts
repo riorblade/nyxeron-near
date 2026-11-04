@@ -37,6 +37,18 @@ const migrations = [
      granted_by TEXT    NOT NULL,
      at         INTEGER NOT NULL
    );`,
+  // 2. every delegate the relayer submitted for a player, for the back office
+  `CREATE TABLE relays (
+     id       INTEGER PRIMARY KEY,
+     user_id  TEXT    NOT NULL REFERENCES users(id),
+     receiver TEXT    NOT NULL,
+     method   TEXT    NOT NULL,
+     tx_hash  TEXT    NOT NULL DEFAULT '',
+     ok       INTEGER NOT NULL,
+     error    TEXT    NOT NULL DEFAULT '',
+     at       INTEGER NOT NULL
+   );
+   CREATE INDEX relays_user ON relays(user_id, id);`,
 ]
 
 export function openDb(path: string): Db {
