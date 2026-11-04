@@ -78,3 +78,17 @@ export function requireLive(what: string): void {
     process.exit(0)
   }
 }
+
+// Ondo stock tokens on NEAR, looked up by symbol in the Intents bridge's token list (their contract ids aren't kept
+// in this repo). Returns symbol → NEAR contract id.
+export async function ondoTokens(symbols = ['TSLAon', 'NVDAon', 'SPYon']): Promise<Record<string, string>> {
+  const res = await fetch('https://bridge.chaindefuser.com/rpc', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'supported_tokens', params: [{}] }),
+  })
+  const body = (await res.json()) as { result: { tokens: { asset_name: string; near_token_id: string }[] } }
+  const out: Record<string, string> = {}
+  for (const t of body.result.tokens) if (symbols.includes(t.asset_name)) out[t.asset_name] = t.near_token_id
+  return out
+}

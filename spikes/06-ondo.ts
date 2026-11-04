@@ -1,13 +1,9 @@
 // 06 · Ondo stock tokens on NEAR (mainnet, read-only): what the contracts say, and whether their price matches
 // the real share. Uses the 1Click quote from spike 05 for the token price and Jupiter (spike 07) for the share price.
-import { save, view } from './lib.ts'
+import { ondoTokens, save, view } from './lib.ts'
 
-const ONDO = {
-  TSLAon: 'bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near',
-  NVDAon: 'bnb-0xa9ee28c80f960b889dfbd1902055218cba016f75.omdep.near',
-  SPYon: 'bnb-0x6a708ead771238919d85930b5a0f10454e1c331a.omdep.near',
-}
-const XSTOCK_MINT = {
+const ONDO = await ondoTokens()
+const XSTOCK_MINT: Record<string, string> = {
   TSLAon: 'XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB',
   NVDAon: 'Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh',
   SPYon: 'XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W',
@@ -47,9 +43,8 @@ for (const [symbol, id] of Object.entries(ONDO)) {
   const q = ((await res.json()) as { quote?: { amountOut: string; amountInUsd: string } }).quote
   const tokensOut = q ? Number(q.amountOut) / 10 ** meta.decimals : undefined
   const tokenPrice = q && tokensOut ? Number(q.amountInUsd) / tokensOut : undefined
-  const share = jup[XSTOCK_MINT[symbol as keyof typeof XSTOCK_MINT]]?.stockData?.price
+  const share = jup[XSTOCK_MINT[symbol]!]?.stockData?.price
   out[symbol] = {
-    contract: id,
     metadata: { name: meta.name, symbol: meta.symbol, decimals: meta.decimals },
     totalSupply: Number(supply) / 10 ** meta.decimals,
     storageMinYocto: storage,
