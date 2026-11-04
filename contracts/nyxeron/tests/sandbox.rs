@@ -710,3 +710,64 @@ async fn probe_client_gas() -> testresult::TestResult<()> {
     }
     Ok(())
 }
+
+/// Gas of a payment and a settle when a party is at `MAX_OWED_PER_PARTY` (256) entries, the worst case for the
+/// per-party list. Slow (256 guests), so run with `--ignored --nocapture`.
+#[tokio::test]
+#[ignore]
+async fn full_party_gas() -> testresult::TestResult<()> {
+    const MAX_OWED_PER_PARTY: usize = 256;
+    let env = Arc::new(deploy().await?);
+    let party = "p".repeat(MAX_KEY_LEN);
+    let mut tasks = tokio::task::JoinSet::new();
+    for i in 0..MAX_OWED_PER_PARTY - 1 {
+        let env = env.clone();
+        let party = party.clone();
+        tasks.spawn(async move {
+            let guest = env.guest(&format!("{i:0>56}"), 1).await.unwrap();
+            env.pay(&guest, &env.quote(&format!("q{i}"), &party, &guest, 1), PRICE)
+                .await
+                .unwrap()
+                .assert_success();
+        });
+    }
+    while let Some(r) = tasks.join_next().await {
+        r?;
+    }
+    let last = env.guest(&format!("{:0>56}", "last"), 2).await?;
+    let paid = env
+        .pay(&last, &env.quote("q-last", &party, &last, 1), PRICE)
+        .await?
+        .into_full()
+        .unwrap();
+    assert!(paid.is_success());
+    assert!(paid.logs().iter().any(|l| l.contains(r#""event":"purchase""#)));
+    let late = env.guest(&format!("{:0>56}", "late"), 1).await?;
+    let refused = env
+        .pay(&late, &env.quote("q-late", &party, &late, 1), PRICE)
+        .await?
+        .into_full()
+        .unwrap();
+    assert!(refused.logs().iter().any(|l| l.contains("party_full")));
+    env.call(
+        "mint_warehouse",
+        json!({ "token_id": "tsla", "amount": "1", "proof": "tx-full" }),
+    )
+    .await?
+    .assert_success();
+    let settled = env
+        .call(
+            "settle",
+            json!({ "party": party, "op_id": "full:1", "transfers": [send(&last, 1)] }),
+        )
+        .await?
+        .into_full()
+        .unwrap();
+    assert!(settled.is_success());
+    println!(
+        "party at {MAX_OWED_PER_PARTY} entries: payment {:.2} TGas, settle of 1 {:.2} TGas",
+        gas_tgas(&paid),
+        gas_tgas(&settled)
+    );
+    Ok(())
+}

@@ -1048,3 +1048,19 @@ fn the_contract_as_ceo_is_refunded() {
 fn the_contract_as_treasury_is_refused() {
     bare().set_treasury(warehouse());
 }
+
+#[test]
+fn a_full_party_refunds_new_guests_but_not_returning_ones() {
+    let mut c = bare();
+    for n in 0..MAX_OWED_PER_PARTY as u32 {
+        assert_eq!(pay(&mut c, &quote("p1", &guest(n), 1)), 0);
+    }
+    let q = quote("p1", &guest(9999), 1);
+    let refund = pay(&mut c, &q);
+    assert_refused(&mut c, &q, refund, total(&q), "party_full");
+    // A guest already owed in this party adds to their entry, so it still fits.
+    assert_eq!(pay(&mut c, &quote("p1", &guest(0), 1)), 0);
+    assert_eq!(c.owed("p1".into()).len(), MAX_OWED_PER_PARTY);
+    // Other parties are separate.
+    assert_eq!(pay(&mut c, &quote("p2", &guest(9999), 1)), 0);
+}

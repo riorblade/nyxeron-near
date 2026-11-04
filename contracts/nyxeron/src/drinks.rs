@@ -12,6 +12,9 @@ use near_sdk::{
 
 /// Longest quote JSON accepted, in bytes. A quote with 64-byte ids and accounts is about 400.
 pub const MAX_QUOTE_LEN: usize = 1024;
+/// Most (guest, token) entries a party may owe. Every purchase reads and rewrites the party's list, so this bounds
+/// its gas; a guest already on the list can keep buying.
+pub const MAX_OWED_PER_PARTY: usize = 256;
 /// Gas for the USDC `ft_transfer` and for our callback after it.
 const GAS_FOR_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_FOR_CALLBACK: Gas = Gas::from_tgas(5);
@@ -295,6 +298,14 @@ impl Contract {
         }
         if self.pots.get(&quote.party).is_some_and(|p| p.released) {
             return Err("party_closed");
+        }
+        if let Some(owed) = self.owed.get(&quote.party)
+            && owed.len() >= MAX_OWED_PER_PARTY
+            && !owed
+                .iter()
+                .any(|o| o.account_id == quote.buyer && o.token_id == quote.token)
+        {
+            return Err("party_full");
         }
         Ok(Purchase {
             total,

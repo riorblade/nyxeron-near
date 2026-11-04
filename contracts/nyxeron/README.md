@@ -61,19 +61,20 @@ bytes it was given, then parses them, so the api may format the JSON any way it 
 
 Accepted when all hold, otherwise the **whole amount is refunded** and a `refund` event says why (`reason`):
 
-| Check                                                                | `reason`                              |
-| -------------------------------------------------------------------- | ------------------------------------- |
-| the caller is the configured USDC contract                           | `wrong_token`                         |
-| not paused; a quote key is set                                       | `paused`, `no_quote_key`              |
-| `msg` parses, the quote is ≤ 1024 bytes, `sig` is 64 bytes and valid | `bad_msg`, `bad_signature`            |
-| `v == 1`                                                             | `bad_version`                         |
-| `id`, `party` 1–64 bytes; `ceo` is not this contract                 | `bad_quote`                           |
-| `id` never used before                                               | `quote_used`                          |
-| `buyer` is the payer (`sender_id`)                                   | `buyer_mismatch`                      |
-| `token` registered, `qty > 0`, `block_timestamp_ms ≤ expires_ms`     | `unknown_token`, `bad_qty`, `expired` |
-| `0 < unit_wholesale ≤ unit_price ≤ 3 × unit_wholesale`               | `bad_price`                           |
-| `amount == unit_price × qty`                                         | `bad_amount`                          |
-| the party's wholesale was not released yet                           | `party_closed`                        |
+| Check                                                                                              | `reason`                              |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| the caller is the configured USDC contract                                                         | `wrong_token`                         |
+| not paused; a quote key is set                                                                     | `paused`, `no_quote_key`              |
+| `msg` parses, the quote is ≤ 1024 bytes, `sig` is 64 bytes and valid                               | `bad_msg`, `bad_signature`            |
+| `v == 1`                                                                                           | `bad_version`                         |
+| `id`, `party` 1–64 bytes; `ceo` is not this contract                                               | `bad_quote`                           |
+| `id` never used before                                                                             | `quote_used`                          |
+| `buyer` is the payer (`sender_id`)                                                                 | `buyer_mismatch`                      |
+| `token` registered, `qty > 0`, `block_timestamp_ms ≤ expires_ms`                                   | `unknown_token`, `bad_qty`, `expired` |
+| `0 < unit_wholesale ≤ unit_price ≤ 3 × unit_wholesale`                                             | `bad_price`                           |
+| `amount == unit_price × qty`                                                                       | `bad_amount`                          |
+| the party's wholesale was not released yet                                                         | `party_closed`                        |
+| the party owes fewer than 256 (guest, token) entries, or this guest already has one for this token | `party_full`                          |
 
 Effects: the margin `(unit_price − unit_wholesale) × qty` is sent to `ceo` (if that transfer fails, e.g. the CEO is
 not registered on USDC, it waits for `claim_margin`); `unit_wholesale × qty` goes to the party's pot;
@@ -123,6 +124,8 @@ on USDC too, or their transfers fail (margin waits for `claim_margin`, a release
 - A drink payment (`ft_transfer_call` → `ft_on_transfer` → margin `ft_transfer` → callback → resolve): 11.5 TGas
   burnt. It works with 30 TGas attached (the token's own minimum); the client attaches 100 (`probe_client_gas`).
   Circle's USDC is a different contract: check once on testnet.
+- A party at its cap of 256 owed entries: a payment burns 16.0 TGas, a settle of one guest 7.2 TGas
+  (`full_party_gas`, ignored by default). Attach 100 TGas, not the 30 minimum.
 - The first purchase of a party stores 204 bytes (≈ 0.002 NEAR, from the contract's balance); settling frees the
   owed entry again.
 - `settle` of 32 transfers with the longest ids (64-char accounts and `party`, 64-char `op_id`): 23.1 TGas and under

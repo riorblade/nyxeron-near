@@ -16,7 +16,7 @@ Re-run before the mainnet deploy if the contract changes.
 | yocto attach            | by design | Owner methods take no deposit so the api can call them with a function-call key (SPEC §6.2). Holder transfers require exactly 1 yocto (library). Outgoing `ft_transfer`s attach 1 yocto from the contract                                                                                     |
 | storage collision       | ok        | Our prefixes are `BorshStorageKey` variants (`0x00`–`0x06`); the library's slots start with `~` (`~$245`, …)                                                                                                                                                                                  |
 | initialization          | ok        | `#[init] new`, `PanicOnDefault`                                                                                                                                                                                                                                                               |
-| gas griefing            | ok        | `settle` takes at most 32 transfers (16 KiB log cap; 23.1 TGas). `owed(party)` is one vector per party that grows with distinct guests × tokens; only api-signed, paid quotes add to it                                                                                                       |
+| gas griefing            | ok        | `settle` takes at most 32 transfers (16 KiB log cap; 23.1 TGas). Each party's `owed` list is read and rewritten per purchase, so it is capped at 256 entries (`party_full`): 16.0 TGas per payment at the cap. Only api-signed, paid quotes add entries                                       |
 | insecure randomness     | n/a       | No randomness                                                                                                                                                                                                                                                                                 |
 | prepaid gas             | ok        | Margin and release transfers get 10 TGas static plus 5 TGas for the callback. A payment works from 30 TGas attached (sandbox probe); with too little gas the promise fails to schedule, `ft_on_transfer` panics, and the token refunds the whole amount                                       |
 | cover storage cost      | accepted  | New holders (141 bytes) and a party's first purchase (204 bytes, ≈ 0.002 NEAR) are paid from the contract balance. Holders creating accounts pay ≥ 1 unit (~\$0.40) per 0.0014 NEAR locked; purchases need an api-signed quote and a real payment                                             |
@@ -32,6 +32,9 @@ Re-run before the mainnet deploy if the contract changes.
 - **Medium (v2, found before merge): margin or wholesale could be locked for good.** A quote with `ceo` = this
   contract, or the treasury set to this contract, makes USDC refuse the transfer (to yourself), and no one could claim
   it. Both are refused (`the_contract_as_ceo_is_refunded`, `the_contract_as_treasury_is_refused`).
+- **Medium (v2, automated review before merge): a party's `owed` list had no bound.** Every purchase reads and
+  rewrites it, so a big enough party would run purchases out of gas (refunded, but the party could not sell). Capped
+  at 256 entries with refusal `party_full`; measured 16.0 TGas per payment at the cap.
 
 ## Risks the team accepts or decides
 

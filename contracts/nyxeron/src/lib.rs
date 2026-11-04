@@ -11,7 +11,7 @@ use near_sdk::{
 };
 
 mod drinks;
-pub use drinks::{Config, MAX_QUOTE_LEN, Owed, PartyPot, Quote};
+pub use drinks::{Config, MAX_OWED_PER_PARTY, MAX_QUOTE_LEN, Owed, PartyPot, Quote};
 use near_sdk_contract_tools::hook::Hook;
 use near_sdk_contract_tools::mt::{
     Nep245Burn, Nep245Controller, Nep245Mint, Nep245Transfer,
