@@ -24,7 +24,9 @@ export type Identity = {
   profile(userId: string): Promise<Profile>
 }
 
-const PRIVY = 'https://auth.privy.io/api/v1'
+// Keys stay on auth.privy.io; the REST API lives on api.privy.io (OpenAPI: https://api.privy.io/v1/openapi.json).
+const PRIVY_JWKS = 'https://auth.privy.io/api/v1/apps'
+const PRIVY_API = 'https://api.privy.io/v1'
 // Implicit (64 hex) or named account, the rule NEAR uses.
 const NEAR_ACCOUNT = /^(?:[0-9a-f]{64}|(?:(?:[a-z\d]+[-_])*[a-z\d]+\.)+(?:[a-z\d]+[-_])*[a-z\d]+)$/
 
@@ -35,7 +37,7 @@ export function privyIdentity(
   opts: { jwks?: JWTVerifyGetKey; fetch?: typeof fetch } = {},
 ): Identity {
   // jose caches the keys and refetches on an unknown key id (rotation).
-  const jwks = opts.jwks ?? createRemoteJWKSet(new URL(`${PRIVY}/apps/${encodeURIComponent(appId)}/jwks.json`))
+  const jwks = opts.jwks ?? createRemoteJWKSet(new URL(`${PRIVY_JWKS}/${encodeURIComponent(appId)}/jwks.json`))
   const doFetch = opts.fetch ?? fetch
   const basic = `Basic ${Buffer.from(`${appId}:${secret}`).toString('base64')}`
   return {
@@ -45,7 +47,7 @@ export function privyIdentity(
       return payload.sub
     },
     async profile(userId) {
-      const res = await doFetch(`${PRIVY}/users/${encodeURIComponent(userId)}`, {
+      const res = await doFetch(`${PRIVY_API}/users/${encodeURIComponent(userId)}`, {
         headers: { authorization: basic, 'privy-app-id': appId },
         signal: AbortSignal.timeout(10_000),
       })

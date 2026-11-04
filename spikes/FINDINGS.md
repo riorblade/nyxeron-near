@@ -4,28 +4,36 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 
 ## Decisions so far
 
-| Question                                                                 | Answer from spikes                                                                                                                                         | Spike  |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                            | 01     |
-| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                                          | 02     |
-| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                                    | 03     |
-| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                                       | 03     |
-| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                            | 03     |
-| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                                           | 03     |
-| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player             | 04     |
-| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                                      | 05     |
-| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                                 | 05     |
-| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                                  | 05     |
-| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill               | 05     |
-| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                                  | 06     |
-| Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC) | 06, 07 |
-| Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                | 07     |
-| Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                 | 07     |
-| Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                         | 08     |
-| Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                   | 08     |
-| Is there a second market for Ondo tokens on NEAR (Rhea)?                 | **No**: 0 Rhea pools hold TSLAon/NVDAon/SPYon (of 2,465 pools)                                                                                             | 09     |
-| Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                   | 09     |
-| Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                        | 09     |
+| Question                                                                 | Answer from spikes                                                                                                                                                  | Spike  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                                     | 01     |
+| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                                                   | 02     |
+| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                                             | 03     |
+| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                                                | 03     |
+| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                                     | 03     |
+| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                                                    | 03     |
+| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player                      | 04     |
+| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                                               | 05     |
+| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                                          | 05     |
+| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                                           | 05     |
+| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill                        | 05     |
+| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                                           | 06     |
+| Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC)          | 06, 07 |
+| Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                         | 07     |
+| Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                          | 07     |
+| Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                                  | 08     |
+| Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                            | 08     |
+| Is there a second market for Ondo tokens on NEAR (Rhea)?                 | **No**: 0 Rhea pools hold TSLAon/NVDAon/SPYon (of 2,465 pools)                                                                                                      | 09     |
+| Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                            | 09     |
+| Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                                 | 09     |
+| Are there real tokenized stocks with deep liquidity on Robinhood Chain?  | Yes: genuine TSLA/NVDA/SPY verified on-chain; $1 USDG → TSLA fills at ≈ 0.2 % + $0.015 gas, $5–50 almost no slippage                                                | 15     |
+| Can NEAR Intents fund Robinhood Chain?                                   | Yes: 10 USDC NEAR → 9.905 USDG (≈ 19 s), 1 USDC → ETH for gas (≈ 21 s)                                                                                              | 15     |
+| Are lookalike stock tokens a real risk?                                  | Yes: a fake "NVIDIA Robinhood Token" with 1B supply sits in DEX search; a third-party registry pointed TSLA at an address with no code. Only trust the beacon check | 15     |
+| Can the issuer act on holders?                                           | Yes: the shared implementation has `isBlocked(address)`, `pause()`, `burn(address,uint256)`; the sequencer also filters transactions for compliance                 | 15     |
+| Can a NEAR account sign Robinhood Chain (EVM) transactions?              | Yes: testnet MPC signed a real 3.3 KB USDG → TSLA swap in 5.7 s; the recovered signer = the derived address                                                         | 16     |
+| Can we reach Robinhood from Indonesia?                                   | Robinhood's own domains (docs, official RPC) resolve to an ISP block page; public RPCs (publicnode, drpc) work                                                      | 15     |
+| Which stocks can we offer on Robinhood Chain?                            | **201 genuine stock tokens** (verified on-chain); 80 have > $10k DEX liquidity; the deepest 25 all fill a $5 USDG buy at ≈ $5.00                                    | 18     |
+| Does the relay wire format work end to end?                              | Yes: a zero-NEAR player's delegate travels as 296 bytes of base64 borsh, decodes, verifies and relays in 2.8 s; `/api/onboard` + `/api/relay` work against testnet  | 19, 20 |
 
 ## Still to test
 
@@ -144,7 +152,7 @@ implicit id from spike 04.
 Also seen:
 
 - `/v0/tokens` lists 215 tokens and **no tokenized stocks**; Ondo tokens quote by asset id
-  (`nep141:bnb-0x…omdep.near`) even though they aren't listed.
+  (by their NEAR contract id) even though they aren't listed.
 - 1Click validates addresses strictly: `0x…dEaD` and `fff…f` (not an ed25519 key) are refused.
 - No fee for missing JWT showed up in `appFees` today (docs say 25 bps).
 
@@ -154,7 +162,7 @@ Also seen:
 - Real stocks via Ondo work only as **batched lots of about $10+**, held in the player's `intents.near` balance, with a
   market that sometimes refuses sizes. Never one swap per drink. Treat Ondo liquidity as unreliable: a buy must be
   retried or fall back.
-- Ondo tokens on NEAR are bridged from chain 56 (their ids start with `bnb-`): the team must decide whether that's
+- Ondo tokens on NEAR are bridged in from another chain, and their contract ids name it: the team decides whether that's
   acceptable.
 
 ## 06 · Ondo stock tokens on NEAR, mainnet read-only (2026-11-04)
@@ -164,11 +172,11 @@ each; the real share price from Jupiter's `stockData`.
 
 **Saw:**
 
-| Token                             | Contract                     | Decimals | Supply on NEAR  | Price via 1Click ($50) | Share price | Token vs share |
-| --------------------------------- | ---------------------------- | -------- | --------------- | ---------------------- | ----------- | -------------- |
-| Tesla (Ondo Tokenized)            | `bnb-0x2494…9d93.omdep.near` | 18       | 147.96 (≈ $56k) | $381.22                | $391.47     | **−2.62 %**    |
-| NVIDIA (Ondo Tokenized)           | `bnb-0xa9ee…6f75.omdep.near` | 18       | 75.27 (≈ $16k)  | $208.49                | $206.11     | +1.15 %        |
-| SPDR S&P 500 ETF (Ondo Tokenized) | `bnb-0x6a70…331a.omdep.near` | 18       | 16.19 (≈ $12k)  | $762.87                | $752.13     | +1.43 %        |
+| Token                             | Contract          | Decimals | Supply on NEAR  | Price via 1Click ($50) | Share price | Token vs share |
+| --------------------------------- | ----------------- | -------- | --------------- | ---------------------- | ----------- | -------------- |
+| Tesla (Ondo Tokenized)            | (bridged NEP-141) | 18       | 147.96 (≈ $56k) | $381.22                | $391.47     | **−2.62 %**    |
+| NVIDIA (Ondo Tokenized)           | (bridged NEP-141) | 18       | 75.27 (≈ $16k)  | $208.49                | $206.11     | +1.15 %        |
+| SPDR S&P 500 ETF (Ondo Tokenized) | (bridged NEP-141) | 18       | 16.19 (≈ $12k)  | $762.87                | $752.13     | +1.43 %        |
 
 Storage registration for each: 0.00125 NEAR (same as USDC).
 
@@ -248,3 +256,162 @@ called `sign` with the message bytes (1 yocto, 250 TGas); verified the signature
 - No on-chain stock price on NEAR today. A contract that must check a stock price needs a price signed by our server
   (or a custom OutLayer TEE job, untested).
 - AI guests/NPCs are possible later via NEAR AI Cloud; not needed for the core loop.
+
+## 15 · Robinhood Chain as the stock backing (mainnet read-only, 2026-11-04)
+
+**Ran:** Robinhood Chain (id 4663) through public RPCs; on-chain checks of five token contracts seen in the wild;
+selector scan of the shared implementation; KyberSwap routes USDG → TSLA; 1Click dry quotes to Robinhood Chain.
+
+**Saw:**
+
+- **Chain:** id 4663, blocks every **~0.1 s**, gas 0.02 gwei. Testnet id 46630 exists. `rpc.mainnet.chain.robinhood.com`,
+  `rpc.testnet.chain.robinhood.com` and `docs.robinhood.com` resolve to `blockpage.xlaxiata.id` here (ISP block in
+  Indonesia); `robinhood-rpc.publicnode.com` and `robinhood.drpc.org` answer.
+- **Which tokens are genuine.** Genuine = codehash `0x6c1fdd40…5630` (shared beacon proxy) and EIP-1967 beacon
+  `0xe10b6f6b…1b00` (method from a public bot issue; matches all three Robinhood-named tokens):
+
+| Candidate                                        | Name on chain                            | Supply           | Beacon proxy? | Verdict          |
+| ------------------------------------------------ | ---------------------------------------- | ---------------- | ------------- | ---------------- |
+| `0x322F…003b2d`                                  | Tesla • Robinhood Token                  | 12,938 (≈ $4.9M) | ✅            | **genuine TSLA** |
+| `0xC9f9…3Bd4E` (a third-party registry's "TSLA") | — (no code at that address)              | —                | ❌            | wrong            |
+| `0xd060…9EEC`                                    | NVIDIA • Robinhood Token                 | 86,462           | ✅            | **genuine NVDA** |
+| `0xA328…0f2c`                                    | " NVIDIA Robinhood Token " (spaces)      | 999,999,950      | ❌            | **fake**         |
+| `0x117c…4C0C`                                    | SPDR S&P 500 ETF Trust • Robinhood Token | 27,030           | ✅            | **genuine SPY**  |
+
+- **What the token code can do** (implementation `0xb354…5aE2`, selectors found): `paused()`, `pause()`,
+  `unpause()`, **`isBlocked(address)`**, **`burn(address,uint256)`**, `mint(address,uint256)`, `uiMultiplier()`,
+  `balanceOfUI(address)`, `hasRole(bytes32,address)`. Beosin's review adds 13 roles, an oracle-driven pause, and
+  sequencer-level compliance filtering of every transaction against a restricted list.
+- **Swaps USDG → TSLA (KyberSwap, no key):**
+
+| In  | TSLA out  | Value out | Gas    | Route              |
+| --- | --------- | --------- | ------ | ------------------ |
+| $1  | 0.0026205 | $0.998    | $0.015 | Uniswap v3         |
+| $5  | 0.0131144 | $4.994    | $0.024 | PMM (market maker) |
+| $10 | 0.0262456 | $10.000   | $0.028 | TideFi             |
+| $50 | 0.1311593 | $49.975   | $0.028 | TideFi             |
+
+- **Intents:** 10 USDC NEAR → **9.905 USDG** on Robinhood Chain (`withdrawFee` 0.075 USDG), est. 19 s; 1 USDC NEAR →
+  0.000417 ETH ($0.97) for gas, est. 21 s.
+
+**Means:**
+
+- Robinhood Chain has what Ondo-on-NEAR lacks: real depth at any size, $1 buys, and Intents delivers USDG straight to
+  it.
+- Never resolve a stock by name or ticker: pin addresses checked against the beacon proxy.
+- The issuer can block, pause or burn tokens at any address, including ours, and the chain filters transactions.
+  Holding them for players is custodial and depends on Robinhood's compliance rules.
+- Our servers and players in Indonesia can't reach Robinhood's own domains; use public RPCs.
+
+## 16 · Chain Signatures → Robinhood Chain, EVM (testnet MPC, 2026-11-04)
+
+**Ran:** `derived_public_key` with `domain_id: 0` (Secp256k1) for our account + path `nyxeron-warehouse-hood`;
+KyberSwap `route/build` for a $1 USDG → TSLA swap from that address; EIP-1559 hash signed by `sign` (1 yocto, 250
+TGas); signature assembled and the signer recovered with viem.
+
+**Saw:** derived EVM address `0x7ACa80ff325f7fa47D365631D22597d3f354ee1a`; swap calldata 3,172 bytes to router
+`0x6131…37b5`; MPC answered in **5.7 s** with `{ scheme, big_r, s, recovery_id }`; signed tx 3,283 bytes;
+**recovered signer = derived address**. Not broadcast (the address holds no USDG or ETH).
+
+**Means:** for EVM, Chain Signatures only signs a 32-byte hash, so transaction size doesn't matter (unlike Solana's
+1232-byte message limit), and the tooling (viem) is standard. A NEAR account can operate a Robinhood Chain wallet.
+
+## Robinhood Chain vs Solana xStocks (from spikes 05–08, 15, 16)
+
+|                          | Robinhood Chain                            | Solana xStocks                                              |
+| ------------------------ | ------------------------------------------ | ----------------------------------------------------------- |
+| Liquidity, $1 buy        | ✅ fills, ≈ 0.2 % + $0.015 gas             | ✅ fills, 0.03 % impact                                     |
+| Bigger buys              | $5–50 near zero slippage (market makers)   | deep ($2–3M pools)                                          |
+| Intents funding          | USDG + ETH ✅                              | USDC + SOL ✅                                               |
+| Chain Signatures         | EVM: hash signing, standard tooling ✅     | Ed25519: message ≤ 1232 bytes; chainsig.js lacks v0 support |
+| Fake tokens              | many (must pin and verify)                 | mint addresses from the issuer's API                        |
+| Issuer controls          | block, pause, burn + sequencer compliance  | permanent delegate, freeze, pause                           |
+| Who may hold             | non-US (EU) customers                      | non-US persons                                              |
+| Reachable from Indonesia | public RPCs only                           | yes                                                         |
+| Testnet                  | chain testnet exists, stock tokens unknown | no xStocks on devnet                                        |
+
+Both work technically. Robinhood is easier to build (EVM signing) and fills small buys well; Solana has fewer fake
+tokens and no ISP block. Both make the platform a custodian of issuer-controlled tokens.
+
+## 18 · Every genuine Robinhood stock token (2026-11-04)
+
+**Ran:** all 1,438 Robinhood Chain contracts CoinGecko lists → codehash on-chain → for the
+201 with the shared beacon-proxy code, the EIP-1967 beacon slot → name, ticker, supply →
+DexScreener liquidity → a $5 USDG route on KyberSwap for the deepest 25.
+
+**Saw:**
+
+- **201 genuine stock tokens**, all pointing at Robinhood's beacon. 80 have more than
+  $10k of DEX liquidity. 2 contracts CoinGecko lists with "Robinhood Token" in the
+  name are not genuine.
+- Not just stocks: ETFs (SPY, QQQ, SLV, USO), a short Treasury fund (SGOV) and a private company (SPCX, SpaceX).
+- Deepest 25 (USD value received for $5 of USDG in the last column):
+
+| Ticker | Name                                                      | Address                                      | DEX liquidity | $5 USDG buys |
+| ------ | --------------------------------------------------------- | -------------------------------------------- | ------------- | ------------ |
+| CRCL   | Circle Internet Group                                     | `0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5` | $2,730,435    | 5.015        |
+| USO    | United States Oil Fund                                    | `0xa30fa36db767ad9ed3f7a60fc79526fb4d56d344` | $1,940,890    | 4.988        |
+| MSTR   | Strategy Inc.                                             | `0xec262a75e413fafd0df80480274532c79d42da09` | $1,898,629    | 5            |
+| SPCX   | Space Exploration Technologies Corp. Class A Common Stock | `0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea` | $1,764,796    | 5.005        |
+| SPY    | SPDR S&P 500 ETF Trust                                    | `0x117cc2133c37b721f49de2a7a74833232b3b4c0c` | $1,632,612    | 5.001        |
+| QQQ    | Invesco QQQ                                               | `0xd5f3879160bc7c32ebb4dc785f8a4f505888de68` | $1,363,082    | 5            |
+| NVDA   | NVIDIA                                                    | `0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec` | $1,125,300    | 5.003        |
+| BABA   | Alibaba                                                   | `0xad25ac6c84d497db898fa1e8387bf6af3532a1c4` | $1,048,369    | 4.999        |
+| SKHY   | SK hynix Inc. American Depositary Shares                  | `0x84cab63bc87912e71ad199ff14a0ba45de68fef8` | $989,155      | 4.992        |
+| SGOV   | iShares 0-3 Month Treasury Bond                           | `0x92fd66527192e3e61d4ddd13322aa222de86f9b5` | $701,283      | 4.997        |
+| GOOGL  | Alphabet Class A                                          | `0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3` | $558,676      | 4.996        |
+| AMZN   | Amazon                                                    | `0x12f190a9f9d7d37a250758b26824b97ce941bf54` | $538,913      | 4.994        |
+| META   | Meta Platforms                                            | `0xc0d6457c16cc70d6790dd43521c899c87ce02f35` | $482,970      | 4.998        |
+| MU     | Micron Technology                                         | `0xff080c8ce2e5feadaca0da81314ae59d232d4afd` | $437,024      | 5.004        |
+| COST   | Costco                                                    | `0x4ea005168d7f09a7a0ba9d1def21a479950e44c2` | $393,170      | 5.002        |
+| RDDT   | Reddit                                                    | `0x05b37fb53a299a1b874a619e1c4c404d52c36f4c` | $371,512      | 4.993        |
+| TSM    | Taiwan Semiconductor Manufacturing                        | `0x58ffe4a942d3885baa22d7520691f611ef09e7aa` | $368,636      | 4.992        |
+| GME    | GameStop                                                  | `0x1b0e319c6a659f002271b69db8a7df2f911c153e` | $359,309      | 4.995        |
+| AMD    | AMD                                                       | `0x86923f96303d656e4aa86d9d42d1e57ad2023fdc` | $351,612      | 5.004        |
+| TSLA   | Tesla                                                     | `0x322f0929c4625ed5bad873c95208d54e1c003b2d` | $327,852      | 5            |
+| MSFT   | Microsoft                                                 | `0xe93237c50d904957cf27e7b1133b510c669c2e74` | $298,628      | 5.005        |
+| HIMS   | Hims & Hers Health                                        | `0xccee82fe024c36fa15e1005ede3e9e4787e23d09` | $261,413      | 4.991        |
+| DELL   | Dell                                                      | `0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd` | $244,998      | 4.997        |
+| AVGO   | Broadcom                                                  | `0x156e175dd063a8ce274c50654ef40e0032b3fbcf` | $243,170      | 4.982        |
+| AAPL   | Apple                                                     | `0xaf3d76f1834a1d425780943c99ea8a608f8a93f9` | $238,333      | 4.996        |
+
+- Next 55 with > $10k liquidity: PLTR, MRNA, SNDK, RBLX, COIN, INTC, BE, CRWV, NFLX, TTWO, SLV, BMNR, ORCL, LLY, DJT, AMC, GLD, NBIS, GLXY, F, FIG, QUBT, USAR, PENG, BULL, DIS, MCD, NU, IBM, BA, VTI, NET, WYFI, SNAP, RIVN, SNOW, LULU, LITE, ASML, RUN, JNJ, INDA, PFE, WDC, SOXX, CEG, LMT, ZM, RKLB, MRVL, RCAT, QCOM, PYPL, V, HPE.
+- Liquidity sits mostly in one pool per token.
+
+**Means:**
+
+- The drink menu can carry dozens of real stocks and ETFs, not just three. Pin the menu to addresses from this list;
+  never look a stock up by name or ticker.
+- Discovery came from CoinGecko's list, so a genuine token CoinGecko doesn't list would be missed. Fine for picking a
+  menu; the official `/assets` API (blocked here) is the full source.
+
+## 19 · Relay wire format (testnet, 2026-11-04)
+
+**Ran:** a fresh implicit account (created by a 0 NEAR transfer) signs a delegate with near-api-js; the delegate is
+encoded with `encodeSignedDelegate` and base64 (what the browser sends), decoded with borsh `SCHEMA.SignedDelegate`,
+its Ed25519 signature checked with Node, and relayed as decoded.
+
+**Saw:** 296 bytes on the wire; `signatureValid: true`; relayed in
+2770 ms with `SuccessValue` ([`4sFTBD…`](https://testnet.nearblocks.io/txns/4sFTBDCVXTvhhtYa1HiUFL6rbVcrUTCeUuhA8QDKpJ13)).
+near-api-js exports `SignedDelegate` only as a type; the decoded object relays as is.
+
+**Means:** this is the format `/api/relay` accepts.
+
+## 20 · `/api/onboard` and `/api/relay` against testnet (2026-11-04)
+
+**Ran:** the real api code in-process (only the Privy login faked), the relayer from spike 02, Circle's testnet USDC.
+A new player with 0 NEAR: onboard, then a drink payment (USDC `ft_transfer_call` to `nyxeron.testnet`, 1 yocto).
+
+**Saw:**
+
+- Onboard: account created ([`5JqYrq…`](https://testnet.nearblocks.io/txns/5JqYrqQkKvEkSVpMgGJg1NwLK4f3wsPqBPbujNH3KDsV)) and registered on USDC
+  ([`AVP72W…`](https://testnet.nearblocks.io/txns/AVP72WqsFPrJmvZoX2jSzv9Pn5UoEKPLwmv9Ybf239Uj)) in 7.5 s.
+- Relay: checked, signed by the player, submitted by the relayer, recorded; on chain the USDC contract refused it
+  (`The account doesn't have enough balance`: the player holds no testnet USDC), so the api answered 422 and kept the
+  record with `ok: 0`.
+- A delegate to any other receiver: 403 `receiver_not_allowed`, never sent.
+- Found and fixed on the way: `Account.callFunction` returns the method's value, not the transaction, so the
+  registration hash was lost; `register` now uses `signAndSendTransaction`.
+
+**Means:** the browser only needs Privy to sign the delegate (spike 10). A paid drink needs testnet USDC (Circle
+faucet or our own test token, SPEC §10).

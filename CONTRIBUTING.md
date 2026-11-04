@@ -17,7 +17,7 @@ Team rule: every change, however small, goes through an issue, your own branch a
 
 3. **Small commits.** Commit each step on its own, `type(scope): summary`:
    - types: `feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `ci`, `style`
-   - scopes: `api`, `game`, `web`, `admin`, `agent`, `contracts`, `repo`
+   - scopes: `api`, `game`, `web`, `admin`, `contracts`, `spikes`, `repo`
 4. **Push and open a pull request** into `main`. Title in the same style; the body says `Closes #<issue>`, what
    changed, why, and how you tested it (the template asks).
 5. **Green CI, then merge** with "Create a merge commit" (keeps the small commits). The folder's owner

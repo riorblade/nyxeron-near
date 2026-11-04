@@ -1,5 +1,11 @@
 import { z } from 'zod'
 
+// Circle's USDC on NEAR (spike 04/05).
+export const USDC_BY_NETWORK = {
+  testnet: '3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af',
+  mainnet: '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+} as const
+
 const Env = z
   .object({
     PORT: z.coerce.number().int().positive().default(8788),
@@ -17,11 +23,29 @@ const Env = z
       ),
     NEAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
     DEMO_MODE: z.stringbool().default(false),
+    // The account that pays players' gas and the 1 yocto their payments need. Without it, /relay and /onboard are off.
+    RELAYER_ACCOUNT_ID: z.string().min(2).optional(),
+    RELAYER_KEY: z.string().startsWith('ed25519:').optional(),
+    CONTRACT_ID: z.string().min(2).optional(),
+    USDC_CONTRACT_ID: z.string().min(2).optional(),
   })
   .refine((e) => !(e.DEMO_MODE && e.NEAR_NETWORK === 'mainnet'), {
     message: 'DEMO_MODE hands out free credits: never on mainnet',
     path: ['DEMO_MODE'],
   })
+  .refine((e) => Boolean(e.RELAYER_ACCOUNT_ID) === Boolean(e.RELAYER_KEY), {
+    message: 'set RELAYER_ACCOUNT_ID and RELAYER_KEY together',
+    path: ['RELAYER_KEY'],
+  })
+  .refine((e) => e.NEAR_NETWORK === 'testnet' || Boolean(e.CONTRACT_ID), {
+    message: 'CONTRACT_ID is required on mainnet',
+    path: ['CONTRACT_ID'],
+  })
+  .transform((e) => ({
+    ...e,
+    CONTRACT_ID: e.CONTRACT_ID ?? 'nyxeron.testnet',
+    USDC_CONTRACT_ID: e.USDC_CONTRACT_ID ?? USDC_BY_NETWORK[e.NEAR_NETWORK],
+  }))
 
 export type Config = z.infer<typeof Env>
 

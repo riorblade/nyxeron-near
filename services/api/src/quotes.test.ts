@@ -1,51 +1,65 @@
 import { tokens } from '@nyxeron/game'
 import { describe, expect, it } from 'vitest'
-import { jupiterQuotes } from './quotes.ts'
+import { marketQuotes } from './quotes.ts'
 import { testApp } from './testing.ts'
 
-// Shaped like a real Jupiter answer (2026-11-03), trimmed.
-const answer = {
-  [tokens.tsla.xstock.mint]: {
-    usdPrice: 401.02,
-    priceChange24h: -2.06,
-    decimals: 8,
-    stockData: { id: 'xstocks', price: 402.315 },
-  },
-  [tokens.nvda.xstock.mint]: { usdPrice: 207.39, stockData: { id: 'xstocks', price: 208.205 } },
-  [tokens.spy.xstock.mint]: { usdPrice: 'not a number' },
-}
+const pair = (address: string, priceUsd: string, liquidityUsd: number, h24 = 0) => ({
+  chainId: 'robinhood',
+  dexId: 'uniswap',
+  baseToken: { address, symbol: 'X' },
+  quoteToken: { address: '0x5fc5360d0400a0fd4f2af552add042d716f1d168', symbol: 'USDG' },
+  priceUsd,
+  priceChange: { h24 },
+  liquidity: { usd: liquidityUsd },
+})
 
-function setup(responses: Array<unknown | 'fail'>) {
+// Shaped like a real DexScreener answer (2026-11-04), trimmed.
+const answer = [
+  pair(tokens.tsla.address, '376.30', 328_216, -6.82),
+  pair(tokens.tsla.address, '380.00', 2_000), // thinner pool: ignored for TSLA
+  pair(tokens.nvda.address, '206.89', 1_125_300),
+  pair(tokens.aapl.address, '335.55', 9_000), // below the liquidity floor: no AAPL price
+  { ...pair('0x0000000000000000000000000000000000000001', '1', 50_000), baseToken: { address: tokens.spy.address } },
+  { ...pair(tokens.qqq.address, 'junk', 50_000) },
+  { ...pair(tokens.meta.address, '627.31', 482_970), chainId: 'ethereum' }, // another chain: ignored
+]
+
+function setup(responses: Array<unknown | 'fail'>, allowed?: ReadonlySet<'tsla' | 'nvda'>) {
   let t = 1_000_000
   let calls = 0
-  const fakeFetch = (async () => {
+  let lastUrl = ''
+  const fakeFetch = (async (url: string) => {
+    lastUrl = url
     const next = responses[Math.min(calls++, responses.length - 1)]
     if (next === 'fail') throw new Error('network down')
     return Response.json(next)
   }) as unknown as typeof fetch
-  const quotes = jupiterQuotes({ fetch: fakeFetch, now: () => t })
-  return {
-    quotes,
-    calls: () => calls,
-    wait: (ms: number) => {
-      t += ms
-    },
-  }
+  const quotes = marketQuotes({ fetch: fakeFetch, now: () => t, allowed })
+  return { quotes, calls: () => calls, url: () => lastUrl, wait: (ms: number) => (t += ms) }
 }
 
-describe('jupiterQuotes', () => {
-  it('reads the share price and the xStock price, and skips what it cannot read', async () => {
+describe('marketQuotes', () => {
+  it('takes the deepest pool where the token is the base, and skips thin or broken ones', async () => {
     const { quotes } = setup([answer])
-    const { prices, stale } = await quotes.latest()
-    expect(stale).toBe(false)
-    expect(prices.tsla).toEqual({ usd: 402.315, xstockUsd: 401.02, change24h: -2.06 })
-    expect(prices.nvda).toEqual({ usd: 208.205, xstockUsd: 207.39, change24h: 0 })
-    expect(prices.spy).toBeUndefined()
-    expect(await quotes.spot('tsla')).toBe(402.315)
-    await expect(quotes.spot('spy')).rejects.toThrow('quotes_unavailable')
+    const { prices } = await quotes.latest()
+    expect(prices.tsla).toEqual({ usd: 376.3, change24h: -6.82, liquidityUsd: 328_216 })
+    expect(prices.nvda?.usd).toBe(206.89)
+    expect(prices.aapl).toBeUndefined()
+    expect(prices.qqq).toBeUndefined()
+    expect(prices.meta).toBeUndefined()
+    expect(await quotes.spot('tsla')).toBe(376.3)
+    await expect(quotes.spot('aapl')).rejects.toThrow('quotes_unavailable')
   })
 
-  it('asks Jupiter once per minute, and once for many callers at the same time', async () => {
+  it('asks only for tokens that passed the on-chain check', async () => {
+    const { quotes, url } = setup([answer], new Set(['tsla']))
+    const { prices } = await quotes.latest()
+    expect(Object.keys(prices)).toEqual(['tsla'])
+    expect(url()).toContain(tokens.tsla.address)
+    expect(url()).not.toContain(tokens.nvda.address)
+  })
+
+  it('asks once per minute, and once for many callers at the same time', async () => {
     const { quotes, calls, wait } = setup([answer])
     await Promise.all([quotes.latest(), quotes.latest(), quotes.latest()])
     expect(calls()).toBe(1)
@@ -57,13 +71,13 @@ describe('jupiterQuotes', () => {
     expect(calls()).toBe(2)
   })
 
-  it('keeps the last good prices when Jupiter fails, marked stale, for up to 10 minutes', async () => {
+  it('keeps the last good prices when the source fails, marked stale, for up to 10 minutes', async () => {
     const { quotes, wait } = setup([answer, 'fail'])
     await quotes.latest()
     wait(5 * 60_000)
     const later = await quotes.latest()
     expect(later.stale).toBe(true)
-    expect(later.prices.tsla?.usd).toBe(402.315)
+    expect(later.prices.tsla?.usd).toBe(376.3)
     wait(6 * 60_000)
     await expect(quotes.latest()).rejects.toThrow('quotes_unavailable')
   })

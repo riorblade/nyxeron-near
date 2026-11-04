@@ -48,12 +48,12 @@
       "recency_duration_sec": 600,
       "prices": [
         {
-          "asset_id": "bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near",
+          "asset_id": "Ondo TSLAon",
           "price": null
         }
       ]
     },
-    "raw": "{\"nearPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"wrap.near\",\"price\":null}]},\"tslaPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near\",\"price\":null}]}}"
+    "raw": "{\"nearPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"wrap.near\",\"price\":null}]},\"tslaPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"Ondo TSLAon\",\"price\":null}]}}"
   },
   "nearAiCloud": {
     "modelCount": 64,

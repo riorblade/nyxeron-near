@@ -1,7 +1,7 @@
 // 05 · NEAR Intents 1Click (mainnet, dry quotes only: nothing is sent, no deposit address is created).
 // Top-up into a player's own NEAR account, cash-out, Ondo stock tokens, small amounts (one drink ≈ $0.40),
 // the intents.near balance, delivery into a contract with ft_transfer_call, and funding a Solana address.
-import { save } from './lib.ts'
+import { ondoTokens, save } from './lib.ts'
 
 const API = 'https://1click.chaindefuser.com/v0'
 // A real ed25519 implicit id (the zero-NEAR player from spike 04). 'fff…f' is refused: 1Click checks it is a valid key.
@@ -19,7 +19,7 @@ const USDC_NEAR = find('near', 'USDC')!.assetId
 const USDC_BASE = find('base', 'USDC')!.assetId
 const SOL = find('sol', 'SOL')!.assetId
 const USDC_SOL = find('sol', 'USDC')!.assetId
-const TSLAON = 'nep141:bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near' // Ondo Tesla, not in /v0/tokens
+const TSLAON = `nep141:${(await ondoTokens(['TSLAon'])).TSLAon}` // Ondo Tesla, not in /v0/tokens
 
 async function quote(name: string, body: Record<string, unknown>) {
   const t = performance.now()
@@ -178,6 +178,6 @@ const stockLike = tokens.filter((t) => /(^|[^a-z])(TSLA|NVDA|SPY|AAPL|QQQ|MSFT|G
 save('05-intents', {
   tokenCount: tokens.length,
   stockTokensListed: stockLike.map((t) => `${t.symbol}@${t.blockchain}`),
-  assets: { USDC_NEAR, USDC_BASE, SOL, USDC_SOL, TSLAON },
+  assets: { USDC_NEAR, USDC_BASE, SOL, USDC_SOL, TSLAON: 'Ondo TSLAon (looked up by symbol)' },
   quotes: results,
 })

@@ -4,6 +4,7 @@ import { createApp } from './app.ts'
 import type { Identity, Profile } from './auth.ts'
 import { type Config, loadConfig } from './config.ts'
 import { openDb, run } from './db.ts'
+import type { Relayer } from './near.ts'
 import type { Quotes } from './quotes.ts'
 
 // Token "tok-alice" signs in as did:privy:alice with alice@test.io and a NEAR account derived from the id.
@@ -25,7 +26,7 @@ export function fakeIdentity(overrides: Partial<Record<string, Profile | 'down'>
 // Fixed prices: TSLA $400, NVDA $200, SPY $600.
 export const fakeQuotes: Quotes = {
   async latest() {
-    const q = (usd: number) => ({ usd, xstockUsd: usd, change24h: 0 })
+    const q = (usd: number) => ({ usd, change24h: 0, liquidityUsd: 1_000_000 })
     return { at: 0, stale: false, prices: { tsla: q(400), nvda: q(200), spy: q(600) } }
   },
   async spot(id) {
@@ -33,10 +34,50 @@ export const fakeQuotes: Quotes = {
   },
 }
 
-export function testApp(env: Record<string, string> = {}, identity = fakeIdentity(), quotes = fakeQuotes) {
+// Records what the api asked the relayer to do; `failRelay` makes the next relay land with a failure.
+export function fakeRelayer() {
+  const accounts = new Set<string>()
+  const registered = new Set<string>()
+  const calls: string[] = []
+  let failNext = false
+  const relayer: Relayer = {
+    async relay(d) {
+      calls.push(`relay:${d.delegateAction.receiverId}:${d.delegateAction.actions[0]?.functionCall?.methodName}`)
+      if (failNext) {
+        failNext = false
+        return { hash: 'tx-failed', ok: false, error: 'ActionError' }
+      }
+      return { hash: 'tx-ok', ok: true }
+    },
+    async accountExists(id) {
+      return accounts.has(id)
+    },
+    async createImplicit(id) {
+      calls.push(`create:${id}`)
+      accounts.add(id)
+      return 'tx-create'
+    },
+    async isRegistered(token, id) {
+      return registered.has(`${token}:${id}`)
+    },
+    async register(token, id) {
+      calls.push(`register:${id}`)
+      registered.add(`${token}:${id}`)
+      return 'tx-register'
+    },
+  }
+  return { relayer, calls, failRelay: () => (failNext = true) }
+}
+
+export function testApp(
+  env: Record<string, string> = {},
+  identity = fakeIdentity(),
+  quotes = fakeQuotes,
+  relayer?: Relayer,
+) {
   const cfg: Config = loadConfig({ PRIVY_APP_ID: 'app', PRIVY_APP_SECRET: 'secret', ...env })
   const db = openDb(':memory:')
-  const app = createApp({ cfg, db, identity, quotes })
+  const app = createApp({ cfg, db, identity, quotes, relayer })
   const call = (method: string, path: string, token?: string, body?: unknown) =>
     app.request(path, {
       method,

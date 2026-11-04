@@ -6,6 +6,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "near-api-js": "7.4.0"
+    "borsh": "2.0.0",
+    "near-api-js": "7.4.0",
+    "viem": "2.57.16"
   }
 }

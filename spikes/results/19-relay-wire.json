@@ -1,0 +1,21 @@
+{
+  "spike": "19-relay-wire",
+  "ranAt": "2026-11-04T12:47:21.784Z",
+  "playerId": "d8cdafa9e342371cc86d0bcabbe97916c144f1ae71631e399b4babe673243d5e",
+  "wireBytes": 296,
+  "decoded": {
+    "senderId": "d8cdafa9e342371cc86d0bcabbe97916c144f1ae71631e399b4babe673243d5e",
+    "receiverId": "guestbook.near-examples.testnet",
+    "method": "add_message",
+    "deposit": "0",
+    "gas": "30000000000000"
+  },
+  "signatureValid": true,
+  "relay": {
+    "ms": 2770,
+    "hash": "4sFTBDCVXTvhhtYa1HiUFL6rbVcrUTCeUuhA8QDKpJ13",
+    "status": {
+      "SuccessValue": ""
+    }
+  }
+}

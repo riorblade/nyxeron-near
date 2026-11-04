@@ -1,6 +1,6 @@
 # Who reviews what. The owner of a folder approves its pull requests.
 *                            @riorblade
 /contracts/                  @ghozzza
-/apps/agent/src/chainsig.ts  @ghozzza
+/services/api/src/chainsig.ts  @ghozzza
 /apps/web/                   @AdityaWisnuu
 /README.md                   @AdityaWisnuu @riorblade
