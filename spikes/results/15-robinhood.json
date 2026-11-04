@@ -1,0 +1,121 @@
+{
+  "spike": "15-robinhood",
+  "ranAt": "2026-11-04T11:23:02.718Z",
+  "chain": {
+    "chainId": 4663,
+    "head": 105862073,
+    "avgBlockMs": 104,
+    "gasPriceGwei": 0.020214
+  },
+  "tokens": {
+    "TSLA (Quicknode, Trust Wallet, DexScreener)": {
+      "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+      "name": "Tesla • Robinhood Token",
+      "symbol": "TSLA",
+      "decimals": 18,
+      "totalSupply": 12938.137130000001,
+      "codehash": "0x6c1fdd40002dcb440c7fff6a84171404d279ccb057803b65826f7546acd65630",
+      "beacon": "0xe10b6f6b275de231345c20d14ab812db62151b00",
+      "genuine": true
+    },
+    "TSLA (hoodchain registry)": {
+      "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E",
+      "beacon": "0x0000000000000000000000000000000000000000",
+      "genuine": false
+    },
+    "NVDA \"NVIDIA • Robinhood Token\"": {
+      "address": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      "name": "NVIDIA • Robinhood Token",
+      "symbol": "NVDA",
+      "decimals": 18,
+      "totalSupply": 86462.32879385,
+      "codehash": "0x6c1fdd40002dcb440c7fff6a84171404d279ccb057803b65826f7546acd65630",
+      "beacon": "0xe10b6f6b275de231345c20d14ab812db62151b00",
+      "genuine": true
+    },
+    "NVDA \"  NVIDIA Robinhood Token \"": {
+      "address": "0xA3284897ad7c8FED700b04f573Cf64E4f6c10f2c",
+      "name": " NVIDIA Robinhood Token ",
+      "symbol": "NVDA",
+      "decimals": 18,
+      "totalSupply": 999999950,
+      "codehash": "0xd1cf95453f5fb704ebbc181fd2a9f5af2ec825fb340445f4af46e2bf833f01da",
+      "beacon": "0x0000000000000000000000000000000000000000",
+      "genuine": false
+    },
+    "SPY \"SPDR S&P 500 ETF Trust • Robinhood Token\"": {
+      "address": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+      "name": "SPDR S&P 500 ETF Trust • Robinhood Token",
+      "symbol": "SPY",
+      "decimals": 18,
+      "totalSupply": 27030.291337759998,
+      "codehash": "0x6c1fdd40002dcb440c7fff6a84171404d279ccb057803b65826f7546acd65630",
+      "beacon": "0xe10b6f6b275de231345c20d14ab812db62151b00",
+      "genuine": true
+    }
+  },
+  "implementation": "0xb35490d6f9163DE4F80d88dc75c3516eb64C5aE2",
+  "restrictionSelectorsPresent": [
+    "paused()",
+    "pause()",
+    "unpause()",
+    "isBlocked(address)",
+    "burn(address,uint256)",
+    "mint(address,uint256)",
+    "uiMultiplier()",
+    "balanceOfUI(address)",
+    "hasRole(bytes32,address)"
+  ],
+  "swapRoutesUsdgToTsla": [
+    {
+      "usd": 1,
+      "tslaOut": 0.002620527214056847,
+      "inUsd": 0.9997839307248118,
+      "outUsd": 0.9978063560221986,
+      "gasUsd": 0.015401422551081628,
+      "exchanges": ["up-v3"]
+    },
+    {
+      "usd": 5,
+      "tslaOut": 0.013114429737342321,
+      "inUsd": 4.998919653624059,
+      "outUsd": 4.993522401650141,
+      "gasUsd": 0.02407301182718291,
+      "exchanges": ["pmm-19"]
+    },
+    {
+      "usd": 10,
+      "tslaOut": 0.026245607981949484,
+      "inUsd": 10.003776715383438,
+      "outUsd": 10.000283152170061,
+      "gasUsd": 0.028263668172011213,
+      "exchanges": ["tidefi-prop"]
+    },
+    {
+      "usd": 50,
+      "tslaOut": 0.13115933524473886,
+      "inUsd": 50.0188835769172,
+      "outUsd": 49.9752374340067,
+      "gasUsd": 0.028263668172011213,
+      "exchanges": ["tidefi-prop"]
+    }
+  ],
+  "intents": [
+    {
+      "label": "10 USDC NEAR → USDG on Robinhood Chain",
+      "status": 201,
+      "amountOut": "9904831",
+      "amountOutUsd": "9.904831000000",
+      "timeEstimate": 19,
+      "withdrawFee": "75000"
+    },
+    {
+      "label": "1 USDC NEAR → ETH on Robinhood Chain (gas)",
+      "status": 201,
+      "amountOut": "417446531287568",
+      "amountOutUsd": "0.972909234749",
+      "timeEstimate": 21,
+      "withdrawFee": "10000000000000"
+    }
+  ]
+}
