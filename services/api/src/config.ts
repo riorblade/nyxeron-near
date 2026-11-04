@@ -28,6 +28,8 @@ const Env = z
     RELAYER_KEY: z.string().startsWith('ed25519:').optional(),
     CONTRACT_ID: z.string().min(2).optional(),
     USDC_CONTRACT_ID: z.string().min(2).optional(),
+    // ed25519 secret the api signs drink quotes with; its public key is set on the contract with set_quote_key.
+    QUOTE_KEY: z.string().startsWith('ed25519:').optional(),
   })
   .refine((e) => !(e.DEMO_MODE && e.NEAR_NETWORK === 'mainnet'), {
     message: 'DEMO_MODE hands out free credits: never on mainnet',
