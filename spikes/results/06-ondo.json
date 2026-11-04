@@ -1,0 +1,61 @@
+{
+  "spike": "06-ondo",
+  "ranAt": "2026-11-04T07:28:23.562Z",
+  "TSLAon": {
+    "contract": "bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near",
+    "metadata": {
+      "name": "Tesla (Ondo Tokenized)",
+      "symbol": "TSLAon",
+      "decimals": 18
+    },
+    "totalSupply": 147.96065809968616,
+    "storageMinYocto": {
+      "min": "1250000000000000000000",
+      "max": "1250000000000000000000"
+    },
+    "quote50Usdc": {
+      "tokensOut": 0.13107903068200985,
+      "impliedTokenPriceUsd": 381.2173445287627
+    },
+    "sharePriceUsd": 391.473,
+    "tokenVsShare": "-2.62 %"
+  },
+  "NVDAon": {
+    "contract": "bnb-0xa9ee28c80f960b889dfbd1902055218cba016f75.omdep.near",
+    "metadata": {
+      "name": "NVIDIA (Ondo Tokenized)",
+      "symbol": "NVDAon",
+      "decimals": 18
+    },
+    "totalSupply": 75.2684247748192,
+    "storageMinYocto": {
+      "min": "1250000000000000000000",
+      "max": "1250000000000000000000"
+    },
+    "quote50Usdc": {
+      "tokensOut": 0.23967726238140957,
+      "impliedTokenPriceUsd": 208.48702752821438
+    },
+    "sharePriceUsd": 206.108,
+    "tokenVsShare": "1.15 %"
+  },
+  "SPYon": {
+    "contract": "bnb-0x6a708ead771238919d85930b5a0f10454e1c331a.omdep.near",
+    "metadata": {
+      "name": "SPDR S&P 500 ETF (Ondo Tokenized)",
+      "symbol": "SPYon",
+      "decimals": 18
+    },
+    "totalSupply": 16.193321849052214,
+    "storageMinYocto": {
+      "min": "1250000000000000000000",
+      "max": "1250000000000000000000"
+    },
+    "quote50Usdc": {
+      "tokensOut": 0.06550224598915962,
+      "impliedTokenPriceUsd": 762.8684977957822
+    },
+    "sharePriceUsd": 752.132,
+    "tokenVsShare": "1.43 %"
+  }
+}

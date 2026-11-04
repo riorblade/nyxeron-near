@@ -17,6 +17,7 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                     | 05    |
 | Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                      | 05    |
 | Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill   | 05    |
+| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                      | 06    |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -111,7 +112,7 @@ implicit id from spike 04.
 | Top-up → contract via `ft_transfer_call` (`customRecipientMsg`) | ✅ quote                                                    | → 9.999 USDC                 | 0                                                | 35 s      |
 | Cash-out 10 USDC → Base                                         | ✅                                                          | → 9.996 USDC                 | 0.0024                                           | 22 s      |
 | Fund Solana: 10 USDC → USDC on Solana                           | ✅                                                          | → 9.989                      | 0.0100                                           | 17 s      |
-| Fund Solana: 1 USDC → SOL                                       | ✅                                                          | → 0.0106 SOL ($0.985)        | 0.107 SOL-lamports-scale fee                     | 19 s      |
+| Fund Solana: 1 USDC → SOL                                       | ✅                                                          | → 0.0106 SOL ($0.985)        | 107,371 lamports (0.000107 SOL)                  | 19 s      |
 | Ondo TSLAon, `DESTINATION_CHAIN` to a NEAR account              | ❌ `recipient is not valid`                                 | —                            | —                                                | —         |
 | Ondo TSLAon, `DESTINATION_CHAIN` to an EVM address              | ✅ = withdraws off NEAR to its origin chain                 | —                            | —                                                | 23 s      |
 | Ondo TSLAon → player `intents.near` balance, $10 / $50 / $100   | ✅                                                          | $9.99 → $9.91 (≈ 0.8 % cost) | 0                                                | 20 s      |
@@ -137,3 +138,26 @@ Also seen:
   retried or fall back.
 - Ondo tokens on NEAR are bridged from chain 56 (their ids start with `bnb-`): the team must decide whether that's
   acceptable.
+
+## 06 · Ondo stock tokens on NEAR, mainnet read-only (2026-11-04)
+
+**Ran:** `ft_metadata`, `ft_total_supply`, `storage_balance_bounds` on the three Ondo contracts; a $50 dry quote for
+each; the real share price from Jupiter's `stockData`.
+
+**Saw:**
+
+| Token                             | Contract                     | Decimals | Supply on NEAR  | Price via 1Click ($50) | Share price | Token vs share |
+| --------------------------------- | ---------------------------- | -------- | --------------- | ---------------------- | ----------- | -------------- |
+| Tesla (Ondo Tokenized)            | `bnb-0x2494…9d93.omdep.near` | 18       | 147.96 (≈ $56k) | $381.22                | $391.47     | **−2.62 %**    |
+| NVIDIA (Ondo Tokenized)           | `bnb-0xa9ee…6f75.omdep.near` | 18       | 75.27 (≈ $16k)  | $208.49                | $206.11     | +1.15 %        |
+| SPDR S&P 500 ETF (Ondo Tokenized) | `bnb-0x6a70…331a.omdep.near` | 18       | 16.19 (≈ $12k)  | $762.87                | $752.13     | +1.43 %        |
+
+Storage registration for each: 0.00125 NEAR (same as USDC).
+
+**Means:**
+
+- The tokens are real NEP-141 contracts a NEAR account can hold, but the amounts bridged to NEAR are tiny, which
+  explains the patchy liquidity in spike 05.
+- A token can sit a few percent off its share. Pricing drinks from the share price while buying Ondo tokens would
+  leave a gap the game has to absorb or show.
+- Not tested yet: withdrawing an Ondo token from the `intents.near` balance into the player's own NEAR account.
