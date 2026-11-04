@@ -725,10 +725,14 @@ async fn full_party_gas() -> testresult::TestResult<()> {
         let party = party.clone();
         tasks.spawn(async move {
             let guest = env.guest(&format!("{i:0>56}"), 1).await.unwrap();
-            env.pay(&guest, &env.quote(&format!("q{i}"), &party, &guest, 1), PRICE)
-                .await
-                .unwrap()
-                .assert_success();
+            env.pay(
+                &guest,
+                &env.quote(&format!("q{i}"), &party, &guest, 1),
+                PRICE,
+            )
+            .await
+            .unwrap()
+            .assert_success();
         });
     }
     while let Some(r) = tasks.join_next().await {
@@ -741,7 +745,11 @@ async fn full_party_gas() -> testresult::TestResult<()> {
         .into_full()
         .unwrap();
     assert!(paid.is_success());
-    assert!(paid.logs().iter().any(|l| l.contains(r#""event":"purchase""#)));
+    assert!(
+        paid.logs()
+            .iter()
+            .any(|l| l.contains(r#""event":"purchase""#))
+    );
     let late = env.guest(&format!("{:0>56}", "late"), 1).await?;
     let refused = env
         .pay(&late, &env.quote("q-late", &party, &late, 1), PRICE)
