@@ -1,0 +1,11 @@
+{
+  "name": "@nyxeron/spikes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  }
+}

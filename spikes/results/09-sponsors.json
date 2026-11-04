@@ -1,0 +1,127 @@
+{
+  "spike": "09-sponsors",
+  "ranAt": "2026-11-04T07:33:30.064Z",
+  "rhea": {
+    "poolsListed": 2465,
+    "ondoPools": [],
+    "topUsdcPools": [
+      {
+        "id": "4953",
+        "tokens": ["USM", "USDC"],
+        "tvl": "1952804.5188293695"
+      },
+      {
+        "id": "4512",
+        "tokens": ["USDC", "wNEAR"],
+        "tvl": "1339431.469385867"
+      },
+      {
+        "id": "6416",
+        "tokens": ["USDt", "USDC"],
+        "tvl": "599655.8250584641"
+      },
+      {
+        "id": "4179",
+        "tokens": ["USDt", "USDC", "USDT.e", "USDC.e"],
+        "tvl": "104629.30429690522"
+      },
+      {
+        "id": "4514",
+        "tokens": ["FRAX", "USDC"],
+        "tvl": "11580.907060744661"
+      }
+    ]
+  },
+  "outlayerOracle": {
+    "wrapNear": {
+      "timestamp": "1793777606699601813",
+      "recency_duration_sec": 600,
+      "prices": [
+        {
+          "asset_id": "wrap.near",
+          "price": null
+        }
+      ]
+    },
+    "ondoTesla": {
+      "timestamp": "1793777606699601813",
+      "recency_duration_sec": 600,
+      "prices": [
+        {
+          "asset_id": "bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near",
+          "price": null
+        }
+      ]
+    },
+    "raw": "{\"nearPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"wrap.near\",\"price\":null}]},\"tslaPrice\":{\"timestamp\":\"1793777606699601813\",\"recency_duration_sec\":600,\"prices\":[{\"asset_id\":\"bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near\",\"price\":null}]}}"
+  },
+  "nearAiCloud": {
+    "modelCount": 64,
+    "models": [
+      "anthropic/claude-fable-5",
+      "anthropic/claude-fable-5-1",
+      "anthropic/claude-haiku-4-5",
+      "anthropic/claude-haiku-5-5",
+      "anthropic/claude-opus-4-6",
+      "anthropic/claude-opus-4-7",
+      "anthropic/claude-opus-4-8",
+      "anthropic/claude-opus-5",
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-sonnet-4-5",
+      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-sonnet-5",
+      "anthropic/claude-sonnet-5-5",
+      "black-forest-labs/FLUX.2-klein-4B",
+      "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "deepseek-ai/DeepSeek-V4.1-Flash-1017-abliterated",
+      "deepseek/deepseek-v3.2",
+      "deepseek/deepseek-v4.1-flash",
+      "deepseek/deepseek-v4.1-flash-1017",
+      "google/gemini-2.5-flash",
+      "google/gemini-2.5-flash-lite",
+      "google/gemini-2.5-pro",
+      "google/gemini-3.1-flash-lite",
+      "google/gemini-3.5-flash",
+      "google/gemini-3.8-flash",
+      "levanto/sage-1.4",
+      "moonshotai/kimi-k2.6",
+      "moonshotai/kimi-k3",
+      "moonshotai/kimi-k3.1-pro",
+      "openai/gpt-4.1",
+      "openai/gpt-4.1-mini",
+      "openai/gpt-5",
+      "openai/gpt-5.1",
+      "openai/gpt-5.2",
+      "openai/gpt-5.4",
+      "openai/gpt-5.4-mini",
+      "openai/gpt-5.4-nano",
+      "openai/gpt-5.5",
+      "openai/gpt-5.6-luna",
+      "openai/gpt-5.6-sol",
+      "openai/gpt-5-mini",
+      "openai/gpt-5-nano",
+      "openai/gpt-6.1-sol",
+      "openai/gpt-6-astra",
+      "openai/gpt-6-luna",
+      "openai/gpt-6-sol",
+      "openai/o3",
+      "openai/o3-mini",
+      "openai/o4-mini",
+      "openai/privacy-filter",
+      "openai/whisper-large-v3",
+      "qwen/qwen3.5-397b-a17b",
+      "Qwen/Qwen3.6-35B-A3B-FP8",
+      "qwen/qwen3.7-max",
+      "Qwen/Qwen3.8-27B",
+      "Qwen/Qwen3.8-27B-abliterated",
+      "Qwen/Qwen3-Embedding-0.6B",
+      "Qwen/Qwen3-Reranker-0.6B",
+      "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "typesafe/jev-1.13",
+      "x-ai/grok-4.6",
+      "x-ai/grok-4.7",
+      "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash"
+    ]
+  }
+}
