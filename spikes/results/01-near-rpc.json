@@ -1,0 +1,22 @@
+{
+  "spike": "01-near-rpc",
+  "ranAt": "2026-11-04T07:13:22.735Z",
+  "mainnet": {
+    "binary": "2.14.0",
+    "protocol": 86,
+    "head": 222985570,
+    "blocksBehindFinal": 2,
+    "avgBlockMs": 644,
+    "finalityMsApprox": 1931,
+    "rpcRoundTripMs": 53
+  },
+  "testnet": {
+    "binary": "2.14.0-rc.5",
+    "protocol": 88,
+    "head": 276162634,
+    "blocksBehindFinal": 2,
+    "avgBlockMs": 583,
+    "finalityMsApprox": 1749,
+    "rpcRoundTripMs": 244
+  }
+}
