@@ -323,7 +323,7 @@ async fn a_party_from_payment_to_settle() -> testresult::TestResult<()> {
     assert_eq!(env.usdc_of(&env.contract.0).await?, 0);
     assert_eq!(
         env.view("party_pot", json!({ "party": "42" })).await?,
-        json!({ "held": "0", "released": true })
+        json!({ "held": "0", "released": true, "ceo": id("ceo") })
     );
 
     // The treasury bought the stock: mint it, then give the guest what they are owed, no more.
@@ -449,7 +449,7 @@ async fn a_failed_release_can_be_retried() -> testresult::TestResult<()> {
     );
     assert_eq!(
         env.view("party_pot", json!({ "party": "42" })).await?,
-        json!({ "held": (WHOLESALE * 2).to_string(), "released": true })
+        json!({ "held": (WHOLESALE * 2).to_string(), "released": true, "ceo": id("ceo") })
     );
     assert_eq!(env.usdc_of(&env.contract.0).await?, WHOLESALE * 2);
 

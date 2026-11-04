@@ -19,7 +19,7 @@ Re-run before the mainnet deploy if the contract changes.
 | gas griefing            | ok        | `settle` takes at most 32 transfers (16 KiB log cap; 23.1 TGas). Each party's `owed` list is read and rewritten per purchase, so it is capped at 256 entries (`party_full`): 16.0 TGas per payment at the cap. Only api-signed, paid quotes add entries                                       |
 | insecure randomness     | n/a       | No randomness                                                                                                                                                                                                                                                                                 |
 | prepaid gas             | ok        | Margin and release transfers get 10 TGas static plus 5 TGas for the callback. A payment works from 30 TGas attached (sandbox probe); with too little gas the promise fails to schedule, `ft_on_transfer` panics, and the token refunds the whole amount                                       |
-| cover storage cost      | accepted  | New holders (141 bytes) and a party's first purchase (204 bytes, ≈ 0.002 NEAR) are paid from the contract balance. Holders creating accounts pay ≥ 1 unit (~\$0.40) per 0.0014 NEAR locked; purchases need an api-signed quote and a real payment                                             |
+| cover storage cost      | accepted  | New holders (141 bytes) and a party's first purchase (220 bytes, ≈ 0.002 NEAR) are paid from the contract balance. Holders creating accounts pay ≥ 1 unit (~\$0.40) per 0.0014 NEAR locked; purchases need an api-signed quote and a real payment                                             |
 | unsafe math             | ok        | `unit_price × qty` and `3 × unit_wholesale` are checked and refund on overflow (tests); other sums are bounded by USDC supply; `overflow-checks = true` in release                                                                                                                            |
 | float math              | ok        | None (`shares_per_unit` is a display string)                                                                                                                                                                                                                                                  |
 
@@ -45,8 +45,9 @@ Re-run before the mainnet deploy if the contract changes.
    account, and `/proof` + reconciliation (SPEC §6.6) show a gap between `mt_supply` and the warehouse.
 2. **The api's quote key sets prices and the margin's destination.** Within the contract's bounds (price ≤ 3 ×
    wholesale, buyer must pay it themselves) the api decides the price, the wholesale split and which account is the
-   CEO. A leaked quote key lets someone sell drinks to themselves at any split, but every purchase still costs the
-   buyer the full price. Rotate with `set_quote_key`; keep it apart from the owner key.
+   CEO. The first accepted purchase fixes a party's CEO, so a later bad quote can't redirect that party's margin
+   (`ceo_mismatch`). A leaked quote key lets someone sell drinks to themselves at any split, but every purchase still
+   costs the buyer the full price. Rotate with `set_quote_key`; keep it apart from the owner key.
 3. **The contract account's own full-access key** can redeploy the code and move the warehouse with `mt_transfer`.
    On mainnet: remove it after deploy (no upgrades) or keep it in a hardware wallet / multisig (upgrades possible).
    Team decision before mainnet.

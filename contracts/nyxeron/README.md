@@ -74,11 +74,12 @@ Accepted when all hold, otherwise the **whole amount is refunded** and a `refund
 | `0 < unit_wholesale ≤ unit_price ≤ 3 × unit_wholesale`                                             | `bad_price`                           |
 | `amount == unit_price × qty`                                                                       | `bad_amount`                          |
 | the party's wholesale was not released yet                                                         | `party_closed`                        |
+| `ceo` is the party's CEO, fixed by its first accepted purchase                                     | `ceo_mismatch`                        |
 | the party owes fewer than 256 (guest, token) entries, or this guest already has one for this token | `party_full`                          |
 
 Effects: the margin `(unit_price − unit_wholesale) × qty` is sent to `ceo` (if that transfer fails, e.g. the CEO is
 not registered on USDC, it waits for `claim_margin`); `unit_wholesale × qty` goes to the party's pot;
-`owed[party][buyer][token] += qty`; event `purchase`.
+`owed[party][buyer][token] += qty`; the first purchase fixes the party's CEO; event `purchase`.
 
 ### Owner methods
 
@@ -101,7 +102,7 @@ The api account. None take a deposit, so a function-call key limited to this con
 Anyone: `claim_margin()` sends the caller's held margin. Holders: NEP-245 `mt_transfer`, `mt_batch_transfer`,
 `mt_transfer_call` (exactly 1 yoctoNEAR; never to yourself).
 
-Views: `owed(party)` → `[{ account_id, token_id, qty }]`, `party_pot(party)` → `{ held, released }`,
+Views: `owed(party)` → `[{ account_id, token_id, qty }]`, `party_pot(party)` → `{ held, released, ceo }`,
 `claimable_margin(account_id)`, `is_used_quote(id)`, `config()`, `mt_balance_of(account_id, token_id)`,
 `mt_batch_balance_of`, `mt_supply(token_id)`, `mt_batch_supply`, `mt_token`, `mt_metadata_*`, `tokens()`,
 `is_used_proof(proof)`, `is_settled(op_id)`, `is_paused()`, `owner_id()`. Amounts are strings (`U128`).
@@ -126,7 +127,7 @@ on USDC too, or their transfers fail (margin waits for `claim_margin`, a release
   Circle's USDC is a different contract: check once on testnet.
 - A party at its cap of 256 owed entries: a payment burns 16.0 TGas, a settle of one guest 7.2 TGas
   (`full_party_gas`, ignored by default). Attach 100 TGas, not the 30 minimum.
-- The first purchase of a party stores 204 bytes (≈ 0.002 NEAR, from the contract's balance); settling frees the
+- The first purchase of a party stores 220 bytes (≈ 0.002 NEAR, from the contract's balance); settling frees the
   owed entry again.
 - `settle` of 32 transfers with the longest ids (64-char accounts and `party`, 64-char `op_id`): 23.1 TGas and under
   10,000 of the 16,384 log bytes NEAR allows per call (21.9 TGas, 11,040 bytes with the largest amounts, v1). The log

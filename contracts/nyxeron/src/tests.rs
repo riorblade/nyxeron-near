@@ -501,7 +501,8 @@ fn a_paid_drink_owes_units_holds_wholesale_and_sends_the_margin() {
         c.party_pot("p1".into()),
         PartyPot {
             held: U128(1_170_000),
-            released: false
+            released: false,
+            ceo: Some(ceo()),
         }
     );
 
@@ -841,7 +842,8 @@ fn release_sends_the_pot_to_the_treasury_and_closes_the_party() {
         c.party_pot("p1".into()),
         PartyPot {
             held: U128(0),
-            released: true
+            released: true,
+            ceo: Some(ceo()),
         }
     );
     let receipts = near_sdk::test_utils::get_created_receipts();
@@ -863,6 +865,26 @@ fn release_sends_the_pot_to_the_treasury_and_closes_the_party() {
     assert_refused(&mut c, &q, refund, total(&q), "party_closed");
     // Other parties carry on.
     assert_eq!(pay(&mut c, &quote("p2", &guest(2), 1)), 0);
+}
+
+#[test]
+fn the_first_purchase_locks_the_party_ceo() {
+    let mut c = bare();
+    assert_eq!(pay(&mut c, &quote("p1", &guest(1), 1)), 0);
+    assert_eq!(c.party_pot("p1".into()).ceo, Some(ceo()));
+
+    // A quote for the same party naming anyone else is refunded, so one bad quote can't redirect the margin.
+    let mut q = quote("p1", &guest(2), 1);
+    q.ceo = guest(9);
+    let refund = pay(&mut c, &q);
+    assert_refused(&mut c, &q, refund, total(&q), "ceo_mismatch");
+
+    // The locked ceo still works, and another party picks its own.
+    assert_eq!(pay(&mut c, &quote("p1", &guest(2), 1)), 0);
+    let mut other = quote("p2", &guest(2), 1);
+    other.ceo = guest(9);
+    assert_eq!(pay(&mut c, &other), 0);
+    assert_eq!(c.party_pot("p2".into()).ceo, Some(guest(9)));
 }
 
 #[test]
@@ -894,7 +916,8 @@ fn a_failed_release_restores_the_pot_for_a_retry() {
         c.party_pot("p1".into()),
         PartyPot {
             held: U128(1_170_000),
-            released: true
+            released: true,
+            ceo: Some(ceo()),
         }
     );
     // Still closed to purchases, but the owner can send it again.

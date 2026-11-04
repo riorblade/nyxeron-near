@@ -43,12 +43,14 @@ pub struct Quote {
     pub expires_ms: u64,
 }
 
-/// Wholesale held for a party, and whether it was released to the treasury (no more purchases after that).
+/// Wholesale held for a party, whether it was released to the treasury (no more purchases after that), and the
+/// CEO fixed by the party's first purchase (later quotes naming anyone else are refunded).
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PartyPot {
     pub held: U128,
     pub released: bool,
+    pub ceo: Option<AccountId>,
 }
 
 /// Units still owed to one guest for one party.
@@ -296,8 +298,13 @@ impl Contract {
         if amount != total {
             return Err("bad_amount");
         }
-        if self.pots.get(&quote.party).is_some_and(|p| p.released) {
-            return Err("party_closed");
+        if let Some(pot) = self.pots.get(&quote.party) {
+            if pot.released {
+                return Err("party_closed");
+            }
+            if pot.ceo.as_ref().is_some_and(|ceo| *ceo != quote.ceo) {
+                return Err("ceo_mismatch");
+            }
         }
         if let Some(owed) = self.owed.get(&quote.party)
             && owed.len() >= MAX_OWED_PER_PARTY
@@ -321,6 +328,7 @@ impl Contract {
 
         let mut pot = self.pots.get(&q.party).cloned().unwrap_or_default();
         pot.held = U128(pot.held.0 + p.wholesale);
+        pot.ceo.get_or_insert_with(|| q.ceo.clone());
         self.pots.insert(q.party.clone(), pot);
 
         let mut owed = self.owed.get(&q.party).cloned().unwrap_or_default();
