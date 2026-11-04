@@ -1,0 +1,23 @@
+{
+  "spike": "05-intents-ondo-sequential",
+  "ranAt": "2026-11-04T07:25Z",
+  "note": "dry quotes one at a time, quoteWaitingTimeMs 6000, recipientType INTENTS",
+  "results": [
+    "1$ try1: No liquidity available",
+    "1$ try2: No liquidity available",
+    "2$ try1: No liquidity available",
+    "2$ try2: No liquidity available",
+    "3$ try1: No liquidity available",
+    "3$ try2: No liquidity available",
+    "5$ try1: No liquidity available",
+    "5$ try2: No liquidity available",
+    "20$ try1: No liquidity available",
+    "20$ try2: No liquidity available",
+    "07:26:24 TSLAon 10$: ok 9.914699314470",
+    "07:26:30 TSLAon 50$: ok 49.714363287235",
+    "07:26:37 TSLAon 100$: ok 99.428726574469",
+    "07:26:43 TSLAon 10$: ok 9.917047959341",
+    "07:26:50 NVDAon 10$: ok 9.939017802227",
+    "07:26:57 NVDAon 50$: ok 49.694279344244"
+  ]
+}

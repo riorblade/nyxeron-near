@@ -1,0 +1,245 @@
+{
+  "spike": "05-intents",
+  "ranAt": "2026-11-04T07:24:22.015Z",
+  "tokenCount": 215,
+  "stockTokensListed": [],
+  "assets": {
+    "USDC_NEAR": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+    "USDC_BASE": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    "SOL": "nep141:sol.omft.near",
+    "USDC_SOL": "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near",
+    "TSLAON": "nep141:bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near"
+  },
+  "quotes": [
+    {
+      "name": "top-up 10 USDC Base → USDC in player account",
+      "status": 201,
+      "ms": 3407,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "9994045",
+      "amountOutUsd": "9.988328406260",
+      "minAmountOut": "9894104",
+      "timeEstimate": 35,
+      "withdrawFee": "4941",
+      "refundFee": "2400"
+    },
+    {
+      "name": "top-up 0.1 SOL → USDC in player account",
+      "status": 201,
+      "ms": 3541,
+      "amountIn": "100000000",
+      "amountInUsd": "9.290000000000",
+      "amountOut": "9275569",
+      "amountOutUsd": "9.270263374532",
+      "minAmountOut": "9182813",
+      "timeEstimate": 20,
+      "withdrawFee": "4941",
+      "refundFee": "107371"
+    },
+    {
+      "name": "top-up 10 USDC Base → player intents.near balance",
+      "status": 201,
+      "ms": 3483,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "9998986",
+      "amountOutUsd": "9.993266580008",
+      "minAmountOut": "9898996",
+      "timeEstimate": 35,
+      "withdrawFee": "0",
+      "refundFee": "2400"
+    },
+    {
+      "name": "top-up 10 USDC Base → contract via ft_transfer_call (customRecipientMsg)",
+      "status": 201,
+      "ms": 3487,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "9998986",
+      "amountOutUsd": "9.993266580008",
+      "minAmountOut": "9898996",
+      "timeEstimate": 35,
+      "withdrawFee": "0",
+      "refundFee": "2400"
+    },
+    {
+      "name": "cash-out 10 USDC from player account → USDC Base",
+      "status": 201,
+      "ms": 3398,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "9995680",
+      "amountOutUsd": "9.989962471040",
+      "minAmountOut": "9895723",
+      "timeEstimate": 22,
+      "withdrawFee": "2400",
+      "refundFee": "4941"
+    },
+    {
+      "name": "buy Ondo Tesla with 10 USDC → player intents.near balance",
+      "status": 201,
+      "ms": 3443,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "26137282470277793",
+      "amountOutUsd": "9.924587526789",
+      "minAmountOut": "25875909645575015",
+      "timeEstimate": 20,
+      "withdrawFee": "0",
+      "refundFee": "4941"
+    },
+    {
+      "name": "buy Ondo Tesla with 1 USDC → player intents.near balance",
+      "status": 400,
+      "ms": 3597,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla with 0.4 USDC → player intents.near balance",
+      "status": 400,
+      "ms": 3614,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "sell 0.01 Ondo Tesla from intents balance → USDC in player account",
+      "status": 400,
+      "ms": 3401,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla, DESTINATION_CHAIN to an EVM address (= withdraw off NEAR)",
+      "status": 201,
+      "ms": 3422,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "26111997213401291",
+      "amountOutUsd": "9.914986461901",
+      "minAmountOut": "25850877241267278",
+      "timeEstimate": 23,
+      "withdrawFee": "26269383162814",
+      "refundFee": "4941"
+    },
+    {
+      "name": "fund Solana: 10 USDC NEAR → USDC Solana",
+      "status": 201,
+      "ms": 3420,
+      "amountIn": "10000000",
+      "amountInUsd": "9.994280000000",
+      "amountOut": "9988943",
+      "amountOutUsd": "9.983229324604",
+      "minAmountOut": "9889053",
+      "timeEstimate": 17,
+      "withdrawFee": "9981",
+      "refundFee": "4941"
+    },
+    {
+      "name": "fund Solana: 1 USDC NEAR → SOL (fees)",
+      "status": 201,
+      "ms": 3439,
+      "amountIn": "1000000",
+      "amountInUsd": "0.999428000000",
+      "amountOut": "10607102",
+      "amountOutUsd": "0.985399775800",
+      "minAmountOut": "10501030",
+      "timeEstimate": 19,
+      "withdrawFee": "107371",
+      "refundFee": "4941"
+    },
+    {
+      "name": "buy Ondo Tesla with 2 USDC",
+      "status": 400,
+      "ms": 3401,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla with 3 USDC",
+      "status": 400,
+      "ms": 3624,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla with 5 USDC",
+      "status": 400,
+      "ms": 3638,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla with 7 USDC",
+      "status": 201,
+      "ms": 3628,
+      "amountIn": "7000000",
+      "amountInUsd": "6.995996000000",
+      "amountOut": "18293344914149951",
+      "amountOutUsd": "6.946165997352",
+      "minAmountOut": "18110411465008451",
+      "timeEstimate": 22,
+      "withdrawFee": "0",
+      "refundFee": "4941"
+    },
+    {
+      "name": "buy Ondo Tesla with 20 USDC",
+      "status": 400,
+      "ms": 3632,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "buy Ondo Tesla with 50 USDC",
+      "status": 201,
+      "ms": 3656,
+      "amountIn": "50000000",
+      "amountInUsd": "49.971400000000",
+      "amountOut": "131021697166711701",
+      "amountOutUsd": "49.750248631172",
+      "minAmountOut": "129711480195044583",
+      "timeEstimate": 35,
+      "withdrawFee": "0",
+      "refundFee": "4941"
+    },
+    {
+      "name": "sell 0.005 Ondo Tesla",
+      "status": 400,
+      "ms": 3382,
+      "message": "No liquidity available"
+    },
+    {
+      "name": "sell 0.026 Ondo Tesla",
+      "status": 201,
+      "ms": 3403,
+      "amountIn": "26000000000000000",
+      "amountInUsd": "9.872460000000",
+      "amountOut": "9825214",
+      "amountOutUsd": "9.819593977592",
+      "minAmountOut": "9726961",
+      "timeEstimate": 10,
+      "withdrawFee": "0",
+      "refundFee": "0"
+    },
+    {
+      "name": "sell 0.05 Ondo Tesla",
+      "status": 201,
+      "ms": 3256,
+      "amountIn": "50000000000000000",
+      "amountInUsd": "18.985500000000",
+      "amountOut": "18892459",
+      "amountOutUsd": "18.881652513452",
+      "minAmountOut": "18703534",
+      "timeEstimate": 10,
+      "withdrawFee": "0",
+      "refundFee": "0"
+    },
+    {
+      "name": "sell 0.1 Ondo Tesla",
+      "status": 201,
+      "ms": 3269,
+      "amountIn": "100000000000000000",
+      "amountInUsd": "37.971000000000",
+      "amountOut": "37784912",
+      "amountOutUsd": "37.763299030336",
+      "minAmountOut": "37407062",
+      "timeEstimate": 10,
+      "withdrawFee": "0",
+      "refundFee": "0"
+    }
+  ]
+}

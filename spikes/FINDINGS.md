@@ -4,15 +4,19 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 
 ## Decisions so far
 
-| Question                                                              | Answer from spikes                                                                                                                             | Spike |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Is NEAR fast enough for on-chain purchases during a party?            | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                | 01    |
-| Can we make testnet accounts for demos without a wallet?              | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                              | 02    |
-| Can the player act with zero NEAR, gas paid by us?                    | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                        | 03    |
-| Who pays the 1 yocto that `ft_transfer_call` needs?                   | The relayer (tested)                                                                                                                           | 03    |
-| Can a session key (function-call key) do purchases that need 1 yocto? | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                | 03    |
-| Is one free RPC enough for the backend?                               | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                               | 03    |
-| Can a brand-new player with 0 NEAR be onboarded and act?              | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player | 04    |
+| Question                                                                 | Answer from spikes                                                                                                                             | Spike |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                | 01    |
+| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                              | 02    |
+| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                        | 03    |
+| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                           | 03    |
+| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                | 03    |
+| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                               | 03    |
+| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player | 04    |
+| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                          | 05    |
+| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                     | 05    |
+| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                      | 05    |
+| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill   | 05    |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -91,3 +95,45 @@ meta transactions.
 - The player's account can hold an extra session key without any NEAR (stays under the free storage).
 - 1Click also registers USDC on delivery (spike 05), so our registration is only needed if the player receives USDC
   from us first.
+
+## 05 · NEAR Intents 1Click, mainnet dry quotes (2026-11-04)
+
+**Ran:** `GET /v0/tokens` and `POST /v0/quote` with `dry: true` (no deposit address, nothing sent). Player = the real
+implicit id from spike 04.
+
+**Saw:**
+
+| Quote                                                           | Result                                                      | In → out                     | Fees seen                                        | Est. time |
+| --------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------- | ------------------------------------------------ | --------- |
+| Top-up 10 USDC Base → USDC in player account                    | ✅                                                          | $9.994 → 9.994 USDC          | `withdrawFee` 0.0049 USDC (storage registration) | 35 s      |
+| Top-up 0.1 SOL → USDC in player account                         | ✅                                                          | $9.29 → 9.27 USDC            | 0.0049 USDC                                      | 20 s      |
+| Top-up → player `intents.near` balance                          | ✅                                                          | → 9.999 USDC                 | 0                                                | 35 s      |
+| Top-up → contract via `ft_transfer_call` (`customRecipientMsg`) | ✅ quote                                                    | → 9.999 USDC                 | 0                                                | 35 s      |
+| Cash-out 10 USDC → Base                                         | ✅                                                          | → 9.996 USDC                 | 0.0024                                           | 22 s      |
+| Fund Solana: 10 USDC → USDC on Solana                           | ✅                                                          | → 9.989                      | 0.0100                                           | 17 s      |
+| Fund Solana: 1 USDC → SOL                                       | ✅                                                          | → 0.0106 SOL ($0.985)        | 0.107 SOL-lamports-scale fee                     | 19 s      |
+| Ondo TSLAon, `DESTINATION_CHAIN` to a NEAR account              | ❌ `recipient is not valid`                                 | —                            | —                                                | —         |
+| Ondo TSLAon, `DESTINATION_CHAIN` to an EVM address              | ✅ = withdraws off NEAR to its origin chain                 | —                            | —                                                | 23 s      |
+| Ondo TSLAon → player `intents.near` balance, $10 / $50 / $100   | ✅                                                          | $9.99 → $9.91 (≈ 0.8 % cost) | 0                                                | 20 s      |
+| Same, $1 / $2 / $3 / $5                                         | ❌ `No liquidity available` (every try, also one at a time) | —                            | —                                                | —         |
+| Same, $7                                                        | ✅ once                                                     | —                            | —                                                | —         |
+| Same, $20                                                       | ❌ 3 tries                                                  | —                            | —                                                | —         |
+| NVDAon $10 / $50                                                | ✅                                                          | $9.94 / $49.69               | —                                                | —         |
+| Sell TSLAon 0.005 (≈ $2)                                        | ❌ no liquidity                                             | —                            | —                                                | —         |
+| Sell TSLAon 0.026 / 0.05 / 0.1 (≈ $10–38)                       | ✅ ≈ 0.5 % cost                                             | —                            | —                                                | —         |
+
+Also seen:
+
+- `/v0/tokens` lists 215 tokens and **no tokenized stocks**; Ondo tokens quote by asset id
+  (`nep141:bnb-0x…omdep.near`) even though they aren't listed.
+- 1Click validates addresses strictly: `0x…dEaD` and `fff…f` (not an ed25519 key) are refused.
+- No fee for missing JWT showed up in `appFees` today (docs say 25 bps).
+
+**Means:**
+
+- Top-up from any chain into the player's own account and cash-out to any chain: **ready** (non-custodial, ~20–35 s).
+- Real stocks via Ondo work only as **batched lots of about $10+**, held in the player's `intents.near` balance, with a
+  market that sometimes refuses sizes. Never one swap per drink. Treat Ondo liquidity as unreliable: a buy must be
+  retried or fall back.
+- Ondo tokens on NEAR are bridged from chain 56 (their ids start with `bnb-`): the team must decide whether that's
+  acceptable.
