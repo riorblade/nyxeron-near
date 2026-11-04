@@ -2,30 +2,52 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { JsonRpcProvider } from 'near-api-js'
+import { FailoverRpcProvider, JsonRpcProvider } from 'near-api-js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const envFile = join(here, '.env')
 if (existsSync(envFile)) process.loadEnvFile(envFile)
 
+// Public RPCs from https://docs.near.org/api/rpc/providers. One free endpoint hits its rate limit within a few dozen
+// calls (spike 03), so every call fails over to the next.
 export const RPC = {
-  mainnet: 'https://free.rpc.fastnear.com',
-  testnet: 'https://test.rpc.fastnear.com',
+  mainnet: [
+    'https://free.rpc.fastnear.com',
+    'https://near.drpc.org',
+    'https://rpc.mainnet.near.org',
+    'https://rpc.intea.rs',
+  ],
+  testnet: [
+    'https://test.rpc.fastnear.com',
+    'https://near-testnet.drpc.org',
+    'https://rpc.testnet.near.org',
+    'https://testnet-rpc.intea.rs',
+  ],
 } as const
 export type Network = keyof typeof RPC
 
-export const provider = (network: Network) => new JsonRpcProvider({ url: RPC[network] })
+export const provider = (network: Network) =>
+  new FailoverRpcProvider(RPC[network].map((url) => new JsonRpcProvider({ url })))
 
 // Raw JSON-RPC, for methods the library doesn't wrap.
 export async function rpc<T>(network: Network, method: string, params: unknown): Promise<T> {
-  const res = await fetch(RPC[network], {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  })
-  const body = (await res.json()) as { result?: T; error?: unknown }
-  if (body.error) throw new Error(`${method}: ${JSON.stringify(body.error)}`)
-  return body.result as T
+  let last: unknown
+  for (const url of RPC[network]) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      const body = (await res.json()) as { result?: T; error?: unknown }
+      if (body.error) throw new Error(`${method}: ${JSON.stringify(body.error)}`)
+      return body.result as T
+    } catch (err) {
+      last = err
+    }
+  }
+  throw last
 }
 
 export async function view<T>(
