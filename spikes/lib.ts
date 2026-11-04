@@ -9,20 +9,11 @@ const envFile = join(here, '.env')
 if (existsSync(envFile)) process.loadEnvFile(envFile)
 
 // Public RPCs from https://docs.near.org/api/rpc/providers. One free endpoint hits its rate limit within a few dozen
-// calls (spike 03), so every call fails over to the next.
+// calls (spike 03), so every call fails over to the next. rpc.{mainnet,testnet}.near.org are deprecated and refuse
+// calls (spike 08): never use them.
 export const RPC = {
-  mainnet: [
-    'https://free.rpc.fastnear.com',
-    'https://near.drpc.org',
-    'https://rpc.mainnet.near.org',
-    'https://rpc.intea.rs',
-  ],
-  testnet: [
-    'https://test.rpc.fastnear.com',
-    'https://near-testnet.drpc.org',
-    'https://rpc.testnet.near.org',
-    'https://testnet-rpc.intea.rs',
-  ],
+  mainnet: ['https://free.rpc.fastnear.com', 'https://near.drpc.org', 'https://rpc.intea.rs'],
+  testnet: ['https://test.rpc.fastnear.com', 'https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs'],
 } as const
 export type Network = keyof typeof RPC
 
