@@ -31,3 +31,5 @@ node spikes/01-near-rpc.ts          # Node 24 runs .ts directly
 | `07-jupiter.ts`          | Jupiter price and swap quote                                                           |
 | `08-chain-signatures.ts` | derive a Solana address, real Ed25519 sign request on testnet                          |
 | `09-sponsors.ts`         | Rhea, OutLayer price oracle, NEAR AI Cloud                                             |
+| `10` (manual)            | Privy NEAR wallet in a browser: headless signing (Wisnu)                               |
+| `11` (contract)          | NEP-245 with near-sdk-contract-tools (Ghoza)                                           |

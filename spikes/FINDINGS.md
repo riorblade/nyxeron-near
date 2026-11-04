@@ -27,6 +27,16 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 | Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                   | 09     |
 | Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                        | 09     |
 
+## Still to test
+
+| #   | What                                                                                                                                                                                                                                                                                | Owner        | How                                                  | Needs                 |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------- | --------------------- |
+| 10  | Privy NEAR wallet: `createWallet({ chainType: 'near' })`, `signRawHash` with **no UI** on first login, returning login, mobile Safari; sign a NEP-366 delegate with it and relay it (spike 03 relayer); backend `GET https://api.privy.io/v1/users/{id}` shows `chain_type: 'near'` | Wisnu        | small page from `near-examples/hello-privy`, testnet | Privy app id + secret |
+| 11  | NEP-245 with `near-sdk-contract-tools` 4.0 (`#[derive(MultiToken)]`): build, sandbox test, deploy to testnet                                                                                                                                                                        | Ghoza        | `cargo near new`, near-sdk 5.30                      | —                     |
+| 12  | Live top-up ≈ $1 from Base into a player account, then cash-out back; check what a NEAR-origin `depositAddress` looks like                                                                                                                                                          | Kiel         | `05-intents.ts --live`                               | team's yes, ≈ $2      |
+| 13  | Live Ondo buy of $10 into the player's `intents.near` balance, withdraw it to the player's own NEAR account, sell it back                                                                                                                                                           | Kiel         | `05-intents.ts --live`                               | team's yes, ≈ $10     |
+| 14  | Mainnet Chain Signatures: derived address on `v1.signer`, fund with ≈ $2 USDC + SOL via 1Click, broadcast a $1 TSLAx swap                                                                                                                                                           | Kiel + Ghoza | `08-chain-signatures.ts --live`                      | team's yes, ≈ $3      |
+
 ## 01 · NEAR RPC (2026-11-04)
 
 **Ran:** `status` and blocks on mainnet and testnet through FastNEAR's free RPC.
