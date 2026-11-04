@@ -194,6 +194,12 @@ impl Contract {
         self.paused = paused;
     }
 
+    /// Hands the contract to a new api account. The old one loses every owner method at once.
+    pub fn set_owner(&mut self, owner_id: AccountId) {
+        self.require_owner();
+        self.owner_id = owner_id;
+    }
+
     pub fn tokens(&self) -> Vec<(String, TokenInfo)> {
         self.token_info
             .iter()

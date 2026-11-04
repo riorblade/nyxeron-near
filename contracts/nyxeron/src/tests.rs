@@ -313,3 +313,27 @@ fn batch_transfer_to_yourself_is_refused() {
     as_caller(&guest(1), NearToken::from_yoctonear(1));
     c.mt_batch_transfer(guest(1), vec!["tsla".into()], vec![U128(2)], None, None);
 }
+
+#[test]
+fn the_owner_can_hand_over_to_a_new_api_account() {
+    let mut c = setup();
+    let next: AccountId = "api-v2.testnet".parse().unwrap();
+    c.set_owner(next.clone());
+    assert_eq!(c.owner_id(), next);
+    as_caller(&next, NearToken::from_yoctonear(0));
+    c.mint_warehouse("tsla".into(), U128(1), "sol-tx-2".into());
+}
+
+#[test]
+#[should_panic(expected = "only the owner")]
+fn the_old_owner_is_out_after_a_handover() {
+    let mut c = setup();
+    c.set_owner("api-v2.testnet".parse().unwrap());
+    c.mint_warehouse("tsla".into(), U128(1), "sol-tx-2".into());
+}
+
+#[test]
+#[should_panic(expected = "only the owner")]
+fn guest_cannot_take_ownership() {
+    setup_as_guest().set_owner(guest(1));
+}
