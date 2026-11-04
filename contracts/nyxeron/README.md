@@ -65,4 +65,4 @@ cargo near build non-reproducible-wasm        # dev build → target/near/nyxero
 cargo near build reproducible-wasm            # release build (Docker)
 ```
 
-Mainnet deploys only with the team's yes, after the `near-contract-audit` skill.
+Mainnet deploys only with the team's yes. Security review: [AUDIT.md](AUDIT.md).
