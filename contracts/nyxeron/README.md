@@ -7,6 +7,15 @@ warehouse (1 unit = `shares_per_unit` of a share, e.g. 0.001). The warehouse is 
 account is the only one that mints into the warehouse (with a purchase as proof) and settles parties (warehouse →
 guests).
 
+## Deployed
+
+| Network | Contract          | Owner (api)           | Tokens                |
+| ------- | ----------------- | --------------------- | --------------------- |
+| testnet | `nyxeron.testnet` | `nyxeron-api.testnet` | `tsla`, `nvda`, `spy` |
+
+The api signs with a function-call key on `nyxeron-api.testnet` limited to `nyxeron.testnet` and the owner methods;
+it is shared outside the repo. Check it on [nearblocks](https://testnet.nearblocks.io/address/nyxeron.testnet).
+
 ## Interface
 
 Owner methods (the api account; none take a deposit, so a function-call key limited to this contract can call them):
