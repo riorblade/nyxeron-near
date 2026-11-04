@@ -2,7 +2,6 @@
   "spike": "06-ondo",
   "ranAt": "2026-11-04T07:28:23.562Z",
   "TSLAon": {
-    "contract": "bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near",
     "metadata": {
       "name": "Tesla (Ondo Tokenized)",
       "symbol": "TSLAon",
@@ -21,7 +20,6 @@
     "tokenVsShare": "-2.62 %"
   },
   "NVDAon": {
-    "contract": "bnb-0xa9ee28c80f960b889dfbd1902055218cba016f75.omdep.near",
     "metadata": {
       "name": "NVIDIA (Ondo Tokenized)",
       "symbol": "NVDAon",
@@ -40,7 +38,6 @@
     "tokenVsShare": "1.15 %"
   },
   "SPYon": {
-    "contract": "bnb-0x6a708ead771238919d85930b5a0f10454e1c331a.omdep.near",
     "metadata": {
       "name": "SPDR S&P 500 ETF (Ondo Tokenized)",
       "symbol": "SPYon",

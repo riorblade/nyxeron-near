@@ -8,11 +8,11 @@
     "USDC_BASE": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
     "SOL": "nep141:sol.omft.near",
     "USDC_SOL": "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near",
-    "TSLAON": "nep141:bnb-0x2494b603319d4d9f9715c9f4496d9e0364b59d93.omdep.near"
+    "TSLAON": "Ondo TSLAon (looked up by symbol)"
   },
   "quotes": [
     {
-      "name": "top-up 10 USDC Base → USDC in player account",
+      "name": "top-up 10 USDC Base \u2192 USDC in player account",
       "status": 201,
       "ms": 3407,
       "amountIn": "10000000",
@@ -25,7 +25,7 @@
       "refundFee": "2400"
     },
     {
-      "name": "top-up 0.1 SOL → USDC in player account",
+      "name": "top-up 0.1 SOL \u2192 USDC in player account",
       "status": 201,
       "ms": 3541,
       "amountIn": "100000000",
@@ -38,7 +38,7 @@
       "refundFee": "107371"
     },
     {
-      "name": "top-up 10 USDC Base → player intents.near balance",
+      "name": "top-up 10 USDC Base \u2192 player intents.near balance",
       "status": 201,
       "ms": 3483,
       "amountIn": "10000000",
@@ -51,7 +51,7 @@
       "refundFee": "2400"
     },
     {
-      "name": "top-up 10 USDC Base → contract via ft_transfer_call (customRecipientMsg)",
+      "name": "top-up 10 USDC Base \u2192 contract via ft_transfer_call (customRecipientMsg)",
       "status": 201,
       "ms": 3487,
       "amountIn": "10000000",
@@ -64,7 +64,7 @@
       "refundFee": "2400"
     },
     {
-      "name": "cash-out 10 USDC from player account → USDC Base",
+      "name": "cash-out 10 USDC from player account \u2192 USDC Base",
       "status": 201,
       "ms": 3398,
       "amountIn": "10000000",
@@ -77,7 +77,7 @@
       "refundFee": "4941"
     },
     {
-      "name": "buy Ondo Tesla with 10 USDC → player intents.near balance",
+      "name": "buy Ondo Tesla with 10 USDC \u2192 player intents.near balance",
       "status": 201,
       "ms": 3443,
       "amountIn": "10000000",
@@ -90,19 +90,19 @@
       "refundFee": "4941"
     },
     {
-      "name": "buy Ondo Tesla with 1 USDC → player intents.near balance",
+      "name": "buy Ondo Tesla with 1 USDC \u2192 player intents.near balance",
       "status": 400,
       "ms": 3597,
       "message": "No liquidity available"
     },
     {
-      "name": "buy Ondo Tesla with 0.4 USDC → player intents.near balance",
+      "name": "buy Ondo Tesla with 0.4 USDC \u2192 player intents.near balance",
       "status": 400,
       "ms": 3614,
       "message": "No liquidity available"
     },
     {
-      "name": "sell 0.01 Ondo Tesla from intents balance → USDC in player account",
+      "name": "sell 0.01 Ondo Tesla from intents balance \u2192 USDC in player account",
       "status": 400,
       "ms": 3401,
       "message": "No liquidity available"
@@ -121,7 +121,7 @@
       "refundFee": "4941"
     },
     {
-      "name": "fund Solana: 10 USDC NEAR → USDC Solana",
+      "name": "fund Solana: 10 USDC NEAR \u2192 USDC Solana",
       "status": 201,
       "ms": 3420,
       "amountIn": "10000000",
@@ -134,7 +134,7 @@
       "refundFee": "4941"
     },
     {
-      "name": "fund Solana: 1 USDC NEAR → SOL (fees)",
+      "name": "fund Solana: 1 USDC NEAR \u2192 SOL (fees)",
       "status": 201,
       "ms": 3439,
       "amountIn": "1000000",
