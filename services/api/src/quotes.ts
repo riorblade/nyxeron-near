@@ -3,40 +3,59 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { AppError } from './http.ts'
 
-// Jupiter Price API v3: the xStock's own price and, in stockData, the real share price. Free, no key.
-const JUPITER = 'https://lite-api.jup.ag/price/v3'
+// Each drink is priced from its token's own market on Robinhood Chain, not from the share's last close: tokens trade
+// 24/7 and can sit a few percent off the close (spikes 06, 07). DexScreener answers the whole menu in one call.
+const DEXSCREENER = 'https://api.dexscreener.com/tokens/v1/robinhood'
+// A pool thinner than this is ignored: its price is too easy to push.
+export const MIN_LIQUIDITY_USD = 10_000
 
-export type Quote = { usd: number; xstockUsd: number; change24h: number }
+export type Quote = { usd: number; change24h: number; liquidityUsd: number }
 export type Prices = { at: number; stale: boolean; prices: Partial<Record<TokenId, Quote>> }
 export type Quotes = { latest(): Promise<Prices>; spot(id: TokenId): Promise<number> }
 
-const Price = z.number().positive().finite()
-const JupiterItem = z.looseObject({
-  usdPrice: Price,
-  priceChange24h: z.number().finite().optional(),
-  stockData: z.looseObject({ price: Price }).optional(),
+const Pair = z.looseObject({
+  chainId: z.string(),
+  baseToken: z.looseObject({ address: z.string() }),
+  priceUsd: z.coerce.number().positive().finite(),
+  priceChange: z.looseObject({ h24: z.number().finite().optional() }).optional(),
+  liquidity: z.looseObject({ usd: z.number().finite().optional() }).optional(),
 })
 
-export function jupiterQuotes(
-  opts: { fetch?: typeof fetch; now?: () => number; ttlMs?: number; maxAgeMs?: number } = {},
+export function marketQuotes(
+  opts: {
+    fetch?: typeof fetch
+    now?: () => number
+    ttlMs?: number
+    maxAgeMs?: number
+    allowed?: ReadonlySet<TokenId>
+  } = {},
 ): Quotes {
   const { fetch: doFetch = fetch, now = Date.now, ttlMs = 60_000, maxAgeMs = 10 * 60_000 } = opts
+  const menu = tokenIds.filter((id) => !opts.allowed || opts.allowed.has(id))
   let cache: { at: number; prices: Prices['prices'] } | undefined
   let inflight: Promise<void> | undefined
 
   async function refresh() {
-    const ids = tokenIds.map((id) => tokens[id].xstock.mint).join(',')
-    const res = await doFetch(`${JUPITER}?ids=${ids}`, { signal: AbortSignal.timeout(10_000) })
-    if (!res.ok) throw new Error(`jupiter: ${res.status}`)
-    const raw = (await res.json()) as Record<string, unknown> | null
+    const res = await doFetch(`${DEXSCREENER}/${menu.map((id) => tokens[id].address).join(',')}`, {
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) throw new Error(`dexscreener: ${res.status}`)
+    const raw = (await res.json()) as unknown
+    const pairs = (Array.isArray(raw) ? raw : []).flatMap((p) => {
+      const parsed = Pair.safeParse(p)
+      return parsed.success && parsed.data.chainId === 'robinhood' ? [parsed.data] : []
+    })
     const prices: Prices['prices'] = {}
-    for (const id of tokenIds) {
-      const item = JupiterItem.safeParse(raw?.[tokens[id].xstock.mint])
-      if (!item.success) continue
-      const { usdPrice, priceChange24h, stockData } = item.data
-      prices[id] = { usd: stockData?.price ?? usdPrice, xstockUsd: usdPrice, change24h: priceChange24h ?? 0 }
+    for (const id of menu) {
+      // The deepest pool where this token is the base, so priceUsd is its own price.
+      const best = pairs
+        .filter((p) => p.baseToken.address.toLowerCase() === tokens[id].address.toLowerCase())
+        .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+      const liquidityUsd = best?.liquidity?.usd ?? 0
+      if (!best || liquidityUsd < MIN_LIQUIDITY_USD) continue
+      prices[id] = { usd: best.priceUsd, change24h: best.priceChange?.h24 ?? 0, liquidityUsd: Math.round(liquidityUsd) }
     }
-    if (Object.keys(prices).length === 0) throw new Error('jupiter: no usable prices')
+    if (Object.keys(prices).length === 0) throw new Error('dexscreener: no usable prices')
     cache = { at: now(), prices }
   }
 
