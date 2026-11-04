@@ -49,6 +49,37 @@ const migrations = [
      at       INTEGER NOT NULL
    );
    CREATE INDEX relays_user ON relays(user_id, id);`,
+  // 3. parties, the host's menu prices, and every drink quote the api signed
+  `CREATE TABLE parties (
+     id         INTEGER PRIMARY KEY,
+     host_id    TEXT    NOT NULL REFERENCES users(id),
+     title      TEXT    NOT NULL,
+     seed       INTEGER NOT NULL,                -- the game simulation's seed for this night
+     starts_at  INTEGER NOT NULL,
+     ends_at    INTEGER NOT NULL,
+     created_at INTEGER NOT NULL
+   );
+   CREATE INDEX parties_ends ON parties(ends_at);
+   CREATE TABLE party_prices (
+     party_id INTEGER NOT NULL REFERENCES parties(id),
+     token    TEXT    NOT NULL,
+     price    INTEGER NOT NULL CHECK (price > 0),   -- micro-USDC per unit
+     PRIMARY KEY (party_id, token)
+   );
+   CREATE TABLE quotes (
+     id             TEXT    PRIMARY KEY,
+     party_id       INTEGER NOT NULL REFERENCES parties(id),
+     buyer_id       TEXT    NOT NULL REFERENCES users(id),
+     buyer          TEXT    NOT NULL,             -- NEAR account
+     ceo            TEXT    NOT NULL,             -- NEAR account
+     token          TEXT    NOT NULL,
+     qty            INTEGER NOT NULL,
+     unit_price     INTEGER NOT NULL,
+     unit_wholesale INTEGER NOT NULL,
+     expires_ms     INTEGER NOT NULL,
+     created_at     INTEGER NOT NULL
+   );
+   CREATE INDEX quotes_party ON quotes(party_id);`,
 ]
 
 export function openDb(path: string): Db {

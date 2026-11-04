@@ -10,7 +10,7 @@ const usd = (micro: number) => `$${(micro / 1_000_000).toFixed(2)}`
 
 export type Market = Partial<Record<TokenId, { priceUsd: number; change24h: number }>>
 export type MenuItem = { wholesale: number; price: number } // micro-USDC per unit (0.001 share)
-export type Guest = { id: number; budget: number; spent: number }
+export type Guest = { id: number; budget: number; spent: number; served: boolean }
 export type NightEvent =
   | { minute: number; kind: 'arrive'; guest: number }
   | { minute: number; kind: 'leave'; guest: number; reason: string }
@@ -33,7 +33,7 @@ export type Night = {
   nextGuest: number
   arrivalCarry: number
   came: number
-  served: number[]
+  served: number
   sales: Partial<Record<TokenId, Sales>>
   energySum: number
   peakEnergy: number
@@ -73,7 +73,7 @@ export function startNight(opts: { seed: number; reputation: number; market: Mar
     nextGuest: 1,
     arrivalCarry: 0,
     came: 0,
-    served: [],
+    served: 0,
     sales: {},
     energySum: 0,
     peakEnergy: 0,
@@ -160,13 +160,18 @@ function reasonToBuy(a: { markup: number; change: number }, ticker: string): str
 export function tick(night: Night): Night {
   if (night.minute >= R.NIGHT_MINUTES) return night
   const n = copy(night)
+  step(n)
+  return n
+}
 
+// One minute, in place. Only for a night nobody else holds (tick() copies first; runNight owns its own).
+function step(n: Night): void {
   // Arrivals, while there's room.
   n.arrivalCarry += R.ARRIVALS_BASE + n.reputation * R.ARRIVALS_PER_REPUTATION
   while (n.arrivalCarry >= 1 && n.guests.length < n.capacity) {
     n.arrivalCarry -= 1
     const budget = roundCent(between(n.rng, R.GUEST_BUDGET_USD.min, R.GUEST_BUDGET_USD.max) * 1_000_000)
-    const g = { id: n.nextGuest++, budget, spent: 0 }
+    const g = { id: n.nextGuest++, budget, spent: 0, served: false }
     n.guests.push(g)
     n.came += 1
     log(n, { minute: n.minute, kind: 'arrive', guest: g.id })
@@ -216,7 +221,10 @@ export function tick(night: Night): Night {
     s.units += 1
     s.revenue += price
     s.margin += price - item.wholesale
-    if (!n.served.includes(g.id)) n.served.push(g.id)
+    if (!g.served) {
+      g.served = true
+      n.served += 1
+    }
     log(n, { minute: n.minute, kind: 'buy', guest: g.id, token: b.token, price, reason: reasonToBuy(b, ticker) })
   }
 
@@ -233,7 +241,6 @@ export function tick(night: Night): Night {
   n.energySum += n.energy
   n.peakEnergy = Math.max(n.peakEnergy, n.energy)
   n.minute += 1
-  return n
 }
 
 // ── After the night ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -261,7 +268,7 @@ export function report(n: Night): NightReport {
   const margin = all.reduce((a, s) => a + s.margin, 0)
   const minutes = Math.max(1, n.minute)
   const avgEnergy = n.energySum / minutes
-  const servedRatio = n.came ? n.served.length / n.came : 0
+  const servedRatio = n.came ? n.served / n.came : 0
   const reputationAfter = clamp(
     n.reputation + (avgEnergy - n.reputation) * R.REPUTATION_PULL + R.REPUTATION_SERVED_BONUS * (servedRatio - 0.5),
     0,
@@ -276,7 +283,7 @@ export function report(n: Night): NightReport {
     margin,
     wholesale: revenue - margin,
     guestsCame: n.came,
-    guestsServed: n.served.length,
+    guestsServed: n.served,
     avgEnergy: Math.round(avgEnergy * 10) / 10,
     peakEnergy: Math.round(n.peakEnergy * 10) / 10,
     bestSeller,
@@ -310,7 +317,7 @@ export function runNight(opts: { seed: number; reputation: number; market: Marke
       const r = startHappyHour(n)
       if (r.ok) n = r.night
     }
-    n = tick(n)
+    step(n) // one copy per night, not one per minute: fast-forward runs hundreds of nights
   }
   return { night: n, report: report(n) }
 }
