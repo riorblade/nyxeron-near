@@ -1,6 +1,6 @@
 // Spike 10 (#29): does the Privy NEAR wallet sign with no UI? Sign in, create the wallet, onboard, then sign a drink
 // payment delegate and relay it, while watching the page for anything Privy shows. Results go to spikes/FINDINGS.md.
-import { usePrivy } from '@privy-io/react-auth'
+import { useMfaEnrollment, usePrivy } from '@privy-io/react-auth'
 import { useCreateWallet, useSignRawHash } from '@privy-io/react-auth/extended-chains'
 import { JsonRpcProvider } from 'near-api-js'
 import { useEffect, useState } from 'react'
@@ -32,6 +32,7 @@ export function PrivySpike() {
   const { ready, authenticated, user, login, logout, getAccessToken } = usePrivy()
   const { createWallet } = useCreateWallet()
   const { signRawHash } = useSignRawHash()
+  const { showMfaEnrollmentModal } = useMfaEnrollment()
   const [config, setConfig] = useState<ApiConfig>()
   const [log, setLog] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -39,7 +40,12 @@ export function PrivySpike() {
   const wallet = user?.linkedAccounts.find((a) => a.type === 'wallet' && a.chainType === 'near')
   const address = wallet?.type === 'wallet' ? wallet.address : undefined
 
-  const write = (line: string) => setLog((l) => [...l, `${new Date().toISOString().slice(11, 23)} ${line}`])
+  const write = (line: string) => {
+    const entry = `${new Date().toISOString().slice(11, 23)} ${navigator.userAgent.includes('iPhone') ? 'iphone' : 'desktop'} ${line}`
+    setLog((l) => [...l, entry])
+    // Dev only: the vite server appends it to apps/web/.data/spike10.log, so results come off the phone without screenshots.
+    if (import.meta.env.DEV) void fetch('/__spike-log', { method: 'POST', body: entry }).catch(() => undefined)
+  }
 
   useEffect(() => {
     fetch('/api/config')
@@ -159,6 +165,10 @@ export function PrivySpike() {
               }
             >
               Sign ×5 (timing, not sent)
+            </button>
+            {/* MFA only applies to players who enrolled; this is how the spike tests signing with MFA on. */}
+            <button disabled={busy} onClick={() => step('mfa', showMfaEnrollmentModal)}>
+              Enroll MFA
             </button>
             <button disabled={busy} onClick={() => step('logout', logout)}>
               Log out
