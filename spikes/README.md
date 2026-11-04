@@ -35,3 +35,4 @@ node spikes/01-near-rpc.ts          # Node 24 runs .ts directly
 | `11` (contract)              | NEP-245 with near-sdk-contract-tools (Ghoza)                                           |
 | `15-robinhood.ts`            | Robinhood Chain: genuine tokens, issuer controls, swaps, Intents funding               |
 | `16-chain-signatures-evm.ts` | NEAR MPC signs a Robinhood Chain (EVM) swap; signer recovered                          |
+| `18-robinhood-stocks.ts`     | every genuine Robinhood stock token, liquidity, $5 buy routes                          |
