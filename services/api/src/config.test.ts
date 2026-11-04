@@ -21,3 +21,20 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...base, DEMO_MODE: 'true', NEAR_NETWORK: 'mainnet' })).toThrow(/mainnet/)
   })
 })
+
+describe('relayer config', () => {
+  it('defaults the contract and USDC for the network', () => {
+    const cfg = loadConfig(base)
+    expect(cfg.CONTRACT_ID).toBe('nyxeron.testnet')
+    expect(cfg.USDC_CONTRACT_ID).toBe('3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af')
+    expect(cfg.RELAYER_ACCOUNT_ID).toBeUndefined()
+  })
+
+  it('needs the relayer account and key together, and the contract on mainnet', () => {
+    expect(() => loadConfig({ ...base, RELAYER_ACCOUNT_ID: 'relayer.testnet' })).toThrow(/together/)
+    expect(() => loadConfig({ ...base, NEAR_NETWORK: 'mainnet' })).toThrow(/CONTRACT_ID/)
+    expect(loadConfig({ ...base, NEAR_NETWORK: 'mainnet', CONTRACT_ID: 'nyxeron.near' }).USDC_CONTRACT_ID).toBe(
+      '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+    )
+  })
+})
