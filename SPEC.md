@@ -1,279 +1,219 @@
 # NYXERON · Spesifikasi
 
-Status: **draft untuk disetujui tim** (2026-11-03). Rencana kerja dan pembagian tugas: [plan.md](plan.md). Aturan
-hackathon: [HACKATHON.md](HACKATHON.md) (baca versi live sebelum submit).
+Status: **v2, dari hasil spike** (2026-11-04). Setiap keputusan merujuk ke spike di [spikes/FINDINGS.md](spikes/FINDINGS.md).
+Tugas dan tanggal: [plan.md](plan.md). Aturan hackathon: [HACKATHON.md](HACKATHON.md).
 
 ## 1. Ringkasan
 
-NYXERON adalah game nightclub multiplayer di NEAR. Setiap minuman di menu adalah saham tokenized (Tesla, Nvidia,
-S&P 500) dengan harga live. CEO menyewa venue dan mengadakan pesta; tamu membeli unit saham asli (1 unit = 0.001
-share) di harga pesta. CEO mendapat margin, platform mendapat harga grosir, tamu memegang sahamnya.
+NYXERON adalah game nightclub multiplayer di NEAR. Setiap minuman di menu adalah saham asli (Tesla, NVIDIA, S&P 500,
+…) dengan harga pasar live. CEO menyewa venue dan mengadakan pesta; tamu membeli minuman, dan setiap minuman berisi
+unit saham asli (1 unit = 0,001 saham) yang menjadi milik tamu. CEO mendapat margin, platform mendapat harga grosir.
 
-Peran NEAR, konkret:
+**Pemain tidak pernah merasa memakai blockchain:** login Google, saldo dalam dolar, tanpa seed phrase, tanpa popup
+wallet, tanpa gas. Uang tetap milik pemain sendiri (non-custodial).
 
-| Bagian            | Teknologi NEAR                                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Login             | Login Google/email → akun NEAR otomatis (Privy NEAR wallet), tanpa seed phrase, tanpa gas                              |
-| Top-up            | **NEAR Intents (1Click)**: bayar dari chain/token apa saja, mendarat sebagai USDC di treasury NEAR                     |
-| Kepemilikan       | Unit saham = token **NEP-245** di kontrak `nyxeron`, dipegang di akun NEAR pemain                                      |
-| Gudang saham asli | xStocks (mis. TSLAx) di alamat Solana yang **diturunkan dari akun NEAR via Chain Signatures (MPC)**, tanpa private key |
-| Agent restock     | Agent menandatangani swap USDC→xStock lewat Chain Signatures, dalam batas belanja                                      |
-| Bukti backing     | `mt_supply` di NEAR vs saldo xStock alamat MPC, bisa dicek siapa saja di `/proof`                                      |
+| Bagian            | Teknologi NEAR                                                                                                     | Bukti                          |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| Login             | Privy NEAR wallet (akun implicit milik pemain, kunci 2-of-2 di enclave)                                            | riset login; spike 10 menunggu |
+| Tanpa gas         | Meta transaction NEP-366: pemain tanda tangan, relayer kita bayar gas + deposit 1 yocto                            | 03, 04                         |
+| Uang masuk/keluar | NEAR Intents (1Click): top-up dari chain apa saja ke akun pemain, cash-out ke chain apa saja                       | 05                             |
+| Bayar minuman     | USDC dari akun pemain ke kontrak `nyxeron`, kontrak membagi margin CEO dan grosir                                  | — (baru)                       |
+| Saham asli        | Token saham Robinhood di Robinhood Chain, dibeli alamat EVM yang dikendalikan akun NEAR lewat **Chain Signatures** | 15, 16, 18                     |
+| Kepemilikan       | Unit saham NEP-245 di akun NEAR tamu, 1:1 dengan saham di gudang                                                   | PR #14                         |
+| Bukti             | `/proof`: `mt_supply` di NEAR vs saldo token di alamat gudang Robinhood Chain                                      | 15                             |
 
-Kalimat pitch: _"Saham Tesla asli, dimiliki akun NEAR tanpa kunci privat, dijual sebagai minuman di nightclub,
-dibayar dari chain apa saja."_
+Pitch: _"Minum di nightclub, pulang bawa saham Tesla asli. Bayar dari chain apa saja, tanpa tahu ada blockchain."_
 
-### Temuan riset (2026-11-03)
+## 2. Keputusan dari spike
 
-- **1Click tidak punya saham tokenized** (`GET /v0/tokens`: 210 token, hanya crypto dan stablecoin). Saham tidak
-  bisa dibeli langsung via Intents.
-- **xStocks likuid di Solana** (DexScreener): TSLAx/USDC ~$2,4 jt likuiditas di Raydium, NVDAx/USDC ~$2,9 jt,
-  SPYx/USDC ~$2,1 jt. Swap kecil (≤ $50) aman. Mint TSLAx: `XsDoVfqeBukxuZHWhdvWHBhgEHjGNst4MLodqsJHzoB`
-  (verifikasi ulang di situs resmi xStocks sebelum dikunci di config).
-- **1Click mendukung Solana** sebagai tujuan, jadi treasury NEAR bisa mendanai gudang Solana lewat Intents.
-- **Chain Signatures** mendukung tanda tangan EdDSA untuk Solana (cek di docs Chain Signatures + skill
-  `near-smart-contracts` rule `chain-signatures`).
-- **Privy mendukung NEAR** lewat `@privy-io/react-auth/extended-chains` (`createWallet({ chainType: 'near' })`),
-  sesuai tutorial resmi docs.near.org.
-- Track paling cocok: `games` (hint: social login, agent NPC, NEAR Intents, NEP-245).
+| Keputusan                            | Kenapa                                                                                           | Spike      |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------ | ---------- |
+| Backend TypeScript, Node 24          | simulasi game dipakai bersama browser dan server; library NEAR paling matang                     | —          |
+| Login Privy NEAR                     | resmi Tier 2, tanda tangan tanpa UI, non-custodial; NEAR Auth popup tiap tanda tangan            | riset      |
+| Relayer sendiri (near-api-js 7.4)    | pemain 0 NEAR bisa bertransaksi; biaya ≈ $0,001/aksi, onboarding ≈ $0,034/pemain                 | 03, 04     |
+| Session key **tidak** untuk bayar    | function-call key tidak bisa melampirkan deposit (USDC butuh 1 yocto)                            | 03         |
+| Saham dari **Robinhood Chain**       | 201 token asli, $1–50 terisi, Intents bisa kirim USDG/ETH ke sana, Chain Signatures EVM terbukti | 15, 16, 18 |
+| Bukan Solana xStocks                 | jalan juga, tapi tanda tangan Ed25519 lebih sulit (`chainsig.js` belum dukung tx v0)             | 07, 08     |
+| Bukan Ondo di NEAR                   | likuiditas tipis: hanya lot $10/$50/$100, $1–5 selalu gagal                                      | 05, 06     |
+| Harga minuman = harga token di pasar | token diperdagangkan 24/7; harga saham penutupan bisa selisih ±3 %                               | 06, 07     |
+| Tanpa aplikasi agent                 | pembelian saham = job di `services/api`, bukan agent otonom                                      | —          |
+| RPC dengan failover                  | RPC gratis rate-limit; `rpc.*.near.org` mati; domain Robinhood diblokir ISP di Indonesia         | 03, 08, 15 |
 
-## 2. Scope
+## 3. Scope
 
 ### Masuk (MVP)
 
-1. **Game loop** (§3): kelola club, buka pesta, tamu (pemain dan bot) membeli minuman = unit saham, harga bergerak
-   dengan harga live dan energi crowd.
-2. Login Google/email → akun NEAR otomatis.
-3. Kontrak `nyxeron` (Rust, NEP-245): mint ke gudang hanya dengan bukti swap Solana, settle pesta memindahkan unit
-   dari gudang ke akun NEAR tamu.
-4. Top-up via 1Click → kredit (1 USD = 100 kredit, fee 1%).
-5. Agent restock via Chain Signatures + swap Solana; server memverifikasi lalu mint di NEAR.
-6. Halaman publik `/proof`.
-7. README untuk juri AI dengan langkah "do X, see Y".
+1. Game loop (§4): pesta, tamu, minuman = saham, harga bergerak; mode Practice tanpa login; fast-forward.
+2. Login Privy NEAR → akun pemain diaktifkan relayer.
+3. Top-up dan cash-out lewat 1Click langsung dari/ke akun pemain.
+4. Bayar minuman on-chain ke kontrak dengan harga yang ditandatangani server; margin langsung ke CEO.
+5. Akhir pesta: gudang membeli saham di Robinhood Chain, kontrak mencetak dan membagikan unit NEP-245 ke tamu.
+6. `/proof` publik dan back office.
+7. README untuk juri dengan langkah "do X, see Y", plus tabel tx bukti mainnet.
 
-### Tidak masuk (YAGNI, tambah kalau ada waktu)
+### Tidak masuk (stretch, kalau sempat)
 
-- Meta-transaction relayer: pemain tidak tanda tangan di loop normal (server yang settle).
-- Penarikan unit ke xStock asli (burn NEP-245 → MPC kirim xStock ke alamat Solana pemain). Stretch terbaik.
-- Kebijakan belanja agent di dalam kontrak (cap harian on-chain). Stretch, cocok track `security`.
-- NPC tamu dengan wallet dan otak AI (NEAR AI Cloud). Stretch, cocok hint "agent NPC".
-- Oracle on-chain: kontrak tidak butuh harga. Harga game dari API harga off-chain (S2).
-- `mt_transfer_call`, approvals NEP-245.
-- Kredit sebagai token on-chain: kredit di ledger server; yang on-chain adalah aset yang dimiliki pemain.
+- **Tarik saham asli ke wallet sendiri:** unit di-burn, gudang mengirim token ke alamat Robinhood Chain milik pemain
+  (diturunkan dari akun NEAR pemain lewat Chain Signatures). Ini satu-satunya bagian yang menghilangkan custody
+  gudang; paling bernilai setelah MVP.
+- NPC/tamu AI dengan NEAR AI Cloud (model tersedia, spike 09).
+- Kebijakan belanja gudang di dalam kontrak (track `security`).
+- Ondo di NEAR sebagai jalur kedua.
 
-## 3. Game loop (MVP)
+## 4. Game loop
 
-Didesain di kertas dulu dan disetujui tim sebelum ngoding (sesuai prompt track `games`).
+| Ritme         | Pemain melakukan                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| Tiap 30 detik | Saat pesta: tamu membeli minuman; CEO melihat penjualan, energi crowd, harga bergerak; bisa ganti promo/lagu |
+| Tiap 5 menit  | Pesta selesai → laporan malam (penjualan, margin, unit terjual) → tamu "mengambil" sahamnya (momen hadiah)   |
+| Tiap sesi     | Naik level venue, sewa venue lebih besar, kumpulkan portofolio saham                                         |
 
-| Ritme         | Pemain melakukan                                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Tiap 30 detik | Saat pesta: tamu membeli minuman; CEO melihat penjualan, energi crowd, harga bergerak; bisa ganti promo/lagu                   |
-| Tiap 5 menit  | Satu pesta selesai → laporan malam (penjualan, margin, unit terjual); CEO atur harga menu (≤ 3× grosir) untuk pesta berikutnya |
-| Tiap sesi     | Naik level venue, sewa venue lebih besar, kumpulkan portofolio saham sebagai tamu                                              |
+Mode: **Practice** (gratis, poin main, tanpa login, pintu masuk juri), **City** (uang asli), **Fast-forward**
+(seminggu pesta dalam semenit).
 
-Mode:
+Angka awal: 1 unit = 0,001 saham; harga grosir = harga token × 0,001, dibulatkan ke atas ke sen USDC; harga CEO ≤ 3×
+grosir; top-up minimal $1, cap $20/hari dan $100 total per pemain selama hackathon.
 
-- **Practice** (gratis, poin main, tanpa login): loop yang sama tanpa uang asli. Pintu masuk untuk juri.
-- **City** (uang asli, kredit): sewa venue, pesta dengan tamu asli, unit saham asli on-chain.
-- **Fast-forward**: simulasi seminggu pesta dalam satu menit supaya juri melihat ekonominya bergerak.
-
-Angka awal (bisa disetel): 1 unit = 0.001 share; harga grosir = spot × 0.001 × 100 kredit, dibulatkan ke atas;
-harga CEO maksimum 3× grosir; fee top-up 1%, min $3, cap $20/hari dan $100 total per pemain.
-
-## 4. Arsitektur
+## 5. Alur uang
 
 ```
- Pemain (browser)                       NEAR                                   Solana
- ───────────────                        ────                                   ──────
- Privy login ──► akun NEAR implicit
- Top-up ──► 1Click deposit address ──► Intents ──► USDC ──► treasury
-                                                             │ (1Click) USDC + SOL
-                                                             ▼
- agent ── sign request ──► MPC signer (Chain Signatures) ── signature ──► swap USDC→TSLAx ──► gudang @ alamat MPC
-                                                                                                  │
- api ── verifikasi swap di Solana RPC ◄───────────────────────────────────────────────────────────┘
-  │ mint_warehouse(tsla, n, sol_tx)        settle(op_id, transfers)
-  ▼
- kontrak nyxeron (NEP-245) ── unit di akun NEAR tamu ── terlihat di nearblocks
+ Pemain (Privy NEAR)            NEAR                                   Robinhood Chain (4663)
+ ───────────────────            ────                                   ──────────────────────
+ Add money ─► 1Click ──────────► USDC di akun pemain
+ Beli minuman (tanda tangan,     │ ft_transfer_call (relayer bayar gas + 1 yocto)
+ tanpa UI) ─────────────────────►├─► kontrak nyxeron ─► margin → akun CEO
+                                 │                    └► grosir → treasury
+ Akhir pesta                     │   treasury ─► 1Click ─────────────► USDG di alamat gudang (MPC)
+                                 │   api ─► sign (Chain Signatures) ─► swap USDG → saham (KyberSwap)
+                                 │   api verifikasi saldo token ◄──────┘
+                                 └─► mint_warehouse + settle ─► unit NEP-245 di akun tamu
+ Cash out ─► 1Click ◄─ USDC dari akun pemain/CEO
 ```
 
-| Bagian              | Isi                                                                         | Stack (usul)                                      |
-| ------------------- | --------------------------------------------------------------------------- | ------------------------------------------------- |
-| `contracts/nyxeron` | NEP-245 unit saham, gudang, settle                                          | Rust, near-sdk 5.x, near-workspaces               |
-| `apps/web`          | Game client, back office (`/admin`), login, top-up, portofolio, `/proof`    | React + Vite + Tailwind                           |
-| `services/api`      | Akun, kredit, pesta, penjualan, top-up 1Click, outbox ke NEAR, rekonsiliasi | TypeScript (Node), near-kit / near-api-js, SQLite |
-| `apps/agent`        | Restock gudang: quote, swap via Chain Signatures, report                    | TypeScript                                        |
-| `packages/game`     | Simulasi pesta (murni, deterministik, seeded RNG), dipakai web dan api      | TypeScript                                        |
+### 5.1 Uang pemain (non-custodial)
 
-TypeScript di backend karena library NEAR (near-kit, near-api-js, chain signatures) paling matang di TS, jadi satu
-bahasa untuk semua kecuali kontrak (S1).
+- USDC (NEP-141, mainnet `17208628…6133a1`) disimpan di akun NEAR pemain sendiri.
+- **Top-up:** 1Click dengan `recipient` = akun pemain; 1Click sendiri yang mendaftarkan storage USDC. Server hanya
+  membuat quote dan memantau status. Kredit di server **tidak** dipakai untuk uang asli.
+- **Cash-out:** pemain menandatangani `ft_transfer` USDC ke deposit address 1Click; relayer membayar gas.
+- **Onboarding:** akun implicit dibuat relayer dengan transfer 0 NEAR (≈ 0,0071 NEAR), kalau perlu storage USDC
+  ditanggung relayer (0,00125 NEAR).
 
-### Jaringan
+### 5.2 Bayar minuman
 
-| Jalur                            | Jaringan                             | Alasan                                                          |
-| -------------------------------- | ------------------------------------ | --------------------------------------------------------------- |
-| Game + kontrak untuk dicoba juri | NEAR **testnet** (`nyxeron.testnet`) | Gratis; juri main dengan kredit demo (`DEMO_MODE=1`)            |
-| Uang asli: top-up, gudang xStock | NEAR **mainnet** + Solana mainnet    | 1Click tidak punya testnet (Q-007); xStocks tidak ada di devnet |
+1. Klien meminta `POST /api/parties/{id}/quote {token, qty}`. Server mengembalikan **kutipan bertanda tangan**:
+   `{party, buyer, token, qty, price, wholesale, ceo, expires}`, ditandatangani kunci ed25519 server yang public
+   key-nya tersimpan di kontrak.
+2. Klien menandatangani delegate `ft_transfer_call` USDC → `nyxeron` dengan `msg` = kutipan + tanda tangan.
+   Relayer memeriksa ketat (§9) lalu mengirim.
+3. `ft_on_transfer` di kontrak memeriksa tanda tangan, `expires`, pembeli = pengirim, jumlah = `price × qty`, dan
+   `price ≤ 3 × wholesale`. Lalu margin dikirim ke CEO, grosir dicatat sebagai hak beli treasury, dan unit dicatat
+   sebagai **utang ke tamu**. Kalau ada yang salah, USDC dikembalikan utuh (tidak ada potongan).
+4. UI langsung menampilkan minuman (optimistic); chain final dalam ≈ 2–3 detik.
 
-Kode sama, beda config (`NEAR_NETWORK`). Deploy mainnet dan transaksi uang asli hanya setelah konfirmasi tim.
+### 5.3 Saham di Robinhood Chain (gudang)
 
-## 5. Kontrak `contracts/nyxeron` (Rust, near-sdk 5.x)
+- **Alamat gudang:** EVM, diturunkan dari akun NEAR api + path `nyxeron-warehouse-hood` (MPC domain 0). Tidak ada
+  private key di mana pun.
+- **Akhir pesta (job di api):**
+  1. Kontrak melepas grosir pesta ke treasury.
+  2. Treasury → 1Click → USDG (dan sedikit ETH untuk gas) ke alamat gudang.
+  3. Per token: route KyberSwap USDG → token, tanda tangan MPC (≈ 6 detik), broadcast, tunggu receipt.
+  4. Verifikasi lewat RPC publik bahwa saldo token **yang alamatnya dipin** naik sesuai jumlah.
+  5. `mint_warehouse(token, units, proof = tx hash)`, lalu `settle(op_id, transfers)` ke tamu (maks 32 per panggilan).
+- **Menu:** hanya token dari daftar terverifikasi spike 18 (codehash beacon + beacon Robinhood), dipin per alamat.
+  Awal: TSLA, NVDA, AAPL, GOOGL, META, MSFT, SPY, QQQ, CRCL, MSTR.
+- **Saldo berskala:** token Robinhood memakai `uiMultiplier`; jumlah saham dibaca dengan `balanceOfUI`.
+- **Batas:** maks $50 per swap dan $500 per hari; tolak kalau quote lebih dari 2 % di bawah harga pasar.
 
-Ditulis dengan skill `near-smart-contracts`, diaudit dengan `near-contract-audit` sebelum mainnet. Cek apakah
-`near-sdk-contract-tools` punya NEP-245; kalau tidak, tulis inti NEP-245 sendiri. Build reproducible
-(`cargo near build`), tes di sandbox (`near-workspaces`).
+### 5.4 Harga
 
-### State
+- Harga token dari quote DEX (KyberSwap, `amountOutUsd` per $1) per token, cache 60 detik; menolak kalau lebih tua
+  dari 10 menit.
+- Harga saham asli (penutupan) hanya ditampilkan sebagai info.
+- Spike lanjutan: oracle harga on-chain milik token Robinhood (`priceFeed`) sebagai sumber kedua.
 
-```rust
-owner_id: AccountId,                        // akun server (api), satu-satunya yang mint/settle
-tokens: IterableMap<TokenId, TokenInfo>,    // "tsla" → { symbol: "TSLAx", sol_mint, shares_per_unit: "0.001" }
-balances: LookupMap<(TokenId, AccountId), u128>,
-supply: LookupMap<TokenId, u128>,
-used_proofs: LookupSet<String>,             // signature tx Solana yang sudah di-mint (anti double-mint)
-settled: LookupSet<String>,                 // id operasi settle yang sudah jalan (idempoten)
-paused: bool,
-```
+## 6. Kontrak `contracts/nyxeron` (Ghoza)
 
-Gudang = saldo milik akun kontrak itu sendiri.
+Sudah ada (PR #14, deploy `nyxeron.testnet`): NEP-245, `register_token`, `mint_warehouse(token_id, amount, proof)`,
+`settle(op_id, transfers ≤ 32)`, `write_off`, `set_paused`, views, event `nep245`, idempoten (`used_proofs`, `settled`).
 
-### Method
+Tambahan untuk v2:
 
-| Method                                                                                           | Siapa    | Efek                                                                                        |
-| ------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------- |
-| `new(owner_id)`                                                                                  | deploy   | init                                                                                        |
-| `register_token(token_id, info)`                                                                 | owner    | tambah saham ke whitelist (awal: `tsla`)                                                    |
-| `mint_warehouse(token_id, amount, sol_tx)`                                                       | owner    | mint ke gudang; tolak kalau `sol_tx` sudah dipakai atau `paused`                            |
-| `settle(op_id, transfers: Vec<(AccountId, TokenId, U128)>)`                                      | owner    | gudang → tamu dalam satu panggilan; tolak `op_id` duplikat; batas panjang `transfers` (gas) |
-| `write_off(token_id, amount, reason)`                                                            | owner    | burn dari gudang (unit hilang yang ditulis-off)                                             |
-| `set_paused(bool)`                                                                               | owner    | hentikan mint/settle                                                                        |
-| `mt_transfer`, `mt_batch_transfer`                                                               | pemegang | standar NEP-245 (pemain belum memakai di MVP)                                               |
-| `mt_balance_of`, `mt_batch_balance_of`, `mt_supply`, `mt_token`, `tokens()`, `is_used_proof(tx)` | view     | web, api, `/proof`, juri                                                                    |
+| Method                                   | Siapa        | Efek                                                 |
+| ---------------------------------------- | ------------ | ---------------------------------------------------- |
+| `ft_on_transfer(sender_id, amount, msg)` | kontrak USDC | bayar minuman (§5.2); kembalikan semua kalau ditolak |
+| `set_quote_key(public_key)`              | owner        | kunci ed25519 server untuk kutipan                   |
+| `release_wholesale(party_id)`            | owner        | grosir pesta ke treasury untuk beli saham            |
+| `owed(party_id)`                         | view         | unit yang harus dibagikan per tamu                   |
+| `set_owner(owner_id)`                    | owner        | ganti akun api tanpa deploy ulang                    |
 
-Event NEP-297 standar `nep245` (`mt_mint`, `mt_transfer`, `mt_burn`) dengan `memo` = signature tx Solana /
-`party:<id>` / alasan write-off.
+Tes wajib tambahan: kutipan kadaluarsa, tanda tangan salah, pembeli ≠ pengirim, harga di atas 3× grosir, refund utuh
+saat ditolak, margin sampai ke CEO, `release_wholesale` sekali per pesta.
 
-Storage dibayar dari saldo kontrak (hanya owner yang membuat entri baru); api memantau saldo kontrak. Pindah ke
-`storage_deposit` per pemain kalau pemain banyak.
+## 7. `services/api` (Kiel)
 
-### Tes wajib (sandbox)
+Sudah ada: config, SQLite + migrasi, ledger, login Privy + akun NEAR, `/api/quotes`, back office dasar.
 
-Mint ganda dengan `sol_tx` sama ditolak · `settle` ganda dengan `op_id` sama ditolak · non-owner tidak bisa
-mint/settle/write_off · settle melebihi stok gudang gagal tanpa perubahan parsial · `paused` menghentikan mint dan
-settle · total supply = gudang + Σ saldo pemain setelah urutan operasi acak.
+Tambahan:
 
-## 6. `services/api`
+| Bagian                | Isi                                                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Perbaikan             | endpoint Privy `api.privy.io/v1/users/{id}`; harga dari token Robinhood (bukan Jupiter); `packages/game` pakai alamat Robinhood               |
+| `relay.ts`            | `POST /api/relay`: terima delegate dari klien, tolak kalau receiver/method/deposit/jumlah aksi tidak di allowlist, kirim dengan kunci relayer |
+| `onboard.ts`          | aktifkan akun implicit pemain + storage USDC sekali                                                                                           |
+| `parties.ts`          | venue, pesta, kutipan bertanda tangan, simulasi pesta (dari `packages/game`)                                                                  |
+| `settlement.ts`       | job akhir pesta §5.3, dengan outbox `chain_ops` dan retry; idempoten di kontrak                                                               |
+| `chainsig.ts` (Ghoza) | derive alamat EVM, minta tanda tangan MPC, rakit tx; dua bentuk respons MPC                                                                   |
+| `intents.ts`          | quote top-up/cash-out, pantau status                                                                                                          |
+| `proof.ts`            | `GET /api/proof`: `mt_supply` vs `balanceOfUI` gudang per token                                                                               |
+| RPC                   | NEAR: FastNEAR + drpc + intea; Robinhood: publicnode + drpc                                                                                   |
 
-### 6.1 Identitas
+## 8. `apps/web` (Wisnu)
 
-Setiap request membawa access token Privy, diverifikasi server (JWKS). Akun NEAR pemain diambil dari Privy REST API
-(linked account `chain_type = near`), tidak pernah dari body request.
+Layar: landing, Practice, dashboard club, pesta, laporan malam + "ambil saham", City, portofolio (unit + saldo USDC),
+Add money/Cash out, `/proof`, back office `/admin`. Login Privy NEAR; semua tanda tangan lewat `signRawHash` tanpa UI
+lalu dikirim ke `/api/relay`. Saldo dalam dolar; kata NEAR/Robinhood hanya di `/proof` dan badge kecil.
 
-### 6.2 Klien NEAR dan outbox
+## 9. Keamanan
 
-- View dan call lewat RPC publik (Q-009), RPC kedua sebagai pembanding untuk hal yang menyangkut uang.
-- Tanda tangan pakai **function-call access key** yang hanya boleh memanggil kontrak `nyxeron` (env
-  `NEAR_SIGNER_KEY`). Bocor = paling parah salah settle, tidak bisa mengambil NEAR akun.
-- Tabel `chain_ops(id, kind, args_json, status, tx_hash, attempts)`. Settle di DB satu transaksi SQL dan menulis
-  baris `chain_ops` di transaksi yang sama; worker mengirim ke NEAR dengan retry. Kontrak idempoten (`op_id`,
-  `sol_tx`), jadi retry aman.
+- Server tidak bisa memindahkan USDC pemain; hanya pemain yang menandatangani pembayaran.
+- Relayer menolak semua delegate kecuali: receiver = kontrak `nyxeron` atau USDC, method di allowlist, deposit ≤ 1
+  yocto, satu aksi. Batas per pemain per menit.
+- Kutipan harga bertanda tangan dan kadaluarsa singkat (≤ 60 detik).
+- Token saham dipin per alamat dan diverifikasi beacon-nya saat start; nama/ticker tidak pernah dipakai untuk mencari.
+- Gudang: batas swap, tolak quote buruk, satu swap per token per pesta, verifikasi saldo sebelum mint.
+- Kunci hanya di env; akun kontrak tanpa full-access key di mainnet.
+- Risiko diterima: penerbit token Robinhood bisa memblokir/pause/burn, dan sequencer menyaring transaksi (spike 15).
+  Disebut terang di README.
 
-### 6.3 Top-up via 1Click
+## 10. Lingkungan testnet (juri)
 
-Pakai skill `near-intents`.
+| Bagian                          | Testnet                                                                                                                  | Mainnet              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Akun, relayer, kontrak, NEP-245 | asli (NEAR testnet)                                                                                                      | asli                 |
+| USDC                            | USDC testnet Circle, atau token NEP-141 kita sendiri dengan tombol "Get test dollars"                                    | USDC asli            |
+| Top-up/cash-out                 | tombol faucet; quote 1Click asli ditampilkan sebagai dry run                                                             | 1Click asli          |
+| Saham                           | Chain Signatures testnet MPC asli; pembelian saham disimulasikan, unit dicetak dengan proof `demo:<id>` dan diberi label | Robinhood Chain asli |
 
-1. `POST /api/topups/quote {originAsset, amountUsd, refundTo}` → 1Click `POST /v0/quote` (`dry: false`), tujuan USDC
-   di NEAR (`assetId` dari `/v0/tokens`), `recipient` = treasury, `refundTo` = alamat asal pemain. Simpan
-   `topups(deposit_address UNIQUE, user, quote, deadline)`. Deposit address unik per quote = pencocokan pemain trivial.
-2. Pemain mengirim dana ke deposit address. Opsional `POST /api/topups/submit {depositAddress, txHash}` →
-   `/v0/deposit/submit`.
-3. Worker polling `GET /v0/status`. `SUCCESS` → verifikasi transfer USDC ke treasury di NEAR RPC → satu transaksi
-   SQL: tandai top-up, tambah kredit `(USD − 1%) × 100` dalam cap, tulis ledger. `REFUNDED` / `FAILED` /
-   `INCOMPLETE_DEPOSIT` → catat, tanpa kredit (refund diurus 1Click).
-4. `?dry=1` → quote `dry: true` tanpa deposit address, untuk juri dan pratinjau.
+Bukti mainnet di README: satu top-up, satu pembelian minuman, satu swap saham gudang, satu `settle`, satu cash-out.
 
-Tanpa JWT partner ada fee tambahan 1Click (Q-006: 0.2%, skill: 25 bps; cek docs).
+## 11. Langkah juri (draft README)
 
-### 6.4 Pesta dan penjualan
+1. Buka demo → **Play** → Practice tanpa login → harga saham live di menu.
+2. **Fast-forward** → seminggu pesta dalam semenit.
+3. **Sign in with Google** → profil menampilkan saldo $0 dan akun NEAR (tautan nearblocks).
+4. **Get test dollars** → $50 → join Demo Party → beli 3 minuman TSLA → tanpa popup, minuman langsung muncul.
+5. Pesta selesai → **Collect shares** → portofolio: 0,003 TSLA, tautan tx `settle`.
+6. **Add money** → pilih USDC di Base → quote 1Click nyata (dry run).
+7. `/proof` → unit di NEAR vs saham di alamat gudang Robinhood Chain (dikendalikan akun NEAR, tanpa private key).
 
-- CEO mengunci harga per token untuk pesta (≤ 3× grosir).
-- Pembelian tamu = panggilan server, satu transaksi: cek pesta, kredit, stok gudang; tahan kredit; reserve unit;
-  catat penjualan `pending` dengan harga CEO dan harga grosir saat itu.
-- Akhir pesta (+ masa tenggang): satu settlement per pesta: kredit ditangkap, unit ke tamu, grosir ke platform,
-  margin ke CEO, ledger; tulis `chain_ops` `settle(op_id = "party:<id>")`.
+## 12. Keputusan terbuka
 
-### 6.5 Restock
-
-`POST /api/agent/restock {token, sol_tx}` (bearer `AGENT_KEY`): server membaca tx di Solana RPC (dua RPC),
-memastikan xStock masuk ke alamat gudang MPC, jumlah dari perubahan saldo token, tx belum dipakai, finalized →
-bukukan unit → `chain_ops` `mint_warehouse`.
-
-### 6.6 Rekonsiliasi (per jam, mismatch = pause)
-
-1. Kredit didukung: Σ kredit pemain (termasuk hold) ÷ 100 ≤ saldo USDC treasury di NEAR − dana platform.
-2. Unit didukung: `mt_supply(tsla)` × 0.001 ≤ saldo TSLAx alamat MPC di Solana.
-3. DB = chain: unit di DB = saldo on-chain (setelah outbox kosong).
-
-## 7. `apps/agent`
-
-1. **Alamat gudang**: diturunkan dari akun NEAR agent + path tetap (mis. `nyxeron-warehouse-sol`) lewat kontrak MPC
-   (nama kontrak dari docs Chain Signatures, jangan ditebak). Dikunci di config.
-2. **Demand**: baca stok gudang dan penjualan dari api.
-3. **Quote**: aggregator swap Solana (kandidat Jupiter API) USDC→TSLAx; tolak kalau harga > 5% di atas atau > 20%
-   di bawah spot.
-4. **Swap**: tx dari aggregator → minta tanda tangan EdDSA ke MPC → broadcast ke Solana → tunggu finalized.
-5. **Report** ke api, retry pada 5xx/jaringan.
-
-Batas: $50 per swap, $500 per hari, satu swap berjalan pada satu waktu (record + run lock di file state).
-Pendanaan gudang: treasury NEAR → 1Click → USDC + sedikit SOL (biaya) ke alamat MPC, lewat `pnpm agent --fund`.
-
-Kunci agent: kalau method sign di kontrak MPC butuh deposit (function-call key tidak bisa melampirkan deposit),
-akun agent pakai full-access key dengan saldo kecil. Stretch: kontrak kita yang memanggil MPC dengan kebijakan
-on-chain.
-
-## 8. `apps/web`
-
-- Layar: landing, dashboard club, layar pesta, laporan malam, City (venue, pesta live), portofolio, top-up, `/proof`.
-- Gaya: neon nightclub (panel kaca violet, neon magenta/violet, emas untuk aksi utama). Aset visual dibuat sendiri.
-- Login Privy dengan wallet NEAR; profil menampilkan akun NEAR + tautan nearblocks.
-- Top-up: pilih chain + token (dari `/v0/tokens`, disaring), deposit address + salin, status.
-- Portofolio: unit dari `mt_balance_of`, badge "on NEAR", tautan tx `settle`.
-- `/proof`: alamat gudang Solana dan akun NEAR pengendalinya, saldo xStock, `mt_supply`, rasio, restock terakhir.
-- `DEMO_MODE` (testnet saja): "Get demo credits" + satu Demo Party yang selalu jalan.
-- Teks UI dalam bahasa Inggris.
-
-## 9. Keamanan (tidak boleh dipangkas)
-
-- Server tidak percaya browser untuk nilai: akun NEAR dari Privy server-side, jumlah top-up dari 1Click + RPC NEAR,
-  unit restock dari RPC Solana.
-- Idempotensi ganda: DB (unique key) dan kontrak (`used_proofs`, `settled`).
-- Kunci hanya di env: `NEAR_SIGNER_KEY`, kunci agent, `AGENT_KEY`, `ONECLICK_JWT` (opsional), Privy secret.
-- Pause dibaca di dalam transaksi yang memindahkan uang dan di kontrak.
-- Tes: replay deposit address, status 1Click palsu/terlambat, RPC berbeda pendapat, outbox crash di tengah, settle
-  gagal parsial, pembelian bersamaan menghabiskan stok.
-
-## 10. Langkah juri (draft untuk README)
-
-1. Buka demo → **Play** → main Practice tanpa login → harga saham live di menu.
-2. **Fast-forward** → seminggu pesta dalam satu menit, harga dan margin bergerak.
-3. **Sign in with Google** → profil menampilkan akun NEAR baru → buka di nearblocks.
-4. **Top up** → pilih "USDC on Base" → quote 1Click (dry run, tanpa dana).
-5. **Get demo credits** (testnet) → join Demo Party → beli 3 unit TSLA → pesta selesai → portofolio 3 unit
-   "on NEAR" → tautan tx `settle`.
-6. Buka `/proof` → alamat Solana yang dikendalikan akun NEAR via Chain Signatures, saldo TSLAx, `mt_supply`
-   mainnet, rasio ≥ 1.
-7. Lokal: `pnpm install && pnpm test && pnpm test:contract` → hijau.
-
-Bukti mainnet di README: tx top-up 1Click, tx swap MPC di Solana, tx `mint_warehouse` dan `settle` di NEAR.
-
-## 11. Keputusan terbuka (tim)
-
-| #   | Keputusan                                                           | Rekomendasi                                                                                      |
-| --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| D1  | Track                                                               | `games` + `agents` (opsional `defi`)                                                             |
-| D2  | Nama akun mainnet (kontrak, treasury, agent) dan akun payout hadiah | Tim buat sendiri di wallet                                                                       |
-| D3  | Dana mainnet untuk bukti                                            | ~$20: 2 top-up kecil + 2 swap $3–5                                                               |
-| D4  | Fallback kalau Chain Signatures meleset (9 Nov)                     | Unit diterbitkan dari USDC treasury dan ditandai "not yet backed"; Chain Signatures jadi stretch |
-| D5  | Login: Privy NEAR vs NEAR Auth                                      | Privy; NEAR Auth kalau Privy NEAR tidak tersedia                                                 |
-| S1  | **Diputuskan:** bahasa backend                                      | TypeScript: simulasi game dipakai bersama browser dan server, library NEAR paling matang         |
-| S2  | **Diputuskan:** sumber harga saham live                             | Jupiter Price API v3: harga xStock + harga saham asli (`stockData`) dalam satu panggilan         |
+| #   | Keputusan                                                             | Rekomendasi                                                       |
+| --- | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| D1  | Track                                                                 | `games` + `defi` + `open` (+ `realworld` kalau cash-out CEO jadi) |
+| D2  | Akun mainnet (kontrak, api, treasury, relayer) dan akun payout hadiah | tim buat sendiri                                                  |
+| D3  | Dana mainnet untuk bukti                                              | ≈ $20                                                             |
+| D4  | Fallback kalau tanda tangan Privy ternyata ber-UI                     | pembelian lewat saldo di kontrak + session key (spike 03)         |
+| D5  | Riwayat repo berisi string token lama sebelum dibuka publik           | bersihkan (force-push) atau buat ulang repo                       |
