@@ -7,6 +7,7 @@ import type { Db } from './db.ts'
 import { AppError } from './http.ts'
 import type { Relayer } from './near.ts'
 import { onboardRoutes } from './onboard.ts'
+import { configRoutes, partyRoutes } from './parties.ts'
 import { playerRoutes } from './players.ts'
 import { type Quotes, quoteRoutes } from './quotes.ts'
 import { relayRoutes } from './relay.ts'
@@ -28,6 +29,8 @@ export function createApp(deps: Deps) {
     .route('/admin', adminRoutes(deps))
     .route('/onboard', onboardRoutes(deps))
     .route('/relay', relayRoutes(deps))
+    .route('/parties', partyRoutes(deps))
+    .route('/config', configRoutes(deps.cfg))
   return app
 }
 
