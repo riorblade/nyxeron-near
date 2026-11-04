@@ -21,12 +21,18 @@ jobs:
 
   contracts:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts/nyxeron
     steps:
       - uses: actions/checkout@v4
-      - name: Test contracts (skipped until contracts/nyxeron exists)
-        run: |
-          if [ -f contracts/nyxeron/Cargo.toml ]; then
-            cd contracts/nyxeron && cargo test
-          else
-            echo "no contract yet"
-          fi
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/nyxeron
+      - name: Install cargo-near (the sandbox tests build the wasm with it)
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test

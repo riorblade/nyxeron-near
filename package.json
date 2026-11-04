@@ -9,6 +9,7 @@
   "scripts": {
     "dev:api": "pnpm --filter @nyxeron/api dev",
     "test": "vitest run --passWithNoTests",
+    "test:contract": "cd contracts/nyxeron && cargo test",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "pnpm typecheck && eslint . && prettier --check .",
     "format": "prettier --write ."
