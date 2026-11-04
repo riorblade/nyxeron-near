@@ -26,3 +26,19 @@ export async function tokenBalance(provider: Provider, token: string, account: s
 
 export const explorer = (network: Network) =>
   network === 'mainnet' ? 'https://nearblocks.io' : 'https://testnet.nearblocks.io'
+
+/** A read-only contract call; undefined when the method doesn't exist on the deployed contract yet. */
+export async function view<T>(
+  provider: Provider,
+  contractId: string,
+  method: string,
+  args: Record<string, unknown> = {},
+) {
+  try {
+    return (await provider.callFunction<T & object>({ contractId, method, args })) as T | undefined
+  } catch (e) {
+    if (/MethodNotFound|CodeDoesNotExist|wasm execution failed with error: MethodResolveError/i.test(String(e)))
+      return undefined
+    throw e
+  }
+}
