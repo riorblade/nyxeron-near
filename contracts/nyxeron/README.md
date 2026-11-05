@@ -123,8 +123,10 @@ on USDC too, or their transfers fail (margin waits for `claim_margin`, a release
 ## Numbers (sandbox, against a near-contract-standards NEP-141 token)
 
 - A drink payment (`ft_transfer_call` → `ft_on_transfer` → margin `ft_transfer` → callback → resolve): 11.5 TGas
-  burnt. It works with 30 TGas attached (the token's own minimum); the client attaches 100 (`probe_client_gas`).
-  Circle's USDC is a different contract: check once on testnet.
+  burnt in the sandbox with a near-contract-standards token, which works from 30 TGas (`probe_client_gas`).
+- With Circle's USDC on testnet (2026-11-05, tx `3awpE683wDyPELUDCQUur2fvbmU81DjFBuUzrfdPCZ5h`): 13.6 TGas burnt.
+  Circle's token refuses 30 TGas up front ("More gas is required", nothing moves) and works from 40 TGas with the
+  margin delivered. The client attaches 100.
 - A party at its cap of 256 owed entries: a payment burns 16.0 TGas, a settle of one guest 7.2 TGas
   (`full_party_gas`, ignored by default). Attach 100 TGas, not the 30 minimum.
 - The first purchase of a party stores 220 bytes (≈ 0.002 NEAR, from the contract's balance); settling frees the
