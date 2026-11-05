@@ -7,7 +7,7 @@ export const BEACON = '0xe10b6f6b275de231345c20d14ab812db62151b00'
 const BEACON_SLOT = '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50' // EIP-1967
 
 // Robinhood's own RPC domain is ISP-blocked in Indonesia (spike 15); these public ones answer.
-const RPCS = ['https://robinhood-rpc.publicnode.com', 'https://robinhood.drpc.org']
+export const ROBINHOOD_RPCS = ['https://robinhood-rpc.publicnode.com', 'https://robinhood.drpc.org']
 
 export type ChainReader = {
   getCode(address: Address): Promise<Hex | undefined>
@@ -15,7 +15,9 @@ export type ChainReader = {
 }
 
 export function robinhoodReader(): ChainReader {
-  const client = createPublicClient({ transport: fallback(RPCS.map((url) => http(url, { timeout: 10_000 }))) })
+  const client = createPublicClient({
+    transport: fallback(ROBINHOOD_RPCS.map((url) => http(url, { timeout: 10_000 }))),
+  })
   return {
     getCode: (address) => client.getCode({ address }),
     getStorageAt: (address, slot) => client.getStorageAt({ address, slot }),
