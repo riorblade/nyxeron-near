@@ -68,6 +68,8 @@ const DRINK_COLOR = [
   '#9b7bff',
 ]
 const drinkColor = (id: TokenId) => DRINK_COLOR[tokenIds.indexOf(id) % DRINK_COLOR.length]!
+/** Levels 1–3 are The Basement growing; the top level is the two-floor superclub with the pool. */
+const venueName = (level: number) => (level >= VENUES.length ? 'The Superclub' : 'The Basement')
 const levelOf = (capacity: number) => VENUES.find((v) => v.capacity === capacity)?.level ?? 1
 const nextVenue = (reputation: number) => VENUES.find((v) => v.reputation > reputation)
 
@@ -224,7 +226,9 @@ function Hud(props: { career: Career; night: Night; live: boolean; level: number
             </>
           ) : (
             <>
-              <b>Night {career.nights + 1} · The Basement</b>
+              <b>
+                Night {career.nights + 1} · {venueName(props.level)}
+              </b>
               <small>Venue level {props.level}</small>
             </>
           )}
@@ -266,7 +270,7 @@ function Title({ career, onPlay, onReset }: { career: Career; onPlay: () => void
         <div className="sub">Nightlife Empire · The Basement</div>
         <p>
           You run a nightclub where every drink is a real stock: a Tesla is 0.001 of a Tesla share. Set the prices, pick
-          the DJ, and grow The Basement from a 30-guest room to a 150-guest club.
+          the DJ, and grow The Basement into a two-floor superclub with a pool.
         </p>
         <div className="goals frame">
           <div>
@@ -355,7 +359,7 @@ function Day(props: {
   return (
     <>
       <aside className="quest frame">
-        <span className="tagline">The Basement · tonight</span>
+        <span className="tagline">{venueName(level)} · tonight</span>
         <h2>Venue level {level}</h2>
         <p>
           {venue.capacity} guests at most. Every drink you sell is 0.001 of a real share: the cost buys the share, the
@@ -909,7 +913,7 @@ function Report({ night, nights, onNext }: { night: Night; nights: number; onNex
       </section>
       <aside className="receipt" aria-label="Money breakdown">
         <div className="hd">
-          <b>THE BASEMENT</b>
+          <b>{venueName(levelOf(night.capacity)).toUpperCase()}</b>
           Practice club
           <br />
           Night {nights + 1}
@@ -949,7 +953,7 @@ function WeekResult({ reports, onClose }: { reports: NightReport[]; onClose: () 
       <section className="resultcard frame" style={{ '--c': 'var(--house)' } as CSSProperties}>
         <header>
           <small>Fast-forward · 7 nights with this menu</small>
-          <h1>A week at The Basement</h1>
+          <h1>A week at the club</h1>
         </header>
         <div className="tiles">
           <div className="slot">
