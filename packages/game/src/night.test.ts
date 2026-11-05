@@ -158,4 +158,10 @@ describe('fast-forward and venues', () => {
     expect(venueFor(100).level).toBe(4)
     expect(startNight({ ...base, reputation: 60 }).capacity).toBe(100)
   })
+
+  it('a CEO may open a smaller venue they unlocked, never a bigger one', () => {
+    expect(startNight({ ...base, reputation: 60, level: 1 }).capacity).toBe(30)
+    expect(startNight({ ...base, reputation: 60, level: 4 }).capacity).toBe(100)
+    expect(startNight({ ...base, reputation: 5, level: 3 }).capacity).toBe(30)
+  })
 })
