@@ -1,8 +1,8 @@
 // What a player holds and is owed, read straight from the contract. Pure helpers so the numbers are tested.
 import { SHARES_PER_UNIT } from '@nyxeron/game'
 
-// owed(party) on the contract (#22); qty may come as a number or a U128 string.
-export type Owed = { account_id: string; token: string; qty: number | string }
+// owed(party) on the contract (#22, contracts/nyxeron/src/drinks.rs `Owed`); qty is a U128, so a string.
+export type Owed = { account_id: string; token_id: string; qty: number | string }
 
 /** NEP-245 balances come back as decimal strings, one per token id, in the order asked. */
 export function unitsByToken(ids: string[], balances: string[] | undefined): Record<string, number> {
@@ -22,7 +22,7 @@ export function owedTo(account: string, byParty: Record<number, Owed[] | undefin
       const qty = Number(r.qty)
       if (r.account_id !== account || !(qty > 0)) continue
       const p = (out[Number(party)] ??= {})
-      p[r.token] = (p[r.token] ?? 0) + qty
+      p[r.token_id] = (p[r.token_id] ?? 0) + qty
     }
   }
   return out

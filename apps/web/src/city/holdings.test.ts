@@ -10,11 +10,11 @@ describe('holdings', () => {
   it('sums what one player is owed per party and ignores everyone else', () => {
     const owed = owedTo('me', {
       42: [
-        { account_id: 'me', token: 'tsla', qty: 2 },
-        { account_id: 'you', token: 'tsla', qty: 5 },
-        { account_id: 'me', token: 'tsla', qty: '1' },
+        { account_id: 'me', token_id: 'tsla', qty: '2' },
+        { account_id: 'you', token_id: 'tsla', qty: 5 },
+        { account_id: 'me', token_id: 'tsla', qty: '1' },
       ],
-      43: [{ account_id: 'you', token: 'spy', qty: 1 }],
+      43: [{ account_id: 'you', token_id: 'spy', qty: 1 }],
       44: undefined,
     })
     expect(owed).toEqual({ 42: { tsla: 3 } })
