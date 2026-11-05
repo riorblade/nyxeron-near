@@ -1,26 +1,27 @@
-import { PrivyProvider } from '@privy-io/react-auth'
-import { StrictMode } from 'react'
+import './index.css'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
-import { PrivySpike } from './spike/PrivySpike.tsx'
+import { Landing } from './landing/Landing.tsx'
+import { Practice } from './practice/Practice.tsx'
+import { usePath } from './router.tsx'
 
-const appId = import.meta.env.VITE_PRIVY_APP_ID as string | undefined
-const root = createRoot(document.getElementById('root')!)
+// Screens that need sign-in load Privy with them; Practice and the landing stay light.
+const SpikeRoute = lazy(() => import('./spike/SpikeRoute.tsx'))
 
-root.render(
+function App() {
+  const path = usePath()
+  if (path.startsWith('/practice')) return <Practice />
+  if (path.startsWith('/spike'))
+    return (
+      <Suspense fallback={null}>
+        <SpikeRoute />
+      </Suspense>
+    )
+  return <Landing />
+}
+
+createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    {appId ? (
-      <PrivyProvider
-        appId={appId}
-        config={{
-          loginMethods: ['google', 'email'],
-          // Signing must never show a Privy screen: the player taps "buy" and the drink appears.
-          embeddedWallets: { showWalletUIs: false },
-        }}
-      >
-        <PrivySpike />
-      </PrivyProvider>
-    ) : (
-      <p>Set VITE_PRIVY_APP_ID in apps/web/.env (see .env.example).</p>
-    )}
+    <App />
   </StrictMode>,
 )

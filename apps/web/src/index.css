@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+/* Neon nightclub, a placeholder until Kiel's color tokens land (#36): deep violet night, magenta and violet neon, gold
+   for what matters most. Components use these names only, so swapping the palette is one edit here. */
+@theme {
+  --color-night: #0b0614;
+  --color-panel: #160d26;
+  --color-line: #2c1f47;
+  --color-ink: #f3ecff;
+  --color-muted: #a597c2;
+  --color-neon: #ff2bd6;
+  --color-violet: #8b5cf6;
+  --color-gold: #f5c451;
+  --color-up: #3ee08f;
+  --color-down: #ff6b81;
+}
+
+body {
+  @apply bg-night text-ink antialiased;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
