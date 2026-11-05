@@ -88,6 +88,16 @@ describe('player messages', () => {
     expect(chainFailure('something else')).toBe('unknown')
   })
 
+  it('reads the contract refunds the relay reports as refund:<reason>', () => {
+    expect(chainFailure('refund:expired')).toBe('expired')
+    expect(chainFailure('refund:party_closed')).toBe('party_over')
+    expect(chainFailure('refund:ceo_mismatch')).toBe('prices_changed')
+    expect(chainFailure('refund:bad_price')).toBe('prices_changed')
+    expect(chainFailure('refund:quote_used')).toBe('refunded')
+    for (const code of ['party_over', 'prices_changed', 'refunded'])
+      expect(playerMessage(code)).not.toMatch(/went wrong/)
+  })
+
   it('has a sentence for every code the issue names, and a fallback', () => {
     for (const code of ['reprice_needed', 'party_not_live', 'not_enough_balance'])
       expect(playerMessage(code)).not.toMatch(/went wrong/)
