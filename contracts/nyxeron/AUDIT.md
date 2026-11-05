@@ -1,7 +1,7 @@
 # contracts/nyxeron · security review
 
-Checked on 2026-11-04 and again on 2026-11-06 (after the CEO lock) against the `near-contract-audit` checklist (near/agent-skills) plus the contract's own business
-rules. v1 (stock units) at the commit that added this file, v2 (drink payments, #22) at the commit that updates it.
+Checked on 2026-11-04 and again on 2026-11-06 (after the CEO lock) against the `near-contract-audit` checklist
+(near/agent-skills) plus the contract's own business rules. v1 (stock units) at the commit that added this file, v2 (drink payments, #22) at the commit that updates it.
 Re-run before the mainnet deploy if the contract changes.
 
 ## Checklist
