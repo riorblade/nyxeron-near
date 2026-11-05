@@ -20,11 +20,12 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 | `/practice` | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage |
 | `/spike`    | Spike 10 test page (Privy NEAR wallet signing)                                                          |
 
-`src/venue/` (Kiel) is the 3D club: The Basement, one room that grows with the venue level (L1 30 guests → L4 150).
-`<VenuePicker>` shows each level with ← →, a padlock on levels the reputation hasn't unlocked; `<Venue night={night} />`
-plays a running night (guests arrive, dance, walk to the bar on a buy, leave). It only reads the `Night`. three.js, voxel
-characters built in code, no model files; loaded lazily so the landing page stays light. Adapted from our earlier
-prototype (disclose in the judges' README, HACKATHON Q-002).
+`src/practice/` is the game screen, laid out like our course prototype: title → the day (venue carousel with a padlock
+on rooms the reputation hasn't opened, menu and DJ windows) → the night (HUD over the club) → the night report.
+`src/venue/` (Kiel) is the 3D club, ported from our earlier prototype: The Basement, one room that grows with the venue
+level (L1 30 guests → L4 150). `<Venue level night />` only reads the `Night`; `legacy.ts` dresses it up as the state the
+old scene draws. Assets live in `public/venue/` (sprites, textures, DJ loops). Both screens are adapted from our earlier
+work: the judges' README must say so (HACKATHON Q-002).
 
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.
