@@ -7,4 +7,5 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { languageOptions: { globals: { ...globals.node } } },
+  { files: ['apps/web/src/**'], languageOptions: { globals: { ...globals.browser } } },
 )

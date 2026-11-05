@@ -4,46 +4,46 @@ What we ran, what we saw, what it means. Newest decisions at the top; raw output
 
 ## Decisions so far
 
-| Question                                                                 | Answer from spikes                                                                                                                                                  | Spike  |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                                     | 01     |
-| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                                                   | 02     |
-| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                                             | 03     |
-| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                                                | 03     |
-| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                                     | 03     |
-| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                                                    | 03     |
-| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player                      | 04     |
-| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                                               | 05     |
-| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                                          | 05     |
-| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                                           | 05     |
-| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill                        | 05     |
-| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                                           | 06     |
-| Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC)          | 06, 07 |
-| Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                         | 07     |
-| Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                          | 07     |
-| Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                                  | 08     |
-| Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                            | 08     |
-| Is there a second market for Ondo tokens on NEAR (Rhea)?                 | **No**: 0 Rhea pools hold TSLAon/NVDAon/SPYon (of 2,465 pools)                                                                                                      | 09     |
-| Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                            | 09     |
-| Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                                 | 09     |
-| Are there real tokenized stocks with deep liquidity on Robinhood Chain?  | Yes: genuine TSLA/NVDA/SPY verified on-chain; $1 USDG → TSLA fills at ≈ 0.2 % + $0.015 gas, $5–50 almost no slippage                                                | 15     |
-| Can NEAR Intents fund Robinhood Chain?                                   | Yes: 10 USDC NEAR → 9.905 USDG (≈ 19 s), 1 USDC → ETH for gas (≈ 21 s)                                                                                              | 15     |
-| Are lookalike stock tokens a real risk?                                  | Yes: a fake "NVIDIA Robinhood Token" with 1B supply sits in DEX search; a third-party registry pointed TSLA at an address with no code. Only trust the beacon check | 15     |
-| Can the issuer act on holders?                                           | Yes: the shared implementation has `isBlocked(address)`, `pause()`, `burn(address,uint256)`; the sequencer also filters transactions for compliance                 | 15     |
-| Can a NEAR account sign Robinhood Chain (EVM) transactions?              | Yes: testnet MPC signed a real 3.3 KB USDG → TSLA swap in 5.7 s; the recovered signer = the derived address                                                         | 16     |
-| Can we reach Robinhood from Indonesia?                                   | Robinhood's own domains (docs, official RPC) resolve to an ISP block page; public RPCs (publicnode, drpc) work                                                      | 15     |
-| Which stocks can we offer on Robinhood Chain?                            | **201 genuine stock tokens** (verified on-chain); 80 have > $10k DEX liquidity; the deepest 25 all fill a $5 USDG buy at ≈ $5.00                                    | 18     |
-| Does the relay wire format work end to end?                              | Yes: a zero-NEAR player's delegate travels as 296 bytes of base64 borsh, decodes, verifies and relays in 2.8 s; `/api/onboard` + `/api/relay` work against testnet  | 19, 20 |
+| Question                                                                 | Answer from spikes                                                                                                                                                        | Spike  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Is NEAR fast enough for on-chain purchases during a party?               | Yes: blocks ~0.64 s, final in ~1.9 s on mainnet                                                                                                                           | 01     |
+| Can we make testnet accounts for demos without a wallet?                 | Yes: faucet API, 10 NEAR each, ~2.7 s per account                                                                                                                         | 02     |
+| Can the player act with zero NEAR, gas paid by us?                       | Yes: meta tx, player pays 0, relayer ~0.000239 NEAR (≈ $0.001) per call                                                                                                   | 03     |
+| Who pays the 1 yocto that `ft_transfer_call` needs?                      | The relayer (tested)                                                                                                                                                      | 03     |
+| Can a session key (function-call key) do purchases that need 1 yocto?    | **No**: `DepositWithFunctionCall` error, even through a relayer                                                                                                           | 03     |
+| Is one free RPC enough for the backend?                                  | **No**: FastNEAR free hit 429 within a few dozen calls; fail over across several                                                                                          | 03     |
+| Can a brand-new player with 0 NEAR be onboarded and act?                 | Yes: relayer creates the implicit account (0 NEAR transfer), registers USDC, player then acts via meta tx; ≈ 0.0086 NEAR (≈ $0.034) per player                            | 04     |
+| Can a player top up from any chain straight into their own NEAR account? | Yes: 10 USDC Base → 9.994 USDC, ~35 s; SOL works too; 1Click registers USDC storage itself (≈ $0.005)                                                                     | 05     |
+| Can a player cash out to any chain?                                      | Yes: 10 USDC NEAR → 9.996 USDC Base, ~22 s                                                                                                                                | 05     |
+| Can top-ups land directly in our contract?                               | Quotes accept `customRecipientMsg` (delivered with `ft_transfer_call`); needs a live test                                                                                 | 05     |
+| Can players own real stocks on NEAR (Ondo) through Intents?              | Only in the player's `intents.near` balance, and **only in some lot sizes**: $10/$50/$100 fill, $1–5 never, $20 failed 3×; sells ≥ ~$10 fill                              | 05     |
+| Does an Ondo token track its share?                                      | Roughly: TSLAon −2.6 %, NVDAon +1.2 %, SPYon +1.4 % vs the share; tiny supply on NEAR (148 TSLAon ≈ $57k)                                                                 | 06     |
+| Which price should a drink use?                                          | The token's market price, not `stockData`: off US hours the share price is the last close while tokens trade 24/7 (TSLAx −3 %, TSLAon −2.6 % at 07:29 UTC)                | 06, 07 |
+| Can xStocks be bought in small amounts?                                  | Yes on Jupiter: $1 USDC → TSLAx, 0.03 % impact; unsigned tx 478–697 bytes (fits the 1232-byte signer limit)                                                               | 07     |
+| Do we need a Jupiter API key?                                            | Not today: `api.jup.ag/price/v3` and `/swap/v2/order` answered without one                                                                                                | 07     |
+| Can a NEAR account sign Solana transactions (Chain Signatures)?          | Yes: testnet MPC signed a real 420-byte Jupiter swap message in 6.2 s; signature verifies against the derived key = Solana address                                        | 08     |
+| Are `rpc.mainnet.near.org` / `rpc.testnet.near.org` usable?              | **No**: deprecated, they answer every call with an error                                                                                                                  | 08     |
+| Is there a second market for Ondo tokens on NEAR (Rhea)?                 | **No**: 0 Rhea pools hold TSLAon/NVDAon/SPYon (of 2,465 pools)                                                                                                            | 09     |
+| Can a NEAR contract read stock prices on-chain?                          | **No**: OutLayer `get_price_data` returns `price: null` even for NEAR via the free view, and lists no stocks; Pyth no longer serves NEAR                                  | 09     |
+| Is NEAR AI Cloud usable for AI guests later?                             | Yes, the model list is public: 64 models (Claude, Gemini, DeepSeek, Kimi, …); calls need an API key                                                                       | 09     |
+| Are there real tokenized stocks with deep liquidity on Robinhood Chain?  | Yes: genuine TSLA/NVDA/SPY verified on-chain; $1 USDG → TSLA fills at ≈ 0.2 % + $0.015 gas, $5–50 almost no slippage                                                      | 15     |
+| Can NEAR Intents fund Robinhood Chain?                                   | Yes: 10 USDC NEAR → 9.905 USDG (≈ 19 s), 1 USDC → ETH for gas (≈ 21 s)                                                                                                    | 15     |
+| Are lookalike stock tokens a real risk?                                  | Yes: a fake "NVIDIA Robinhood Token" with 1B supply sits in DEX search; a third-party registry pointed TSLA at an address with no code. Only trust the beacon check       | 15     |
+| Can the issuer act on holders?                                           | Yes: the shared implementation has `isBlocked(address)`, `pause()`, `burn(address,uint256)`; the sequencer also filters transactions for compliance                       | 15     |
+| Can a NEAR account sign Robinhood Chain (EVM) transactions?              | Yes: testnet MPC signed a real 3.3 KB USDG → TSLA swap in 5.7 s; the recovered signer = the derived address                                                               | 16     |
+| Can we reach Robinhood from Indonesia?                                   | Robinhood's own domains (docs, official RPC) resolve to an ISP block page; public RPCs (publicnode, drpc) work                                                            | 15     |
+| Which stocks can we offer on Robinhood Chain?                            | **201 genuine stock tokens** (verified on-chain); 80 have > $10k DEX liquidity; the deepest 25 all fill a $5 USDG buy at ≈ $5.00                                          | 18     |
+| Does the relay wire format work end to end?                              | Yes: a zero-NEAR player's delegate travels as 296 bytes of base64 borsh, decodes, verifies and relays in 2.8 s; `/api/onboard` + `/api/relay` work against testnet        | 19, 20 |
+| Does the Privy NEAR wallet sign with no UI?                              | Yes, while MFA is off: 0.4–1.3 s per signature on desktop Brave and iPhone Safari, first and returning login. With MFA enrolled the first signature shows a passkey modal | 10     |
 
 ## Still to test
 
-| #   | What                                                                                                                                                                                                                                                                                | Owner        | How                                                  | Needs                 |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------- | --------------------- |
-| 10  | Privy NEAR wallet: `createWallet({ chainType: 'near' })`, `signRawHash` with **no UI** on first login, returning login, mobile Safari; sign a NEP-366 delegate with it and relay it (spike 03 relayer); backend `GET https://api.privy.io/v1/users/{id}` shows `chain_type: 'near'` | Wisnu        | small page from `near-examples/hello-privy`, testnet | Privy app id + secret |
-| 11  | NEP-245 with `near-sdk-contract-tools` 4.0 (`#[derive(MultiToken)]`): build, sandbox test, deploy to testnet                                                                                                                                                                        | Ghoza        | `cargo near new`, near-sdk 5.30                      | —                     |
-| 12  | Live top-up ≈ $1 from Base into a player account, then cash-out back; check what a NEAR-origin `depositAddress` looks like                                                                                                                                                          | Kiel         | `05-intents.ts --live`                               | team's yes, ≈ $2      |
-| 13  | Live Ondo buy of $10 into the player's `intents.near` balance, withdraw it to the player's own NEAR account, sell it back                                                                                                                                                           | Kiel         | `05-intents.ts --live`                               | team's yes, ≈ $10     |
-| 14  | Mainnet Chain Signatures: derived address on `v1.signer`, fund with ≈ $2 USDC + SOL via 1Click, broadcast a $1 TSLAx swap                                                                                                                                                           | Kiel + Ghoza | `08-chain-signatures.ts --live`                      | team's yes, ≈ $3      |
+| #   | What                                                                                                                       | Owner        | How                             | Needs             |
+| --- | -------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------- | ----------------- |
+| 11  | NEP-245 with `near-sdk-contract-tools` 4.0 (`#[derive(MultiToken)]`): build, sandbox test, deploy to testnet               | Ghoza        | `cargo near new`, near-sdk 5.30 | —                 |
+| 12  | Live top-up ≈ $1 from Base into a player account, then cash-out back; check what a NEAR-origin `depositAddress` looks like | Kiel         | `05-intents.ts --live`          | team's yes, ≈ $2  |
+| 13  | Live Ondo buy of $10 into the player's `intents.near` balance, withdraw it to the player's own NEAR account, sell it back  | Kiel         | `05-intents.ts --live`          | team's yes, ≈ $10 |
+| 14  | Mainnet Chain Signatures: derived address on `v1.signer`, fund with ≈ $2 USDC + SOL via 1Click, broadcast a $1 TSLAx swap  | Kiel + Ghoza | `08-chain-signatures.ts --live` | team's yes, ≈ $3  |
 
 ## 01 · NEAR RPC (2026-11-04)
 
@@ -256,6 +256,38 @@ called `sign` with the message bytes (1 yocto, 250 TGas); verified the signature
 - No on-chain stock price on NEAR today. A contract that must check a stock price needs a price signed by our server
   (or a custom OutLayer TEE job, untested).
 - AI guests/NPCs are possible later via NEAR AI Cloud; not needed for the core loop.
+
+## 10 · Privy NEAR wallet signs a delegate with no UI (testnet, 2026-11-04/05)
+
+**Ran:** the spike page in `apps/web` (`src/spike/PrivySpike.tsx`), the real api on :8788 with the relayer from spike 02,
+Circle's testnet USDC. Google login → `createWallet({ chainType: 'near' })` → `POST /api/onboard` → drink payment
+delegate (`ft_transfer_call` 410000 to `nyxeron.testnet`, 100 TGas, 1 yocto) signed with `signRawHash` →
+`POST /api/relay`. The page watches the DOM for anything Privy adds while signing. Privy app in development mode,
+`embeddedWallets.showWalletUIs: false`, wallet environment TEE.
+
+**Saw:**
+
+| Run                                      | `createWallet` | First `signRawHash` | Next 5      | UI while signing                                                                           | Relay                                                                                              |
+| ---------------------------------------- | -------------- | ------------------- | ----------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Desktop Brave, first login, MFA off      | 1.3 s, no UI   | 1.3 s               | 0.45–0.62 s | none                                                                                       | 422 ([`64p4xg…`](https://testnet.nearblocks.io/txns/64p4xgY2tCNz45EBrttmHUDuMsay9ahckEcyxNgLNKHY)) |
+| Desktop Brave, log out + log in again    | (same wallet)  | 0.97 s              | —           | none                                                                                       | 422 ([`8t2yZr…`](https://testnet.nearblocks.io/txns/8t2yZrFwXA8Q2sd54txkafUMMPzHRUcrCR83K3YpifEv)) |
+| iPhone Safari (https tunnel), MFA off    | 1.5 s, no UI   | 1.2 s               | 0.41–0.65 s | none                                                                                       | 422 ([`FiQ6DQ…`](https://testnet.nearblocks.io/txns/FiQ6DQmhsNi1VZSkQNdnSVFpUZofWLfyxrvANxe8AWHF)) |
+| iPhone Safari, MFA on + passkey enrolled | —              | 8.0 s               | 1.1 s (one) | **"Verifying with passkey" modal + Face ID** on the first; none on the next (15 min cache) | 422 ×2                                                                                             |
+
+- Every relay failed only inside USDC (`The account doesn't have enough balance`): the player's delegate itself
+  executed, so the Privy signature is valid on chain.
+- `signRawHash` takes `{ address, chainType: 'near', hash: '0x' + 64 hex }` (sha256 of the borsh delegate) and returns
+  `{ signature: '0x' + 128 hex }`, a 64-byte ed25519 signature. No other encoding needed.
+- Address: the implicit account, 64 lowercase hex = the ed25519 public key. Privy's `publicKey` is the same key with a
+  `00` prefix (key type byte).
+- `GET https://api.privy.io/v1/users/{id}`: `linked_accounts` has `{ type: 'wallet', chain_type: 'near', address,
+wallet_client_type: 'privy', connector_type: 'embedded', public_key: '00…' }`; `/api/me` reads `nearAccount` from it.
+- `near-api-js` 7.4 needs Node polyfills in the browser (`vite-plugin-node-polyfills`), as `hello-privy` does.
+- Privy's SDK code agrees: `signRawHash` never opens a modal itself; it only goes through the MFA prompt when the user
+  has MFA enrolled.
+
+**Means:** the design holds, no fallback D4. Keep **MFA for transactions off** in the Privy dashboard and never offer
+players MFA enrollment: an enrolled player gets a passkey/code prompt on the first purchase of every 15 minutes.
 
 ## 15 · Robinhood Chain as the stock backing (mainnet read-only, 2026-11-04)
 
