@@ -235,7 +235,7 @@ impl Env {
     /// The quote the api would sign for `qty` tsla at `party`.
     fn quote(&self, quote_id: &str, party: &str, buyer: &AccountId, qty: u64) -> Value {
         json!({
-            "v": 1, "id": quote_id, "party": party, "buyer": buyer, "ceo": id("ceo"), "token": "tsla", "qty": qty,
+            "v": 2, "contract": self.contract.0, "id": quote_id, "party": party, "buyer": buyer, "ceo": id("ceo"), "token": "tsla", "qty": qty,
             "unit_price": PRICE.to_string(), "unit_wholesale": WHOLESALE.to_string(),
             "expires_ms": 4_102_444_800_000u64, // 2100-01-01
         })
@@ -528,6 +528,51 @@ async fn storage_per_purchase_and_a_contract_out_of_near() -> testresult::TestRe
         env.view("is_used_quote", json!({ "id": "q4" })).await?,
         json!(false)
     );
+    Ok(())
+}
+
+/// The api account changes in two steps: the new account must accept before it gets, and the old one loses, anything.
+#[tokio::test]
+async fn the_owner_changes_only_when_the_new_account_accepts() -> testresult::TestResult<()> {
+    let env = deploy().await?;
+    let next = id("api2");
+    create(&env.sandbox, &next).await?;
+
+    env.call("set_owner", json!({ "owner_id": next }))
+        .await?
+        .assert_success();
+    assert_eq!(env.view("owner_id", json!({})).await?, json!(env.api));
+    assert_eq!(env.view("pending_owner", json!({})).await?, json!(next));
+    env.call_as(&id("ceo"), &env.contract, "accept_owner", json!({}), 30, 0)
+        .await?
+        .assert_failure();
+
+    let accepted = env
+        .call_as(&next, &env.contract, "accept_owner", json!({}), 30, 0)
+        .await?
+        .into_full()
+        .unwrap();
+    assert!(
+        accepted
+            .logs()
+            .iter()
+            .any(|l| l.contains(r#""event":"owner_changed""#))
+    );
+    assert_eq!(env.view("owner_id", json!({})).await?, json!(next));
+    assert_eq!(env.view("pending_owner", json!({})).await?, json!(null));
+    env.call("set_paused", json!({ "paused": true }))
+        .await?
+        .assert_failure();
+    env.call_as(
+        &next,
+        &env.contract,
+        "set_paused",
+        json!({ "paused": true }),
+        30,
+        0,
+    )
+    .await?
+    .assert_success();
     Ok(())
 }
 

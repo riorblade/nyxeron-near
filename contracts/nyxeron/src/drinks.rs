@@ -32,6 +32,8 @@ struct PayMsg {
 #[near(serializers = [json])]
 pub struct Quote {
     pub v: u32,
+    /// The contract the quote is for, so a quote can't be paid on another deploy that trusts the same key.
+    pub contract: AccountId,
     pub id: String,
     pub party: String,
     pub buyer: AccountId,
@@ -267,8 +269,11 @@ impl Contract {
             return Err("bad_signature");
         }
         let quote: Quote = serde_json::from_slice(&quote_bytes).map_err(|_| "bad_quote")?;
-        if quote.v != 1 {
+        if quote.v != QUOTE_VERSION {
             return Err("bad_version");
+        }
+        if quote.contract != env::current_account_id() {
+            return Err("wrong_contract");
         }
         if !fits(&quote.id) || !fits(&quote.party) || quote.ceo == env::current_account_id() {
             return Err("bad_quote");
@@ -399,6 +404,9 @@ impl Contract {
     }
 }
 
+/// Quote format version: 2 added `contract`.
+pub const QUOTE_VERSION: u32 = 2;
+
 /// Highest price over wholesale a quote may carry (`MAX_MARKUP` in packages/game).
 const MAX_MARKUP: u128 = 3;
 
@@ -418,7 +426,7 @@ fn ft_transfer(usdc: AccountId, receiver_id: &AccountId, amount: u128, memo: &st
 }
 
 /// NEP-297 event: `EVENT_JSON:{"standard":"nyxeron","version":"1.0.0","event":…,"data":[…]}`.
-fn emit(event: &str, data: serde_json::Value) {
+pub(crate) fn emit(event: &str, data: serde_json::Value) {
     env::log_str(&format!(
         "EVENT_JSON:{}",
         json!({ "standard": "nyxeron", "version": "1.0.0", "event": event, "data": [data] })

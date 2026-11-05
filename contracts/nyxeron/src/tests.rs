@@ -88,7 +88,8 @@ static NEXT_QUOTE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::
 /// A valid quote: `qty` tsla at 0.41 USDC with 0.39 wholesale, for `buyer` at `party`.
 fn quote(party: &str, buyer: &AccountId, qty: u64) -> Quote {
     Quote {
-        v: 1,
+        v: 2,
+        contract: warehouse(),
         id: format!(
             "q{}",
             NEXT_QUOTE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
@@ -429,13 +430,24 @@ fn batch_transfer_to_yourself_is_refused() {
     c.mt_batch_transfer(guest(1), vec!["tsla".into()], vec![U128(2)], None, None);
 }
 
+fn next_owner() -> AccountId {
+    "api-v2.testnet".parse().unwrap()
+}
+
 #[test]
 fn the_owner_can_hand_over_to_a_new_api_account() {
     let mut c = setup();
-    let next: AccountId = "api-v2.testnet".parse().unwrap();
-    c.set_owner(next.clone());
-    assert_eq!(c.owner_id(), next);
-    as_caller(&next, NearToken::from_yoctonear(0));
+    c.set_owner(next_owner());
+    assert_eq!(
+        c.owner_id(),
+        owner(),
+        "nothing changes until the new account accepts"
+    );
+    assert_eq!(c.pending_owner(), Some(next_owner()));
+    as_caller(&next_owner(), NearToken::from_yoctonear(0));
+    c.accept_owner();
+    assert_eq!(c.owner_id(), next_owner());
+    assert_eq!(c.pending_owner(), None);
     c.mint_warehouse("tsla".into(), U128(1), "sol-tx-2".into());
 }
 
@@ -443,8 +455,39 @@ fn the_owner_can_hand_over_to_a_new_api_account() {
 #[should_panic(expected = "only the owner")]
 fn the_old_owner_is_out_after_a_handover() {
     let mut c = setup();
-    c.set_owner("api-v2.testnet".parse().unwrap());
+    c.set_owner(next_owner());
+    as_caller(&next_owner(), NearToken::from_yoctonear(0));
+    c.accept_owner();
+    as_caller(&owner(), NearToken::from_yoctonear(0));
     c.mint_warehouse("tsla".into(), U128(1), "sol-tx-2".into());
+}
+
+#[test]
+#[should_panic(expected = "only the owner")]
+fn a_proposed_owner_has_no_power_before_it_accepts() {
+    let mut c = setup();
+    c.set_owner(next_owner());
+    as_caller(&next_owner(), NearToken::from_yoctonear(0));
+    c.mint_warehouse("tsla".into(), U128(1), "sol-tx-2".into());
+}
+
+#[test]
+#[should_panic(expected = "only the proposed owner can accept")]
+fn a_typo_in_the_new_owner_can_be_corrected() {
+    let mut c = setup();
+    let typo: AccountId = "api-v2.testnt".parse().unwrap();
+    c.set_owner(typo.clone());
+    c.set_owner(next_owner()); // the owner still holds the contract, so it proposes again
+    as_caller(&typo, NearToken::from_yoctonear(0));
+    c.accept_owner();
+}
+
+#[test]
+#[should_panic(expected = "only the proposed owner can accept")]
+fn nobody_accepts_without_a_proposal() {
+    let mut c = setup();
+    as_caller(&guest(1), NearToken::from_yoctonear(0));
+    c.accept_owner();
 }
 
 #[test]
@@ -585,7 +628,17 @@ fn a_quote_is_good_up_to_its_expiry_millisecond() {
 
 #[test]
 fn bad_version_is_refunded() {
-    refused(quote("p1", &guest(1), 1), |q| q.v = 2, "bad_version");
+    refused(quote("p1", &guest(1), 1), |q| q.v = 1, "bad_version");
+}
+
+#[test]
+fn a_quote_for_another_deploy_is_refunded() {
+    // Same quote key on testnet and mainnet, or an old deploy: the quote names the contract it is for.
+    refused(
+        quote("p1", &guest(1), 1),
+        |q| q.contract = "nyxeron.near".parse().unwrap(),
+        "wrong_contract",
+    );
 }
 
 #[test]

@@ -35,13 +35,20 @@ Re-run before the mainnet deploy if the contract changes.
 - **Medium (v2, automated review before merge): a party's `owed` list had no bound.** Every purchase reads and
   rewrites it, so a big enough party would run purchases out of gas (refunded, but the party could not sell). Capped
   at 256 entries with refusal `party_full`; measured 16.0 TGas per payment at the cap.
+- **Low (second pass): `set_owner` took effect at once.** A typo in the new account would have handed every owner
+  method to an account nobody holds. Now two steps: `set_owner` proposes, the new account calls `accept_owner`
+  (unit tests for the typo, a proposal with no power and the handover; sandbox test with real accounts). The proposal
+  sits in its own storage key, so the `Contract` struct and the state of the live deploy are unchanged.
+- **Low (second pass): quotes didn't name the contract.** A quote was valid on any deploy trusting the same key, and
+  implicit accounts are the same on testnet and mainnet. Quote v2 carries `contract`, refused otherwise
+  (`wrong_contract`). Still use a different quote key per network.
 
 ## Risks the team accepts or decides
 
 1. **The api's key is the warehouse's key.** Whoever holds the owner's function-call key can mint against fake
    proofs (the contract cannot read Robinhood Chain) and release any party's pot to the treasury. Settle is capped by
    what guests are owed, so the key alone cannot send the warehouse to an arbitrary account. Mitigations: the key is
-   limited to this contract and its owner methods, `set_paused` stops money movement, `set_owner` rotates the api
+   limited to this contract and its owner methods, `set_paused` stops money movement, `set_owner` + `accept_owner` rotate the api
    account, and `/proof` + reconciliation (SPEC §6.6) show a gap between `mt_supply` and the warehouse.
 2. **The api's quote key sets prices and the margin's destination.** Within the contract's bounds (price ≤ 3 ×
    wholesale, buyer must pay it themselves) the api decides the price, the wholesale split and which account is the
@@ -55,13 +62,7 @@ Re-run before the mainnet deploy if the contract changes.
 5. **Units sent to the warehouse stay there.** A holder transferring units to the contract account adds to warehouse
    stock; nothing gives them back.
 6. **USDC is set once.** Pots and held margins are amounts of that token; a different USDC needs a fresh deploy.
-7. **`set_owner` takes effect at once.** There is no accept step, so a typo in the new account hands every owner
-   method to an account nobody controls. The contract account's full-access key (risk 3) is then the only way back.
-   Before calling it, check the new account exists and holds the key the api will use.
-8. **Quotes don't name the contract or the network.** A quote signed for one deploy is valid on any other deploy that
-   trusts the same quote key, for its 60 seconds. Implicit accounts have the same id on testnet and mainnet, so a
-   player could pay a testnet quote's price on mainnet. Use a different quote key per deploy.
-9. **`settle` doesn't wait for the party's stock.** The warehouse is one pool, so a party can be settled from stock
+7. **`settle` doesn't wait for the party's stock.** The warehouse is one pool, so a party can be settled from stock
    bought for another one. The api should settle a party only after its own `mint_warehouse`; `/proof` shows the pool.
-10. **The contract's NEAR pays for every purchase's storage** (quote ids stay forever, ≈ 0.0005 NEAR per purchase).
-    Running out stops purchases with full refunds, nothing is lost; top the balance up before it does.
+8. **The contract's NEAR pays for every purchase's storage** (quote ids stay forever, ≈ 0.0005 NEAR per purchase).
+   Running out stops purchases with full refunds, nothing is lost; top the balance up before it does.

@@ -27,6 +27,10 @@ pub const MAX_KEY_LEN: usize = 64;
 /// Longest proof or write-off reason. A Robinhood Chain (EVM) tx hash is 66 chars, a NEAR tx hash 44.
 pub const MAX_PROOF_LEN: usize = 128;
 
+/// Raw storage key for the proposed owner. Kept out of the `Contract` struct so the state of a live deploy still
+/// reads after an upgrade. Our collections use one-byte prefixes (`StorageKey`), the library `~`, the struct `STATE`.
+const PENDING_OWNER_KEY: &[u8] = b"pending_owner";
+
 /// near-sdk-contract-tools 4.0.0 reads both balances before writing either, so a transfer to yourself adds `amount`
 /// out of thin air. Refuse it before the transfer runs.
 pub struct NoSelfTransfer;
@@ -217,10 +221,38 @@ impl Contract {
         self.paused = paused;
     }
 
-    /// Hands the contract to a new api account. The old one loses every owner method at once.
+    /// Proposes a new api account. Nothing changes until that account calls `accept_owner`, so a typo can't hand the
+    /// contract to an account nobody holds; proposing again replaces the proposal.
     pub fn set_owner(&mut self, owner_id: AccountId) {
         self.require_owner();
-        self.owner_id = owner_id;
+        env::storage_write(
+            PENDING_OWNER_KEY,
+            &near_sdk::borsh::to_vec(&owner_id).unwrap(),
+        );
+        drinks::emit(
+            "owner_proposed",
+            near_sdk::serde_json::json!({ "owner_id": owner_id }),
+        );
+    }
+
+    /// The proposed account takes over; the old one loses every owner method at once.
+    pub fn accept_owner(&mut self) {
+        let caller = env::predecessor_account_id();
+        require!(
+            self.pending_owner().as_ref() == Some(&caller),
+            "only the proposed owner can accept"
+        );
+        env::storage_remove(PENDING_OWNER_KEY);
+        let previous = std::mem::replace(&mut self.owner_id, caller);
+        drinks::emit(
+            "owner_changed",
+            near_sdk::serde_json::json!({ "previous": previous, "owner_id": self.owner_id }),
+        );
+    }
+
+    pub fn pending_owner(&self) -> Option<AccountId> {
+        env::storage_read(PENDING_OWNER_KEY)
+            .map(|bytes| near_sdk::borsh::from_slice(&bytes).unwrap_or_else(|_| env::abort()))
     }
 
     pub fn tokens(&self) -> Vec<(String, TokenInfo)> {

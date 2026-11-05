@@ -16,11 +16,13 @@ A party, end to end:
 
 ## Deployed
 
-| Network | Contract          | Owner (api)           | Tokens                |
-| ------- | ----------------- | --------------------- | --------------------- |
-| testnet | `nyxeron.testnet` | `nyxeron-api.testnet` | `tsla`, `nvda`, `spy` |
+| Network | Contract          | Owner (api)           | Tokens        |
+| ------- | ----------------- | --------------------- | ------------- |
+| testnet | `nyxeron.testnet` | `nyxeron-api.testnet` | 10, see below |
 
-That deploy is **v1** (no payments, `solana:` backing). v2 goes to a fresh account, see #22.
+v2 (drink payments) since 2026-11-05: the account was deleted and recreated, so the id stayed. Tokens: the 10 of
+the menu (`tsla`, `nvda`, `aapl`, `googl`, `meta`, `msft`, `spy`, `qqq`, `crcl`, `mstr`) with `robinhood:` backing.
+USDC is Circle's testnet token; the treasury and the quote key are temporary until the api sends its own.
 
 The api signs with a function-call key on `nyxeron-api.testnet` limited to `nyxeron.testnet` and the owner methods;
 it is shared outside the repo. Check it on [nearblocks](https://testnet.nearblocks.io/address/nyxeron.testnet).
@@ -43,7 +45,8 @@ The quote, signed by the key set with `set_quote_key`:
 
 ```json
 {
-  "v": 1,
+  "v": 2,
+  "contract": "nyxeron.testnet",
   "id": "q_8f3a",
   "party": "42",
   "buyer": "<guest account>",
@@ -66,7 +69,8 @@ Accepted when all hold, otherwise the **whole amount is refunded** and a `refund
 | the caller is the configured USDC contract                                                         | `wrong_token`                         |
 | not paused; a quote key is set                                                                     | `paused`, `no_quote_key`              |
 | `msg` parses, the quote is ≤ 1024 bytes, `sig` is 64 bytes and valid                               | `bad_msg`, `bad_signature`            |
-| `v == 1`                                                                                           | `bad_version`                         |
+| `v == 2`                                                                                           | `bad_version`                         |
+| `contract` is this contract (a quote can't be paid on another deploy that trusts the same key)     | `wrong_contract`                      |
 | `id`, `party` 1–64 bytes; `ceo` is not this contract                                               | `bad_quote`                           |
 | `id` never used before                                                                             | `quote_used`                          |
 | `buyer` is the payer (`sender_id`)                                                                 | `buyer_mismatch`                      |
@@ -88,7 +92,7 @@ The api account. None take a deposit, so a function-call key limited to this con
 | Method                                    | Effect                                                                                                                                                                        |
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `new(owner_id)`                           | init                                                                                                                                                                          |
-| `set_owner(owner_id)`                     | hand the contract to another api account                                                                                                                                      |
+| `set_owner(owner_id)`                     | propose another api account. Nothing changes until it calls `accept_owner()`; proposing again replaces the proposal                                                           |
 | `set_quote_key(public_key)`               | `ed25519:…` key the api signs quotes with. Quotes signed by the old key stop working                                                                                          |
 | `set_usdc(account_id)`                    | the USDC contract, once                                                                                                                                                       |
 | `set_treasury(account_id)`                | where released wholesale goes (not this contract)                                                                                                                             |
@@ -99,18 +103,20 @@ The api account. None take a deposit, so a function-call key limited to this con
 | `write_off(token_id, amount, reason)`     | burn from the warehouse (units that no longer exist). Works while paused                                                                                                      |
 | `set_paused(paused)`                      | refund payments and stop `release_wholesale`, `mint_warehouse`, `settle`. Holders can still move units, CEOs can still claim                                                  |
 
-Anyone: `claim_margin()` sends the caller's held margin. Holders: NEP-245 `mt_transfer`, `mt_batch_transfer`,
+Anyone: `claim_margin()` sends the caller's held margin. The proposed owner: `accept_owner()` takes over (the old
+owner loses every owner method at once). Holders: NEP-245 `mt_transfer`, `mt_batch_transfer`,
 `mt_transfer_call` (exactly 1 yoctoNEAR; never to yourself).
 
 Views: `owed(party)` → `[{ account_id, token_id, qty }]`, `party_pot(party)` → `{ held, released, ceo }`,
 `claimable_margin(account_id)`, `is_used_quote(id)`, `config()`, `mt_balance_of(account_id, token_id)`,
 `mt_batch_balance_of`, `mt_supply(token_id)`, `mt_batch_supply`, `mt_token`, `mt_metadata_*`, `tokens()`,
-`is_used_proof(proof)`, `is_settled(op_id)`, `is_paused()`, `owner_id()`. Amounts are strings (`U128`).
+`is_used_proof(proof)`, `is_settled(op_id)`, `is_paused()`, `owner_id()`, `pending_owner()`. Amounts are strings (`U128`).
 
 Events (NEP-297):
 
 - `nyxeron` 1.0.0: `purchase { id, party, buyer, ceo, token, qty, total, margin }`, `refund { sender_id, amount,
-reason }`, `margin_held { ceo, amount }`, `release { party, amount }`, `release_failed { party, amount }`.
+reason }`, `margin_held { ceo, amount }`, `release { party, amount }`, `release_failed { party, amount }`, `owner_proposed { owner_id }`,
+  `owner_changed { previous, owner_id }`.
 - `nep245` 1.0.0: `mt_mint` has the proof as memo, `mt_transfer` from a settle has the `op_id`, `mt_burn` has the
   write-off reason.
 
