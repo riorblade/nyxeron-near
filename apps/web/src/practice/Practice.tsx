@@ -12,10 +12,15 @@ import {
   tokens,
   venueFor,
 } from '@nyxeron/game'
+import { lazy, Suspense } from 'react'
 import { clock, usd } from '../format.ts'
 import { Link } from '../router.tsx'
 import { MenuBoard } from './MenuBoard.tsx'
 import { usePractice } from './usePractice.ts'
+
+// three.js is big: the 3D club loads with Practice's first render, not with the landing page.
+const Venue = lazy(() => import('../venue/Venue.tsx').then((m) => ({ default: m.Venue })))
+const VenuePicker = lazy(() => import('../venue/VenuePicker.tsx').then((m) => ({ default: m.VenuePicker })))
 
 const GENRES = Object.keys(rules.DJ_ENERGY) as Genre[]
 
@@ -55,6 +60,21 @@ export function Practice() {
         </p>
       )}
 
+      {p.phase === 'club' && (
+        <div className="mb-4">
+          <Suspense fallback={<div className="h-[70vh] min-h-96 rounded-2xl border border-line bg-panel" />}>
+            <VenuePicker reputation={career.reputation} onOpen={p.open} />
+          </Suspense>
+        </div>
+      )}
+      {p.phase === 'party' && (
+        <div className="mb-4 h-[60vh] min-h-80 overflow-hidden rounded-2xl border border-line">
+          <Suspense fallback={null}>
+            <Venue level={levelOf(night.capacity)} night={night} />
+          </Suspense>
+        </div>
+      )}
+
       {p.phase === 'report' ? (
         <ReportView r={report(night)} onNext={p.nextNight} />
       ) : (
@@ -65,14 +85,8 @@ export function Practice() {
             {p.phase === 'club' ? (
               <section className="rounded-2xl border border-line bg-panel p-4">
                 <button
-                  onClick={p.open}
-                  className="w-full rounded-xl bg-gold py-3 font-bold text-night hover:brightness-110"
-                >
-                  Open the doors · 22:00
-                </button>
-                <button
                   onClick={p.previewWeek}
-                  className="mt-2 w-full rounded-xl border border-line py-2 text-sm hover:border-violet"
+                  className="w-full rounded-xl border border-line py-2 text-sm hover:border-violet"
                 >
                   Fast-forward a week with this menu
                 </button>
@@ -91,6 +105,8 @@ export function Practice() {
     </main>
   )
 }
+
+const levelOf = (capacity: number) => rules.VENUES.find((v) => v.capacity === capacity)?.level ?? 1
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
