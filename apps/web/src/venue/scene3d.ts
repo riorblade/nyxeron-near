@@ -63,8 +63,6 @@ interface TokenTile {
 }
 const MAX_GUEST_SPRITES = 220
 const BLOCK_H = 0.45
-/** Flame/fog/CO₂ footage isn't ours to ship; drop clips into /public/venue/effect and flip this on. */
-const PYRO_FOOTAGE = false
 const WALL_H = 3.2
 /** Club light palette: magenta, electric blue, violet, amber. */
 const PALETTE = [0xff2bd6, 0x22d3ee, 0xa855f7, 0xffb020]
@@ -567,7 +565,7 @@ export class VenueScene {
     this.buildRig(this.rigLight)
     this.buildSpeakers(s.upgrades?.sound ?? 0)
     this.buildBandKit()
-    if (PYRO_FOOTAGE) this.buildFx()
+    this.buildFx()
     this.frameCamera(layout)
   }
 

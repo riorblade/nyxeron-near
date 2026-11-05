@@ -186,6 +186,34 @@ const hash = (n: number) => {
   t = Math.imul(t, 2246822519) >>> 0
   return (t >>> 0) / 4294967296
 }
+/**
+ * What each level's room has. Level 4 is the superclub: a bartender pair at each of its two bars, hosts working the
+ * tables, the full sound and light rig, and VIP tables (three seats each) up on both balconies.
+ */
+const TIERS = [
+  {
+    staff: { bartender: 1, security: 1, host: 0 },
+    upgrades: { vip: 0, capacity: 0, sound: 0, lighting: 0 },
+    vipTables: 0,
+  },
+  {
+    staff: { bartender: 2, security: 1, host: 0 },
+    upgrades: { vip: 0, capacity: 0, sound: 1, lighting: 1 },
+    vipTables: 0,
+  },
+  {
+    staff: { bartender: 2, security: 2, host: 1 },
+    upgrades: { vip: 1, capacity: 0, sound: 2, lighting: 2 },
+    vipTables: 2,
+  },
+  {
+    staff: { bartender: 4, security: 3, host: 3 },
+    upgrades: { vip: 1, capacity: 0, sound: 3, lighting: 3 },
+    vipTables: 6,
+  },
+] as const
+/** Share of guests out dancing (the rest sit: in the superclub that's the high tables and the pool-deck cabanas). */
+const DANCE_SHARE = [0.78, 0.78, 0.74, 0.62]
 /** Minutes a guest stays at the bar after a buy. */
 const AT_BAR = 4
 /** Minutes a guest who left is still walked out. */
@@ -206,7 +234,7 @@ export function toGameState(n: Night, level: number): GameState {
   const guests: Guest[] = n.guests.map((g) => {
     const bought = lastBuy.get(g.id)
     const state: GuestState =
-      bought !== undefined && n.minute - bought < AT_BAR ? 'bar' : hash(g.id) < 0.78 ? 'dance' : 'idle'
+      bought !== undefined && n.minute - bought < AT_BAR ? 'bar' : hash(g.id) < DANCE_SHARE[L - 1]! ? 'dance' : 'idle'
     return {
       id: g.id,
       budget: Math.round((g.budget - g.spent) / 10_000), // cents: a buy shows up as the budget dropping
@@ -239,10 +267,10 @@ export function toGameState(n: Night, level: number): GameState {
       market,
       // Happy hour shows as the sparkler parade: the board calls it and the tables light up.
       tactics: happy ? { sparkler: { until: n.minute + 1 } } : {},
-      bookings: { vip: L >= 3 ? L - 1 : 0 },
+      bookings: { vip: TIERS[L - 1]!.vipTables },
     },
-    staff: { bartender: L, security: Math.max(1, L - 1), host: Math.max(0, L - 2) },
-    upgrades: { vip: L >= 3 ? 1 : 0, capacity: 0, sound: L - 1, lighting: L - 1 },
+    staff: TIERS[L - 1]!.staff,
+    upgrades: TIERS[L - 1]!.upgrades,
     bookedTalent: [DJ_FOR[n.dj] ?? 'mira'],
     bookedBand: null,
     prices,

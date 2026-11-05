@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 /**
- * Stage pyrotechnics from footage clips with alpha (in /public/venue/effect; off until we have our own): flame jets beside the stage,
+ * Stage pyrotechnics from footage clips with alpha (in /public/venue/effect): flame jets beside the stage,
  * CO₂ bursts down from the ceiling, low fog rolling over the floor. Each effect is one looping video shared by all its
  * emitters (camera-facing sprites), shown for a burst on the DJ's beat and faded out.
  * WebM VP9 alpha for Chrome/Firefox, HEVC alpha (.mov) for Safari.

@@ -23,6 +23,9 @@ export function Venue({
   const latest = useRef<GameState>(previewState(level, market))
   const [noGl, setNoGl] = useState(false)
   latest.current = night ? toGameState(night, level) : previewState(level, market)
+  const live = night !== null
+  const liveRef = useRef(live)
+  liveRef.current = live
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +36,8 @@ export function Venue({
         if (cancelled) return
         scene.current = v
         v.setScreenPrefs({ clips: 'peak', ads: false })
-        v.setPyroAuto(false)
+        // Fire and fog on the kick while a night is live; the picker's preview stays calm.
+        v.setPyroAuto(liveRef.current)
         v.update(latest.current)
       })
       .catch((e: unknown) => {
@@ -52,6 +56,9 @@ export function Venue({
   useEffect(() => {
     scene.current?.update(latest.current)
   }, [night, level, market])
+  useEffect(() => {
+    scene.current?.setPyroAuto(live)
+  }, [live])
 
   return (
     <div ref={host} className={className ?? 'relative h-full w-full'}>

@@ -52,7 +52,7 @@ export interface ScreenSlot {
 
 export interface Layout {
   /** Key for the player's saved furniture arrangement. */
-  name: 'basement-1' | 'basement-2' | 'basement-3' | 'club'
+  name: 'basement-1' | 'basement-2' | 'basement-3' | 'superclub'
   w: number
   h: number
   /** Indoor hall depth when the rest (south) is an open-air deck; walls stop there. */
@@ -66,8 +66,8 @@ export interface Layout {
 }
 
 /**
- * The Basement at levels 1–3: the level-4 club below, smaller. Same plan (bar on the west wall, DJ on the north wall,
- * the floor in the middle, the door in the south wall), each level pushing the walls out and opening a corner.
+ * The Basement at levels 1–3: bar on the west wall, DJ on the north wall, the floor in the middle, the door in the south
+ * wall; each level pushes the walls out and opens a corner. Level 4 moves up to the superclub below.
  */
 const basement1: Layout = {
   name: 'basement-1',
@@ -153,80 +153,98 @@ const basement3: Layout = {
 }
 
 /**
- * Level 4: The Basement at full size. VIP booths flank the DJ (side view) and face it across the floor (front view);
- * high tables ring the dance floor, plain tables on the edges and corners, stools along the bar.
+ * Level 4, the top room: a two-level superclub opening onto a pool deck and the sea. VIP balconies hang either side of
+ * the DJ over the floor; bars on both walls; cabanas around the pool.
  */
-const club: Layout = {
-  name: 'club',
-  w: 20,
-  h: 15,
+const superclub: Layout = {
+  name: 'superclub',
+  w: 30,
+  h: 26,
+  hall: 16,
+  wallHeight: 8,
+  mainScreen: { from: 9, to: 21 },
   screens: [
-    { wall: 'n', at: 1.5, kind: 'clip' },
-    { wall: 'n', at: 17.5, kind: 'ad' },
-    { wall: 'w', at: 1.3, kind: 'clip' },
-    { wall: 'w', at: 13, kind: 'clip' },
-    { wall: 'e', at: 5, kind: 'clip' },
-    { wall: 'e', at: 8.4, kind: 'clip' },
-    { wall: 'e', at: 12.3, kind: 'ad' },
-    { wall: 's', at: 4, kind: 'clip' },
-    { wall: 's', at: 16, kind: 'ad' },
+    { wall: 'n', at: 2, kind: 'clip' },
+    { wall: 'n', at: 28, kind: 'clip' },
+    { wall: 'w', at: 1.8, kind: 'ad' },
+    { wall: 'w', at: 6, kind: 'clip' },
+    { wall: 'w', at: 10, kind: 'clip' },
+    { wall: 'e', at: 1.8, kind: 'ad' },
+    { wall: 'e', at: 6, kind: 'clip' },
+    { wall: 'e', at: 10, kind: 'clip' },
+    { wall: 'e', at: 14, kind: 'ad' },
   ],
   zones: [
-    { id: 'office', x: 0, y: 0, w: 3, h: 2, label: 'CEO OFFICE' },
-    { id: 'vip', x: 3, y: 0, w: 5, h: 3, label: 'VIP', furniture: 'vip' },
-    { id: 'dj', x: 8, y: 0, w: 4, h: 2, label: 'DJ BOOTH', solid: true },
-    { id: 'stage', x: 12, y: 0, w: 3, h: 2, label: 'STAGE', solid: true },
-    { id: 'vip', x: 15, y: 0, w: 5, h: 3, label: 'VIP', furniture: 'vip' },
-    { id: 'backbar', x: 0, y: 3, w: 1, h: 8 },
-    { id: 'counter', x: 1, y: 3, w: 1, h: 8, label: 'BAR', solid: true },
-    { id: 'barFront', x: 2, y: 3, w: 2, h: 8 },
-    { id: 'seating', x: 4, y: 3, w: 3, h: 7, furniture: 'high' },
-    { id: 'dance', x: 7, y: 3, w: 7, h: 6, label: 'DANCE FLOOR' },
-    { id: 'seating', x: 14, y: 3, w: 3, h: 7, furniture: 'high' },
-    {
-      id: 'seating',
-      x: 17,
-      y: 3,
-      w: 3,
-      h: 9,
-      label: 'TABLES',
-      furniture: 'tables',
-    },
+    { id: 'office', x: 0, y: 0, w: 4, h: 3, label: 'CEO OFFICE' },
     {
       id: 'vip',
-      x: 7,
-      y: 10,
+      x: 4,
+      y: 0,
       w: 7,
-      h: 2,
-      label: 'VIP · FRONT ROW',
+      h: 4,
+      label: 'VIP BALCONY',
+      elevation: 2,
       furniture: 'vip',
     },
-    { id: 'stock', x: 0, y: 11, w: 3, h: 4, label: 'STOCK ROOM' },
+    { id: 'stage', x: 11, y: 0, w: 2, h: 3, label: 'STAGE', solid: true },
+    { id: 'dj', x: 13, y: 0, w: 4, h: 3, label: 'DJ', solid: true },
     {
-      id: 'seating',
-      x: 3,
-      y: 11,
-      w: 4,
+      id: 'vip',
+      x: 19,
+      y: 0,
+      w: 7,
       h: 4,
-      label: 'TABLES',
-      furniture: 'tables',
+      label: 'VIP BALCONY',
+      elevation: 2,
+      furniture: 'vip',
     },
-    { id: 'restroom', x: 17, y: 12, w: 3, h: 3, label: 'RESTROOMS' },
-    { id: 'entrance', x: 8, y: 13, w: 4, h: 2, label: 'ENTRANCE · ID CHECK' },
+    { id: 'stock', x: 26, y: 0, w: 4, h: 3, label: 'STOCK' },
+    { id: 'backbar', x: 0, y: 4, w: 1, h: 7 },
+    { id: 'counter', x: 1, y: 4, w: 1, h: 7, label: 'WEST BAR', solid: true },
+    { id: 'barFront', x: 2, y: 4, w: 2, h: 7 },
+    { id: 'backbar', x: 29, y: 4, w: 1, h: 7 },
+    { id: 'counter', x: 28, y: 4, w: 1, h: 7, label: 'EAST BAR', solid: true },
+    { id: 'barFront', x: 26, y: 4, w: 2, h: 7 },
+    { id: 'seating', x: 4, y: 5, w: 4, h: 8, furniture: 'high' },
+    { id: 'dance', x: 8, y: 5, w: 14, h: 9, label: 'MAIN FLOOR' },
+    { id: 'seating', x: 22, y: 5, w: 4, h: 8, furniture: 'high' },
+    { id: 'entrance', x: 0, y: 12, w: 2, h: 3, label: 'ENTRANCE' },
     {
       id: 'queue',
-      x: 8,
-      y: 15,
-      w: 4,
+      x: -6,
+      y: 11,
+      w: 6,
       h: 5,
       label: 'STREET · QUEUE',
       outside: true,
     },
+    { id: 'restroom', x: 26, y: 12, w: 4, h: 4, label: 'RESTROOMS' },
+    { id: 'deck', x: 0, y: 16, w: 30, h: 10, outside: true },
+    {
+      id: 'seating',
+      x: 1,
+      y: 17,
+      w: 6,
+      h: 8,
+      label: 'CABANAS',
+      furniture: 'cabana',
+    },
+    { id: 'pool', x: 9, y: 18, w: 12, h: 5, label: 'POOL' },
+    {
+      id: 'seating',
+      x: 23,
+      y: 17,
+      w: 6,
+      h: 8,
+      label: 'CABANAS',
+      furniture: 'cabana',
+    },
+    { id: 'dance', x: 9, y: 16, w: 12, h: 2, label: 'POOLSIDE' },
   ],
 }
 
 export const layoutFor = (level: Level): Layout =>
-  [basement1, basement2, basement3, club][Math.min(4, Math.max(1, level)) - 1]!
+  [basement1, basement2, basement3, superclub][Math.min(4, Math.max(1, level)) - 1]!
 
 /** Where a guest in a given state stands. */
 export const zoneFor: Record<GuestState, ZoneId> = {
