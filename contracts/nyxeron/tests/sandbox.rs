@@ -464,6 +464,73 @@ async fn a_failed_release_can_be_retried() -> testresult::TestResult<()> {
     Ok(())
 }
 
+/// Every purchase stores its quote id for good, paid from the contract's own NEAR. Prints the bytes per purchase for
+/// the README and AUDIT, and checks that a contract too poor to store a purchase refunds the guest in full.
+#[tokio::test]
+async fn storage_per_purchase_and_a_contract_out_of_near() -> testresult::TestResult<()> {
+    let env = deploy().await?;
+    let guest = env.guest("guest1", 3).await?;
+    let other = env.guest("guest2", 1).await?;
+
+    let mut stored = Vec::new();
+    for (quote, buyer) in [
+        (env.quote("q1", "42", &guest, 1), &guest),
+        (env.quote("q2", "42", &guest, 1), &guest),
+        (env.quote("q3", "42", &other, 1), &other),
+    ] {
+        let before = env.storage_usage().await?;
+        env.pay(buyer, &quote, PRICE).await?.assert_success();
+        stored.push(env.storage_usage().await? - before);
+    }
+    println!(
+        "storage per purchase: party's first {} bytes, same guest again {} bytes, another guest {} bytes",
+        stored[0], stored[1], stored[2]
+    );
+    assert!(stored[1] > 0, "a repeat purchase still stores its quote id");
+
+    // Leave the contract NEAR for ~100 bytes (less the transfer fee) above what its storage already locks.
+    let account = near_api::Account(env.contract.0.clone())
+        .view()
+        .fetch_from(&env.network)
+        .await?
+        .data;
+    let per_byte = NearToken::from_yoctonear(10u128.pow(19));
+    let keep = per_byte.saturating_mul(u128::from(account.storage_usage) + 100);
+    near_api::Tokens::account(env.contract.0.clone())
+        .send_to(id("treasury"))
+        .near(account.amount.saturating_sub(keep))
+        .with_signer(env.signer.clone())
+        .send_to(&env.network)
+        .await?
+        .assert_success();
+
+    let poor = env.guest("guest3", 1).await?;
+    let paid = env
+        .pay(&poor, &env.quote("q4", "43", &poor, 1), PRICE)
+        .await?
+        .into_full()
+        .unwrap();
+    println!(
+        "payment to a contract out of NEAR: {:?}",
+        paid.failures()
+            .into_iter()
+            .map(|f| format!("{:?}", f.clone().into_result()))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(
+        env.usdc_of(&poor).await?,
+        PRICE,
+        "refunded in full by the token"
+    );
+    assert_eq!(env.usdc_of(&id("ceo")).await?, (PRICE - WHOLESALE) * 3);
+    assert_eq!(env.view("owed", json!({ "party": "43" })).await?, json!([]));
+    assert_eq!(
+        env.view("is_used_quote", json!({ "id": "q4" })).await?,
+        json!(false)
+    );
+    Ok(())
+}
+
 #[tokio::test]
 async fn warehouse_mint_and_proofs() -> testresult::TestResult<()> {
     let env = deploy().await?;

@@ -129,8 +129,11 @@ on USDC too, or their transfers fail (margin waits for `claim_margin`, a release
   margin delivered. The client attaches 100.
 - A party at its cap of 256 owed entries: a payment burns 16.0 TGas, a settle of one guest 7.2 TGas
   (`full_party_gas`, ignored by default). Attach 100 TGas, not the 30 minimum.
-- The first purchase of a party stores 220 bytes (≈ 0.002 NEAR, from the contract's balance); settling frees the
-  owed entry again.
+- Storage per purchase, from the contract's balance (`storage_per_purchase_and_a_contract_out_of_near`): a party's
+  first purchase 220 bytes (≈ 0.002 NEAR), the same guest again 47 bytes (the quote id, kept for good so it can't be
+  replayed), another guest 89 bytes. Settling frees the owed entries again; quote ids stay.
+- If the contract's NEAR can't cover a purchase's storage, the payment fails with `LackBalanceForState` and the token
+  refunds the guest in full (same test). Purchases stop until the balance is topped up; watch it.
 - `settle` of 32 transfers with the longest ids (64-char accounts and `party`, 64-char `op_id`): 23.1 TGas and under
   10,000 of the 16,384 log bytes NEAR allows per call (21.9 TGas, 11,040 bytes with the largest amounts, v1). The log
   cap, not gas, sets the batch limit: every transfer emits an event.
