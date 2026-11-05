@@ -32,17 +32,38 @@ export type Relayer = {
   register(tokenId: string, accountId: string): Promise<string>
 }
 
-type Outcome = { transaction: { hash: string }; status: unknown; receipts_outcome?: { outcome: { status: unknown } }[] }
+type Outcome = {
+  transaction: { hash: string }
+  status: unknown
+  receipts_outcome?: { outcome: { status: unknown; logs?: string[] } }[]
+}
 
-function summarise(o: Outcome): RelayResult {
+// The contract refunds a refused drink inside a successful ft_transfer_call; only its `refund` event (NEP-297) says so.
+function refundReason(o: Outcome): string | undefined {
+  for (const log of (o.receipts_outcome ?? []).flatMap((r) => r.outcome.logs ?? [])) {
+    if (!log.startsWith('EVENT_JSON:')) continue
+    try {
+      const e = JSON.parse(log.slice('EVENT_JSON:'.length)) as {
+        standard?: string
+        event?: string
+        data?: { reason?: string }[]
+      }
+      if (e.standard === 'nyxeron' && e.event === 'refund') return e.data?.[0]?.reason ?? 'unknown'
+    } catch {
+      // Another contract's malformed log: not ours.
+    }
+  }
+}
+
+export function summarise(o: Outcome): RelayResult {
   const failure = [o.status, ...(o.receipts_outcome ?? []).map((r) => r.outcome.status)].find((s) =>
     JSON.stringify(s ?? '').includes('Failure'),
   )
-  return {
-    hash: o.transaction.hash,
-    ok: !failure,
-    ...(failure ? { error: JSON.stringify(failure).slice(0, 500) } : {}),
-  }
+  if (failure) return { hash: o.transaction.hash, ok: false, error: JSON.stringify(failure).slice(0, 500) }
+  const refund = refundReason(o)
+  return refund
+    ? { hash: o.transaction.hash, ok: false, error: `refund:${refund}` }
+    : { hash: o.transaction.hash, ok: true }
 }
 
 export function nearRelayer(cfg: Config): Relayer | undefined {
