@@ -93,6 +93,28 @@ const migrations = [
      at       INTEGER NOT NULL
    );
    CREATE INDEX test_dollars_user ON test_dollars(user_id, at);`,
+  // 5. settlement at party end: one row per party, and the outbox of its on-chain steps (settlement.ts)
+  `CREATE TABLE settlements (
+     party_id   INTEGER PRIMARY KEY REFERENCES parties(id),
+     status     TEXT    NOT NULL CHECK (status IN ('pending', 'done', 'failed')),
+     error      TEXT    NOT NULL DEFAULT '',
+     updated_at INTEGER NOT NULL
+   );
+   CREATE TABLE chain_ops (
+     id         TEXT    PRIMARY KEY,               -- release:<party>, mint:<party>:<token>, party:<party>:<batch>
+     party_id   INTEGER NOT NULL REFERENCES parties(id),
+     seq        INTEGER NOT NULL,                  -- order within the party
+     kind       TEXT    NOT NULL CHECK (kind IN ('release', 'mint', 'settle')),
+     payload    TEXT    NOT NULL,                  -- JSON: token + units (+ proof) for a mint, transfers for a settle
+     status     TEXT    NOT NULL CHECK (status IN ('pending', 'sent', 'done', 'failed')),
+     attempts   INTEGER NOT NULL DEFAULT 0,
+     next_at    INTEGER NOT NULL,
+     tx_hash    TEXT    NOT NULL DEFAULT '',
+     error      TEXT    NOT NULL DEFAULT '',
+     updated_at INTEGER NOT NULL,
+     UNIQUE (party_id, seq)
+   );
+   CREATE INDEX chain_ops_status ON chain_ops(status);`,
 ]
 
 export function openDb(path: string): Db {
