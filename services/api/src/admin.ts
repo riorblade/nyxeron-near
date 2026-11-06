@@ -5,6 +5,7 @@ import { type Identity, requireUser, type User } from './auth.ts'
 import type { Config } from './config.ts'
 import { all, type Db, one } from './db.ts'
 import { AppError, validate } from './http.ts'
+import { type OpRow, retryOp } from './settlement.ts'
 
 export type Role = 'owner' | 'admin' | 'viewer'
 type AdminEnv = { Variables: { user: User; role: Role } }
@@ -23,40 +24,61 @@ const UserQuery = z.object({
 
 export function adminRoutes(deps: { cfg: Config; db: Db; identity: Identity }) {
   const { db, cfg } = deps
-  return new Hono<AdminEnv>()
-    .use(requireUser(deps))
-    .use(
-      createMiddleware<AdminEnv>(async (c, next) => {
-        const role = roleOf(db, cfg, c.var.user.email)
-        if (!role) throw new AppError(403, 'not_admin')
-        c.set('role', role)
-        await next()
-      }),
-    )
-    .get('/me', (c) => c.json({ email: c.var.user.email, role: c.var.role }))
-    .get('/users', validate('query', UserQuery), (c) => {
-      const { q, limit } = c.req.valid('query')
-      const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
-      const users = all<User>(
-        db,
-        `SELECT * FROM users
+  return (
+    new Hono<AdminEnv>()
+      .use(requireUser(deps))
+      .use(
+        createMiddleware<AdminEnv>(async (c, next) => {
+          const role = roleOf(db, cfg, c.var.user.email)
+          if (!role) throw new AppError(403, 'not_admin')
+          c.set('role', role)
+          await next()
+        }),
+      )
+      .get('/me', (c) => c.json({ email: c.var.user.email, role: c.var.role }))
+      // Settlement steps that ran out of retries; a retry checks the chain first, so it never doubles a step.
+      .get('/settlement', (c) => {
+        const ops = all<OpRow>(db, "SELECT * FROM chain_ops WHERE status = 'failed' ORDER BY updated_at DESC LIMIT 100")
+        return c.json({
+          failed: ops.map((o) => ({
+            id: o.id,
+            party: o.party_id,
+            kind: o.kind,
+            attempts: o.attempts,
+            error: o.error,
+            updatedAt: o.updated_at,
+          })),
+        })
+      })
+      .post('/settlement/:op/retry', validate('param', z.object({ op: z.string().min(1).max(80) })), (c) => {
+        if (c.var.role === 'viewer') throw new AppError(403, 'read_only')
+        if (!retryOp(db, c.req.valid('param').op)) throw new AppError(404, 'no_failed_op')
+        return c.json({ ok: true })
+      })
+      .get('/users', validate('query', UserQuery), (c) => {
+        const { q, limit } = c.req.valid('query')
+        const like = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
+        const users = all<User>(
+          db,
+          `SELECT * FROM users
          WHERE email LIKE ?1 ESCAPE '\\' OR name LIKE ?1 ESCAPE '\\' OR id LIKE ?1 ESCAPE '\\'
             OR near_account LIKE ?1 ESCAPE '\\'
          ORDER BY last_seen DESC LIMIT ?2`,
-        like,
-        limit,
-      )
-      return c.json({
-        users: users.map((u) => ({
-          id: u.id,
-          email: u.email,
-          nearAccount: u.near_account,
-          name: u.name,
-          credits: u.credits,
-          banned: u.banned === 1,
-          lastSeen: u.last_seen,
-          createdAt: u.created_at,
-        })),
+          like,
+          limit,
+        )
+        return c.json({
+          users: users.map((u) => ({
+            id: u.id,
+            email: u.email,
+            nearAccount: u.near_account,
+            name: u.name,
+            credits: u.credits,
+            banned: u.banned === 1,
+            lastSeen: u.last_seen,
+            createdAt: u.created_at,
+          })),
+        })
       })
-    })
+  )
 }

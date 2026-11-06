@@ -30,7 +30,7 @@ export function createApp(deps: Deps) {
     .route('/onboard', onboardRoutes(deps))
     .route('/relay', relayRoutes(deps))
     .route('/parties', partyRoutes(deps))
-    .route('/config', configRoutes(deps.cfg))
+    .route('/config', configRoutes(deps.cfg, deps.relayer))
   return app
 }
 

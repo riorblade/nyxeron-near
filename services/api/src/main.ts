@@ -5,9 +5,10 @@ import { createApp } from './app.ts'
 import { privyIdentity } from './auth.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
-import { nearRelayer } from './near.ts'
+import { nearOwnerChain, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
 import { robinhoodReader, verifyMenu } from './robinhood.ts'
+import { buySharesFor, settlement } from './settlement.ts'
 
 const cfg = loadConfig()
 mkdirSync(cfg.DATA_DIR, { recursive: true })
@@ -21,6 +22,17 @@ const relayer = nearRelayer(cfg)
 if (!relayer) console.warn('no relayer key: /api/relay and /api/onboard answer 503 relayer_off')
 const app = createApp({ cfg, db, identity, quotes: marketQuotes({ allowed: new Set(menu.ok) }), relayer })
 
+// After each party: release its wholesale, back the owed units, settle them to the guests (one tx at a time).
+const owner = nearOwnerChain(cfg)
+const settleTimer = owner
+  ? setInterval(() => {
+      void settlement({ db, chain: owner, buyShares: buySharesFor(cfg), log: console.log })
+        .tick()
+        .catch((e: unknown) => console.error('settlement tick', e))
+    }, 10_000)
+  : undefined
+if (!owner) console.warn('no owner key: settlement is off (parties end without units being settled)')
+
 const server = serve({ fetch: app.fetch, port: cfg.PORT }, (info) =>
   console.log(`api on http://localhost:${info.port}/api/health (${cfg.NEAR_NETWORK})`),
 )
@@ -28,6 +40,7 @@ const server = serve({ fetch: app.fetch, port: cfg.PORT }, (info) =>
 // Finish in-flight requests, then close the database cleanly.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
+    clearInterval(settleTimer)
     server.close(() => {
       db.close()
       process.exit(0)
