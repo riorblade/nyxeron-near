@@ -4,6 +4,7 @@ import { type AppEnv, type Identity, requireActive, requireUser, type User } fro
 import type { Config } from './config.ts'
 import { all, type Db, one, run, tx } from './db.ts'
 import { AppError, rateLimit, validate } from './http.ts'
+import { intentRoutes, type OneClick } from './intents.ts'
 import { moveCredits } from './ledger.ts'
 import type { Relayer } from './near.ts'
 
@@ -28,7 +29,13 @@ export function me(u: User) {
   }
 }
 
-export function playerRoutes(deps: { cfg: Config; db: Db; identity: Identity; relayer?: Relayer }) {
+export function playerRoutes(deps: {
+  cfg: Config
+  db: Db
+  identity: Identity
+  relayer?: Relayer
+  oneclick?: OneClick
+}) {
   const { db, cfg } = deps
   const faucetLimit = rateLimit(3, 60_000)
   return (
@@ -110,5 +117,7 @@ export function playerRoutes(deps: { cfg: Config; db: Db; identity: Identity; re
           throw e
         }
       })
+      // Add money / Cash out through 1Click (intents.ts).
+      .route('/', intentRoutes(deps))
   )
 }

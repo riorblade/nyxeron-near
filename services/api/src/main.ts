@@ -5,6 +5,7 @@ import { createApp } from './app.ts'
 import { privyIdentity } from './auth.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
+import { oneClick } from './intents.ts'
 import { nearOwnerChain, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
 import { robinhoodReader, verifyMenu } from './robinhood.ts'
@@ -20,7 +21,9 @@ if (menu.failed.length) console.warn('stocks failing the on-chain check, left of
 if (!menu.ok.length) throw new Error('no stock passed the on-chain check')
 const relayer = nearRelayer(cfg)
 if (!relayer) console.warn('no relayer key: /api/relay and /api/onboard answer 503 relayer_off')
-const app = createApp({ cfg, db, identity, quotes: marketQuotes({ allowed: new Set(menu.ok) }), relayer })
+// Add money / Cash out. Testnet answers dry quotes only (1Click has no testnet).
+const oneclick = oneClick({ url: cfg.ONECLICK_URL, jwt: cfg.ONECLICK_JWT })
+const app = createApp({ cfg, db, identity, quotes: marketQuotes({ allowed: new Set(menu.ok) }), relayer, oneclick })
 
 // After each party: release its wholesale, back the owed units, settle them to the guests (one tx at a time).
 const owner = nearOwnerChain(cfg)

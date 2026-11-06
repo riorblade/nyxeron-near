@@ -7,6 +7,7 @@ import { type AppEnv, type Identity, requireActive, requireUser } from './auth.t
 import type { Config } from './config.ts'
 import { type Db, run } from './db.ts'
 import { AppError, rateLimit, validate } from './http.ts'
+import { cashOutPaid, type OneClick, openCashOut, releaseCashOut, reserveCashOut } from './intents.ts'
 import type { Relayer } from './near.ts'
 
 // What the browser sends: a NEP-366 SignedDelegate, borsh-encoded, base64 (spike 19 proved the round trip).
@@ -47,10 +48,12 @@ export function signatureValid(d: SignedDelegateWire): boolean {
 
 const MAX_GAS = 150_000_000_000_000n // 150 TGas
 
+export type CashOutLookup = (depositAddress: string) => { amount: string; expired: boolean; paid: boolean } | undefined
+
 // The relayer pays any attached deposit (spike 03), so it only ever relays these exact calls. Returns a refusal code.
 export function checkDelegate(
   d: SignedDelegateWire,
-  ctx: { sender: string; contractId: string; usdcId: string },
+  ctx: { sender: string; contractId: string; usdcId: string; cashOut?: CashOutLookup },
 ): string | undefined {
   const { senderId, receiverId, actions, publicKey } = d.delegateAction
   if (senderId !== ctx.sender) return 'wrong_sender'
@@ -68,6 +71,16 @@ export function checkDelegate(
     return 'bad_args'
   }
   if (receiverId === ctx.usdcId) {
+    if (methodName === 'ft_transfer') {
+      // Cashing out: only to a 1Click deposit address this api quoted to this player, once, for the quoted amount.
+      if (deposit !== 1n) return 'deposit_not_allowed'
+      const open = typeof parsed.receiver_id === 'string' ? ctx.cashOut?.(parsed.receiver_id) : undefined
+      if (!open) return 'receiver_not_allowed'
+      if (open.paid) return 'cash_out_paid'
+      if (open.expired) return 'cash_out_expired'
+      if (parsed.amount !== open.amount) return 'amount_not_allowed'
+      return undefined
+    }
     // Paying for a drink: USDC to our contract only, with exactly the 1 yocto NEP-141 requires.
     if (methodName !== 'ft_transfer_call') return 'method_not_allowed'
     if (parsed.receiver_id !== ctx.contractId) return 'receiver_not_allowed'
@@ -82,7 +95,7 @@ export function checkDelegate(
   return 'receiver_not_allowed'
 }
 
-export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; relayer?: Relayer }) {
+export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; relayer?: Relayer; oneclick?: OneClick }) {
   const { cfg, db } = deps
   const limited = rateLimit(20, 60_000)
   return new Hono<AppEnv>()
@@ -101,9 +114,18 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
           sender: user.near_account,
           contractId: cfg.CONTRACT_ID,
           usdcId: cfg.USDC_CONTRACT_ID,
+          cashOut: (addr) => openCashOut(db, user.id, addr),
         })
         if (refused) throw new AppError(403, refused)
         if (!signatureValid(d)) throw new AppError(403, 'bad_signature')
+        const call = d.delegateAction.actions[0]!.functionCall!
+        const cashOutTo =
+          call.methodName === 'ft_transfer'
+            ? (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
+            : undefined
+        // Held before sending, so the same deposit can't go out twice. If the relay throws we don't know whether it
+        // landed, so the hold stays (the player asks for a new quote); a failure on chain releases it.
+        if (cashOutTo && !reserveCashOut(db, user.id, cashOutTo)) throw new AppError(409, 'cash_out_paid')
         const result = await deps.relayer.relay(d)
         run(
           db,
@@ -116,6 +138,10 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
           result.error ?? '',
           Date.now(),
         )
+        if (cashOutTo) {
+          if (result.ok) await cashOutPaid(deps, user, cashOutTo, result.hash)
+          else releaseCashOut(db, user.id, cashOutTo)
+        }
         return c.json(result, result.ok ? 200 : 422)
       },
     )
