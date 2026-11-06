@@ -14,11 +14,18 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 
 ## Screens so far
 
-| Path        | What                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------- |
-| `/`         | Landing                                                                                                 |
-| `/practice` | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage |
-| `/spike`    | Spike 10 test page (Privy NEAR wallet signing)                                                          |
+| Path              | What                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| `/`               | Landing                                                                                                 |
+| `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage |
+| `/city`           | Sign in (Privy), wallet + onboarding, dollar balance, live parties, host a party, portfolio             |
+| `/city/party/:id` | The party menu, one-tap buy (quote → delegate → relay); the host also sets prices here                  |
+| `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                   |
+| `/admin`          | Back office, lazy-loaded: role, players                                                                 |
+| `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                          |
+
+Add money / Cash out show their screens; the 1Click endpoints come with the api's `intents.ts`. Collect shares reads
+`owed(party)`, which arrives with contract v2.
 
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.

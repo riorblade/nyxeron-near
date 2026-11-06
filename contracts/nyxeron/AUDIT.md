@@ -1,26 +1,27 @@
 # contracts/nyxeron · security review
 
-Checked on 2026-11-04 against the `near-contract-audit` checklist (near/agent-skills) plus the contract's own business
-rules. Code at the commit that adds this file. Re-run before the mainnet deploy if the contract changes.
+Checked on 2026-11-04 and again on 2026-11-06 (after the CEO lock) against the `near-contract-audit` checklist
+(near/agent-skills) plus the contract's own business rules. v1 (stock units) at the commit that added this file, v2 (drink payments, #22) at the commit that updates it.
+Re-run before the mainnet deploy if the contract changes.
 
 ## Checklist
 
-| Detector                | Result    | Where / why                                                                                                                                                              |
-| ----------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| non-private-callback    | ok        | The only callback, `mt_resolve_transfer` (from near-sdk-contract-tools), is `#[private]`                                                                                 |
-| reentrancy              | ok        | Our methods make no cross-contract calls. `mt_transfer_call` moves balances before calling the receiver and resolves after, as NEP-245 requires                          |
-| argument / return types | ok        | Amounts are `U128` (strings in JSON) everywhere                                                                                                                          |
-| unsaved changes         | ok        | `near_sdk::store` collections are fields of the contract state; sandbox tests read `is_used_proof` / `is_settled` / balances back after each call                        |
-| owner check             | ok        | `register_token`, `mint_warehouse`, `settle`, `write_off`, `set_paused` all start with `require_owner`; a unit test per method proves a guest is refused                 |
-| yocto attach            | by design | Owner methods take no deposit so the api can call them with a function-call key (SPEC §6.2). Holder transfers require exactly 1 yocto (library)                          |
-| storage collision       | ok        | Our prefixes are `BorshStorageKey` variants (`0x00`–`0x02`); the library's slots start with `~` (`~$245`, …)                                                             |
-| initialization          | ok        | `#[init] new`, `PanicOnDefault`                                                                                                                                          |
-| gas griefing            | ok        | `settle` takes at most 32 transfers (set by the 16 KiB log cap; 21.9 TGas worst case). Other loops are over owner-registered tokens only                                 |
-| insecure randomness     | n/a       | No randomness                                                                                                                                                            |
-| prepaid gas             | ok        | Only the library's `mt_transfer_call` schedules a callback: 5 TGas static for `mt_resolve_transfer`, and the call requires ≥ 30 TGas prepaid                             |
-| cover storage cost      | accepted  | New holders' storage comes from the contract balance: 141 bytes ≈ 0.0014 NEAR each. A holder creating accounts to lock it pays ≥ 1 unit (~\$0.40) per 0.0014 NEAR locked |
-| unsafe math             | ok        | No arithmetic in our code; the library uses checked math; `overflow-checks = true` in release                                                                            |
-| float math              | ok        | None (`shares_per_unit` is a display string)                                                                                                                             |
+| Detector                | Result    | Where / why                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| non-private-callback    | ok        | Callbacks `on_margin_sent`, `on_wholesale_released` and the library's `mt_resolve_transfer` are `#[private]`; ours read `#[callback_result]` and never panic on a failed transfer                                                                                                                                                                                                                           |
+| reentrancy              | ok        | State is final before every outgoing call: a purchase records quote, pot and owed before the margin transfer; `release_wholesale` zeroes the pot and `claim_margin` removes the balance first, and their callbacks only add back on failure. Sandbox tests cover both failures                                                                                                                              |
+| argument / return types | ok        | Amounts are `U128` (strings in JSON) everywhere                                                                                                                                                                                                                                                                                                                                                             |
+| unsaved changes         | ok        | `near_sdk::store` collections are fields of the contract state; sandbox tests read `is_used_proof` / `is_settled` / balances back after each call                                                                                                                                                                                                                                                           |
+| owner check             | ok        | Every config and warehouse method starts with `require_owner`, including `set_owner`, `set_quote_key`, `set_usdc`, `set_treasury`, `release_wholesale`; a unit test per method proves a guest is refused. `ft_on_transfer` is gated on the configured USDC as caller plus the quote signature                                                                                                               |
+| yocto attach            | by design | Owner methods take no deposit so the api can call them with a function-call key (SPEC §6.2). Holder transfers require exactly 1 yocto (library). Outgoing `ft_transfer`s attach 1 yocto from the contract                                                                                                                                                                                                   |
+| storage collision       | ok        | Our prefixes are `BorshStorageKey` variants (`0x00`–`0x06`); the library's slots start with `~` (`~$245`, …)                                                                                                                                                                                                                                                                                                |
+| initialization          | ok        | `#[init] new`, `PanicOnDefault`                                                                                                                                                                                                                                                                                                                                                                             |
+| gas griefing            | ok        | `settle` takes at most 32 transfers (16 KiB log cap; 23.1 TGas). Each party's `owed` list is read and rewritten per purchase, so it is capped at 256 entries (`party_full`): 16.0 TGas per payment at the cap. Only api-signed, paid quotes add entries                                                                                                                                                     |
+| insecure randomness     | n/a       | No randomness                                                                                                                                                                                                                                                                                                                                                                                               |
+| prepaid gas             | ok        | Margin and release transfers get 10 TGas static plus 5 TGas for the callback. A payment works from 30 TGas attached (sandbox probe); with too little gas the promise fails to schedule, `ft_on_transfer` panics, and the token refunds the whole amount                                                                                                                                                     |
+| cover storage cost      | accepted  | Paid from the contract balance: new holders 141 bytes; purchases 220 bytes for a party's first, 47 for a repeat (quote ids are kept for good), 89 for a new guest. Holders creating accounts pay ≥ 1 unit (~\$0.40) per 0.0014 NEAR locked; purchases need an api-signed quote and a real payment. Out of NEAR, a payment fails with `LackBalanceForState` and the guest is refunded in full (sandbox test) |
+| unsafe math             | ok        | `unit_price × qty` and `3 × unit_wholesale` are checked and refund on overflow (tests); other sums are bounded by USDC supply; `overflow-checks = true` in release                                                                                                                                                                                                                                          |
+| float math              | ok        | None (`shares_per_unit` is a display string)                                                                                                                                                                                                                                                                                                                                                                |
 
 ## Found and fixed
 
@@ -28,16 +29,40 @@ rules. Code at the commit that adds this file. Re-run before the mainnet deploy 
   before writing either). Fixed by the `NoSelfTransfer` hook; tests `transfer_to_yourself_is_refused` and
   `batch_transfer_to_yourself_is_refused`.
 - **Medium: a full settle failed at 100 transfers** (log cap, not gas). Limit set to 32 with a worst-case sandbox test.
+- **Medium (v2, found before merge): margin or wholesale could be locked for good.** A quote with `ceo` = this
+  contract, or the treasury set to this contract, makes USDC refuse the transfer (to yourself), and no one could claim
+  it. Both are refused (`the_contract_as_ceo_is_refunded`, `the_contract_as_treasury_is_refused`).
+- **Medium (v2, automated review before merge): a party's `owed` list had no bound.** Every purchase reads and
+  rewrites it, so a big enough party would run purchases out of gas (refunded, but the party could not sell). Capped
+  at 256 entries with refusal `party_full`; measured 16.0 TGas per payment at the cap.
+- **Low (second pass): `set_owner` took effect at once.** A typo in the new account would have handed every owner
+  method to an account nobody holds. Now two steps: `set_owner` proposes, the new account calls `accept_owner`
+  (unit tests for the typo, a proposal with no power and the handover; sandbox test with real accounts). The proposal
+  sits in its own storage key, so the `Contract` struct and the state of the live deploy are unchanged.
+- **Low (second pass): quotes didn't name the contract.** A quote was valid on any deploy trusting the same key, and
+  implicit accounts are the same on testnet and mainnet. Quote v2 carries `contract`, refused otherwise
+  (`wrong_contract`). Still use a different quote key per network.
 
 ## Risks the team accepts or decides
 
-1. **The api's key is the warehouse's key.** Whoever holds the owner's function-call key can settle the whole warehouse
-   to themselves or mint against fake proofs; the contract cannot read Solana. Mitigations: the key is limited to this
-   contract and its owner methods, `set_paused` stops mint and settle, and `/proof` + reconciliation (SPEC §6.6) show a
-   gap between `mt_supply` and the warehouse. There is no `set_owner`: rotate keys on the owner account instead.
-2. **The contract account's own full-access key** can redeploy the code and move the warehouse with `mt_transfer`.
+1. **The api's key is the warehouse's key.** Whoever holds the owner's function-call key can mint against fake
+   proofs (the contract cannot read Robinhood Chain) and release any party's pot to the treasury. Settle is capped by
+   what guests are owed, so the key alone cannot send the warehouse to an arbitrary account. Mitigations: the key is
+   limited to this contract and its owner methods, `set_paused` stops money movement, `set_owner` + `accept_owner` rotate the api
+   account, and `/proof` + reconciliation (SPEC §6.6) show a gap between `mt_supply` and the warehouse.
+2. **The api's quote key sets prices and the margin's destination.** Within the contract's bounds (price ≤ 3 ×
+   wholesale, buyer must pay it themselves) the api decides the price, the wholesale split and which account is the
+   CEO. The first accepted purchase fixes a party's CEO, so a later bad quote can't redirect that party's margin
+   (`ceo_mismatch`). A leaked quote key lets someone sell drinks to themselves at any split, but every purchase still
+   costs the buyer the full price. Rotate with `set_quote_key`; keep it apart from the owner key.
+3. **The contract account's own full-access key** can redeploy the code and move the warehouse with `mt_transfer`.
    On mainnet: remove it after deploy (no upgrades) or keep it in a hardware wallet / multisig (upgrades possible).
    Team decision before mainnet.
-3. **Token info is final.** `register_token` cannot edit or remove a token; a wrong `backing` needs a new token id.
-4. **Units sent to the warehouse stay there.** A holder transferring units to the contract account adds to warehouse
+4. **Token info is final.** `register_token` cannot edit or remove a token; a wrong `backing` needs a new token id.
+5. **Units sent to the warehouse stay there.** A holder transferring units to the contract account adds to warehouse
    stock; nothing gives them back.
+6. **USDC is set once.** Pots and held margins are amounts of that token; a different USDC needs a fresh deploy.
+7. **`settle` doesn't wait for the party's stock.** The warehouse is one pool, so a party can be settled from stock
+   bought for another one. The api should settle a party only after its own `mint_warehouse`; `/proof` shows the pool.
+8. **The contract's NEAR pays for every purchase's storage** (quote ids stay forever, ≈ 0.0005 NEAR per purchase).
+   Running out stops purchases with full refunds, nothing is lost; top the balance up before it does.

@@ -194,7 +194,8 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
         if (!ceo) throw new AppError(409, 'host_has_no_near_account')
 
         const quote = {
-          v: 1,
+          v: 2,
+          contract: cfg.CONTRACT_ID, // the contract refuses a quote meant for another deploy
           id: `q_${randomBytes(16).toString('base64url')}`,
           party: String(p.id),
           buyer,

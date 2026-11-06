@@ -137,7 +137,8 @@ describe('POST /api/parties/:id/quote', () => {
     expect(valid).toBe(true)
     expect(quote).toEqual(body.quote)
     expect(quote).toMatchObject({
-      v: 1,
+      v: 2,
+      contract: 'nyxeron.testnet',
       party: String(id),
       buyer: guest,
       ceo: host,

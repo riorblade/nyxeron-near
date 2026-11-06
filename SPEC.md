@@ -102,7 +102,7 @@ grosir; top-up minimal $1, cap $20/hari dan $100 total per pemain selama hackath
 ### 5.2 Bayar minuman
 
 1. Klien meminta `POST /api/parties/{id}/quote {token, qty}`. Server mengembalikan **kutipan bertanda tangan**:
-   `{party, buyer, token, qty, price, wholesale, ceo, expires}`, ditandatangani kunci ed25519 server yang public
+   `{contract, party, buyer, token, qty, price, wholesale, ceo, expires}`, ditandatangani kunci ed25519 server yang public
    key-nya tersimpan di kontrak.
 2. Klien menandatangani delegate `ft_transfer_call` USDC → `nyxeron` dengan `msg` = kutipan + tanda tangan.
    Relayer memeriksa ketat (§9) lalu mengirim.
@@ -146,7 +146,7 @@ Tambahan untuk v2:
 | `set_quote_key(public_key)`              | owner        | kunci ed25519 server untuk kutipan                   |
 | `release_wholesale(party_id)`            | owner        | grosir pesta ke treasury untuk beli saham            |
 | `owed(party_id)`                         | view         | unit yang harus dibagikan per tamu                   |
-| `set_owner(owner_id)`                    | owner        | ganti akun api tanpa deploy ulang                    |
+| `set_owner(owner_id)` + `accept_owner()` | owner, calon | ganti akun api tanpa deploy ulang, dua langkah       |
 
 Tes wajib tambahan: kutipan kadaluarsa, tanda tangan salah, pembeli ≠ pengirim, harga di atas 3× grosir, refund utuh
 saat ditolak, margin sampai ke CEO, `release_wholesale` sekali per pesta.
