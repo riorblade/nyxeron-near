@@ -30,6 +30,9 @@ export type Relayer = {
   createImplicit(accountId: string): Promise<string>
   isRegistered(tokenId: string, accountId: string): Promise<boolean>
   register(tokenId: string, accountId: string): Promise<string>
+  // A NEP-141 balance in the token's smallest unit, and an ft_transfer from the relayer (testnet faucet).
+  ftBalance(tokenId: string, accountId: string): Promise<bigint>
+  ftTransfer(tokenId: string, receiverId: string, amount: bigint, memo: string): Promise<RelayResult>
 }
 
 type Outcome = {
@@ -107,6 +110,28 @@ export function nearRelayer(cfg: Config): Relayer | undefined {
         ],
       })) as unknown as Outcome
       return o.transaction.hash
+    },
+    async ftBalance(tokenId, accountId) {
+      const raw = await provider.callFunction<string>({
+        contractId: tokenId,
+        method: 'ft_balance_of',
+        args: { account_id: accountId },
+      })
+      return BigInt(raw ?? 0)
+    },
+    async ftTransfer(tokenId, receiverId, amount, memo) {
+      const o = (await relayer.signAndSendTransaction({
+        receiverId: tokenId,
+        actions: [
+          actions.functionCall(
+            'ft_transfer',
+            { receiver_id: receiverId, amount: amount.toString(), memo },
+            teraToGas('30'),
+            1n,
+          ),
+        ],
+      })) as unknown as Outcome
+      return summarise(o)
     },
   }
 }

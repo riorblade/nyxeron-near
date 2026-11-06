@@ -34,12 +34,15 @@ export const fakeQuotes: Quotes = {
   },
 }
 
-// Records what the api asked the relayer to do; `failRelay` makes the next relay land with a failure.
+// Records what the api asked the relayer to do; `failRelay` makes the next relay land with a failure, `failTransfer`
+// the next ft_transfer. `balances` holds NEP-141 balances as `${token}:${account}`.
 export function fakeRelayer() {
   const accounts = new Set<string>()
   const registered = new Set<string>()
+  const balances = new Map<string, bigint>()
   const calls: string[] = []
   let failNext = false
+  let failTransferNext = false
   const relayer: Relayer = {
     async relay(d) {
       calls.push(`relay:${d.delegateAction.receiverId}:${d.delegateAction.actions[0]?.functionCall?.methodName}`)
@@ -65,8 +68,25 @@ export function fakeRelayer() {
       registered.add(`${token}:${id}`)
       return 'tx-register'
     },
+    async ftBalance(token, id) {
+      return balances.get(`${token}:${id}`) ?? 0n
+    },
+    async ftTransfer(token, to, amount) {
+      calls.push(`ft_transfer:${to}:${amount}`)
+      if (failTransferNext) {
+        failTransferNext = false
+        return { hash: 'tx-ft-failed', ok: false, error: 'ActionError' }
+      }
+      return { hash: 'tx-ft', ok: true }
+    },
   }
-  return { relayer, calls, failRelay: () => (failNext = true) }
+  return {
+    relayer,
+    calls,
+    balances,
+    failRelay: () => (failNext = true),
+    failTransfer: () => (failTransferNext = true),
+  }
 }
 
 export function testApp(

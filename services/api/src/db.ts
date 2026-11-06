@@ -80,6 +80,19 @@ const migrations = [
      created_at     INTEGER NOT NULL
    );
    CREATE INDEX quotes_party ON quotes(party_id);`,
+  // 4. "Get test dollars" grants on testnet: real Circle testnet USDC sent by the relayer, so not play credits.
+  // A row is written before the transfer is sent, so two requests at once can't both pass the once-a-day check.
+  `CREATE TABLE test_dollars (
+     id       INTEGER PRIMARY KEY,
+     user_id  TEXT    NOT NULL REFERENCES users(id),
+     account  TEXT    NOT NULL,                    -- NEAR account the dollars went to
+     amount   INTEGER NOT NULL CHECK (amount > 0), -- micro-USDC
+     status   TEXT    NOT NULL CHECK (status IN ('sending', 'sent', 'failed')),
+     tx_hash  TEXT    NOT NULL DEFAULT '',
+     error    TEXT    NOT NULL DEFAULT '',
+     at       INTEGER NOT NULL
+   );
+   CREATE INDEX test_dollars_user ON test_dollars(user_id, at);`,
 ]
 
 export function openDb(path: string): Db {

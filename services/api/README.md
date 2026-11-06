@@ -43,11 +43,12 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 | `PATCH /api/me`                  | player        | body `{ name }` (2–24 chars) → the profile                                                                                                                                                                                                                    |
 | `GET /api/me/ledger`             | player        | `{ entries: [{ delta, balance, kind, ref, at }] }`, newest first, last 50                                                                                                                                                                                     |
 | `POST /api/me/demo-credits`      | player        | testnet `DEMO_MODE` only, once a day → `{ credits }`                                                                                                                                                                                                          |
+| `POST /api/me/test-dollars`      | player        | testnet `DEMO_MODE` only, once a day, after `/api/onboard`: the relayer sends `TEST_DOLLARS` micro-USDC of Circle's testnet USDC → `{ hash, amount }`                                                                                                         |
 | `GET /api/admin/me`              | back office   | `{ email, role }` (`owner`, `admin`, `viewer`)                                                                                                                                                                                                                |
 | `GET /api/admin/users?q=&limit=` | back office   | `{ users: [{ id, email, nearAccount, name, credits, banned, lastSeen, createdAt }] }`                                                                                                                                                                         |
 | `POST /api/onboard`              | player        | makes the player's NEAR account usable (0 NEAR transfer + USDC registration, paid by us) → `{ nearAccount, createdTx, registeredTx }`                                                                                                                         |
 | `POST /api/relay`                | player        | body `{ signedDelegate }` (NEP-366, borsh, base64); relayed only if it is a USDC `ft_transfer_call` to our contract (1 yocto) or `claim_margin` → `{ hash, ok }`; 422 when it failed on chain or the contract refunded the drink (`error: "refund:<reason>"`) |
-| `GET /api/config`                | anyone        | `{ network, contractId, usdcId, quoteKey, menu }`                                                                                                                                                                                                             |
+| `GET /api/config`                | anyone        | `{ network, contractId, usdcId, quoteKey, menu, testDollars }`; `testDollars` is `{ amount, faucetBalance }` on testnet with `DEMO_MODE`, else `null`                                                                                                         |
 | `GET /api/parties`               | player        | live parties `{ parties: [{ id, title, host, endsAt }] }`                                                                                                                                                                                                     |
 | `POST /api/parties`              | player (host) | body `{ title, minutes? }` (5–60, default 10) → the party; every priced stock at 1.5× wholesale                                                                                                                                                               |
 | `GET /api/parties/:id`           | player        | `{ id, title, host, seed, startsAt, endsAt, live, menu: [{ token, ticker, name, price, wholesale, maxPrice }] }` (micro-USDC)                                                                                                                                 |
@@ -56,10 +57,10 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 
 Error codes so far: `unauthorized` (401); `banned`, `not_admin`, `not_host`, `wrong_sender`, `wrong_key`,
 `bad_signature`, `receiver_not_allowed`, `method_not_allowed`, `deposit_not_allowed`, `gas_too_high`, `one_call_only`,
-`bad_args` (403); `bad_request`, `bad_delegate`, `unknown_token`, `below_wholesale`, `above_cap` (400); `not_found`,
+`bad_args`, `not_testnet`, `demo_off` (403); `bad_request`, `bad_delegate`, `unknown_token`, `below_wholesale`, `above_cap` (400); `not_found`,
 `no_party` (404); `no_near_account`, `insufficient_credits`, `party_over`, `party_not_live`, `reprice_needed`,
-`host_has_no_near_account` (409); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
-`relayer_off`, `quotes_off` (503).
+`host_has_no_near_account`, `not_onboarded` (409); `faucet_failed` (502); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
+`relayer_off`, `quotes_off`, `faucet_off`, `faucet_empty` (503).
 
 ## Rules
 

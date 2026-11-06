@@ -30,6 +30,12 @@ const Env = z
     USDC_CONTRACT_ID: z.string().min(2).optional(),
     // ed25519 secret the api signs drink quotes with; its public key is set on the contract with set_quote_key.
     QUOTE_KEY: z.string().startsWith('ed25519:').optional(),
+    // The contract's owner account: releases a party's wholesale, mints the warehouse's units, settles them to guests.
+    // Without it the settlement job is off. May be the same account as the relayer.
+    OWNER_ACCOUNT_ID: z.string().min(2).optional(),
+    OWNER_KEY: z.string().startsWith('ed25519:').optional(),
+    // "Get test dollars" (testnet + DEMO_MODE): micro-USDC per grant, once a day per player, sent by the relayer.
+    TEST_DOLLARS: z.coerce.number().int().positive().max(20_000_000).default(3_000_000),
   })
   .refine((e) => !(e.DEMO_MODE && e.NEAR_NETWORK === 'mainnet'), {
     message: 'DEMO_MODE hands out free credits: never on mainnet',
@@ -38,6 +44,10 @@ const Env = z
   .refine((e) => Boolean(e.RELAYER_ACCOUNT_ID) === Boolean(e.RELAYER_KEY), {
     message: 'set RELAYER_ACCOUNT_ID and RELAYER_KEY together',
     path: ['RELAYER_KEY'],
+  })
+  .refine((e) => Boolean(e.OWNER_ACCOUNT_ID) === Boolean(e.OWNER_KEY), {
+    message: 'set OWNER_ACCOUNT_ID and OWNER_KEY together',
+    path: ['OWNER_KEY'],
   })
   .refine((e) => e.NEAR_NETWORK === 'testnet' || Boolean(e.CONTRACT_ID), {
     message: 'CONTRACT_ID is required on mainnet',

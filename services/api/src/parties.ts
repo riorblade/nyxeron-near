@@ -7,6 +7,7 @@ import { type AppEnv, type Identity, requireActive, requireUser, type User } fro
 import type { Config } from './config.ts'
 import { all, type Db, one, run, tx } from './db.ts'
 import { AppError, validate } from './http.ts'
+import type { Relayer } from './near.ts'
 import type { Quotes } from './quotes.ts'
 
 export const QUOTE_TTL_MS = 60_000
@@ -247,15 +248,30 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
     )
 }
 
-export function configRoutes(cfg: Config) {
+const FAUCET_CACHE_MS = 30_000
+
+export function configRoutes(cfg: Config, relayer?: Relayer, now = Date.now) {
   const signer = cfg.QUOTE_KEY ? quoteSigner(cfg.QUOTE_KEY) : undefined
-  return new Hono().get('/', (c) =>
+  const faucetOn = cfg.NEAR_NETWORK === 'testnet' && cfg.DEMO_MODE && relayer && cfg.RELAYER_ACCOUNT_ID
+  let cached: { at: number; balance: number | null } | undefined
+  // The faucet's balance, so the web can say "faucet empty" instead of failing a tap. Cached: it's an RPC call.
+  const faucetBalance = async () => {
+    if (cached && now() - cached.at < FAUCET_CACHE_MS) return cached.balance
+    const balance = await relayer!.ftBalance(cfg.USDC_CONTRACT_ID, cfg.RELAYER_ACCOUNT_ID!).then(
+      (b) => Number(b),
+      () => null,
+    )
+    cached = { at: now(), balance }
+    return balance
+  }
+  return new Hono().get('/', async (c) =>
     c.json({
       network: cfg.NEAR_NETWORK,
       contractId: cfg.CONTRACT_ID,
       usdcId: cfg.USDC_CONTRACT_ID,
       quoteKey: signer?.publicKey ?? null,
       menu: tokenIds.map((id) => ({ token: id, ...tokens[id] })),
+      testDollars: faucetOn ? { amount: cfg.TEST_DOLLARS, faucetBalance: await faucetBalance() } : null,
     }),
   )
 }
