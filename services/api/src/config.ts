@@ -62,7 +62,8 @@ const Env = z
 export type Config = z.infer<typeof Env>
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const parsed = Env.safeParse(env)
+  // A line left blank in .env (`KEY=`) means "not set", as .env.example ships most of them.
+  const parsed = Env.safeParse(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '')))
   if (!parsed.success) throw new Error(`invalid environment:\n${z.prettifyError(parsed.error)}`)
   return parsed.data
 }
