@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { type Account, useAccount } from '../auth/useAccount.ts'
 import { Link, usePath } from '../router.tsx'
 import { AccountBar } from './AccountBar.tsx'
+import { HostParty } from './HostParty.tsx'
 import { PartyView } from './PartyView.tsx'
+import { Portfolio } from './Portfolio.tsx'
 
 export default function City() {
   const account = useAccount()
@@ -35,7 +37,17 @@ export default function City() {
               {account.setupError}
             </p>
           )}
-          {partyId ? <PartyView account={account} partyId={partyId} /> : <Parties account={account} />}
+          {partyId ? (
+            <PartyView account={account} partyId={partyId} />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-[1fr_20rem]">
+              <div className="flex flex-col gap-4">
+                <Parties account={account} />
+                <HostParty account={account} />
+              </div>
+              <Portfolio account={account} />
+            </div>
+          )}
         </div>
       )}
     </main>
@@ -83,7 +95,7 @@ function Parties({ account }: { account: Account }) {
             <Link href={`/city/party/${p.id}`} className="flex items-center justify-between py-3 hover:text-neon">
               <span>
                 <span className="font-semibold">{p.title}</span>
-                <span className="ml-2 text-sm text-muted">by {p.host}</span>
+                <span className="ml-2 text-sm text-muted">by {p.host || 'a host'}</span>
               </span>
               <span className="text-sm text-muted">
                 ends {new Date(p.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}

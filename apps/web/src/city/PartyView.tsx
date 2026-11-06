@@ -2,13 +2,15 @@
 // marked done when the relay confirms it; a refusal explains itself.
 import { tokens } from '@nyxeron/game'
 import type { InferResponseType } from 'hono/client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { explorer, nearProvider } from '../near/chain.ts'
 import { Link } from '../router.tsx'
 import { buyDrink } from './buy.ts'
 import { PlayerError, playerMessage } from './errors.ts'
+import { HostPrices } from './HostPrices.tsx'
+import { rememberParty } from './visited.ts'
 
 type Party = InferResponseType<Account['api']['parties'][':id']['$get'], 200>
 type MenuRow = Party['menu'][number]
@@ -27,19 +29,20 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const [drinks, setDrinks] = useState<Drink[]>([])
   const [busy, setBusy] = useState<string>()
 
-  useEffect(() => {
-    const load = async () => {
-      const r = await account.api.parties[':id'].$get({ param: { id: String(partyId) } })
-      if (!r.ok) {
-        const body = (await r.json().catch(() => ({}))) as { error?: string }
-        return setError(playerMessage(body.error ?? 'unknown'))
-      }
-      setParty(await r.json())
+  const load = useCallback(async () => {
+    const r = await account.api.parties[':id'].$get({ param: { id: String(partyId) } })
+    if (!r.ok) {
+      const body = (await r.json().catch(() => ({}))) as { error?: string }
+      return setError(playerMessage(body.error ?? 'unknown'))
     }
+    setParty(await r.json())
+  }, [account.api, partyId])
+
+  useEffect(() => {
     void load()
     const id = setInterval(load, 15_000)
     return () => clearInterval(id)
-  }, [account.api, partyId])
+  }, [load])
 
   const buy = async (row: MenuRow, qty: number) => {
     if (!account.canPay || !account.config || !account.address || !account.sign) return
@@ -64,6 +67,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         qty,
       )
       settle({ state: 'done', note: bought.hash, total: bought.total })
+      rememberParty(partyId)
       void account.refreshBalance()
     } catch (e) {
       settle({ state: 'failed', note: e instanceof PlayerError ? e.message : playerMessage('unknown') })
@@ -83,15 +87,21 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
     )
   if (!party) return <p className="text-muted">Loading the party…</p>
 
+  const isHost = Boolean(account.address && party.host.nearAccount === account.address)
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_18rem]">
+      {isHost && party.live && (
+        <div className="md:col-span-2">
+          <HostPrices account={account} partyId={partyId} menu={party.menu} onSaved={() => void load()} />
+        </div>
+      )}
       <section className="rounded-2xl border border-line bg-panel p-4">
         <Link href="/city" className="text-xs text-muted hover:text-ink">
           ← All parties
         </Link>
         <h2 className="text-xl font-bold">{party.title}</h2>
         <p className="text-sm text-muted">
-          Hosted by {party.host.name || 'a host'} ·{' '}
+          {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
           {party.live ? `until ${new Date(party.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}` : 'not open'}
         </p>
         <ul className="mt-3 divide-y divide-line">
