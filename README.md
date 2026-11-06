@@ -5,7 +5,9 @@ each drink holds 0.001 of a real share (Tesla, NVIDIA, S&P 500, …) that the gu
 with Google or email, see a balance in dollars, and pay from their own NEAR account with no seed phrase, no wallet
 pop-up and no gas.
 
-Built at NEAR HACKATHON (1–14 Nov 2026). Tracks: `games`, `defi`, `open`.
+Built at NEAR HACKATHON (1–14 Nov 2026).
+
+<!-- TODO(#39): tracks, open decision D1 in SPEC §12 (proposed: `games`, `defi`, `open`). -->
 
 <!-- TODO(#39): demo URL, X post link, and video once they exist (#40). -->
 
@@ -43,11 +45,11 @@ Every step says what to do and what you should see.
 
 | Part              | NEAR feature                                                                                                          | Where                                              |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Sign-in           | Privy social login creates a NEAR implicit account the player owns (key split 2-of-2, held in an enclave)             | `apps/web/src/auth`                                |
+| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                | `apps/web/src/auth`                                |
 | No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit           | `apps/web/src/near`, `services/api/src/relay.ts`   |
 | Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money | `contracts/nyxeron`, `services/api/src/parties.ts` |
 | Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                             | `contracts/nyxeron`                                |
-| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures      | `services/api` (in progress)                       |
+| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures      | `services/api/src/chainsig.ts`                     |
 | Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                   | planned                                            |
 
 The server can never move a player's dollars: only the player signs a payment. The relayer accepts one action to our
@@ -111,10 +113,13 @@ hackathon rules: [HACKATHON.md](HACKATHON.md) · how we work: [CONTRIBUTING.md](
 
 ## Built with
 
-React 19, Vite, Tailwind CSS, Hono, near-api-js, Privy, Vitest; the contract in Rust with near-sdk. All code was
-written during the hackathon, partly with AI coding tools (Claude Code).
+React 19, Vite, Tailwind CSS, Hono, near-api-js, Privy, Vitest; the contract in Rust with near-sdk.
+
+The 3D club and the game screen layout are adapted from nightclub-game prototypes our team built before the
+hackathon. Everything that touches NEAR was built during the hackathon: the contract, sign-in with a NEAR account, the
+gasless relayer, signed drink quotes, Chain Signatures for the warehouse and the settlement. We used AI coding tools
+(Claude Code).
 
 <!-- TODO(#39): confirm with the team before submission:
-  - prior work disclosure (Q-002/Q-005): is there an earlier NYXERON build (e.g. on Roblox) to name as baseline?
   - other projects by team members at this hackathon (Q-015).
   - LICENSE file (Q-014). -->
