@@ -1,0 +1,365 @@
+// Buying the warehouse's shares on Robinhood Chain (SPEC §5.3 steps 3–4): a KyberSwap route USDG → the pinned stock
+// token, signed by the warehouse through Chain Signatures, broadcast, and checked by the warehouse's balanceOfUI
+// before the swap's hash is handed back as the proof for mint_warehouse.
+import { isTokenId, SHARES_PER_UNIT, tokens } from '@nyxeron/game'
+import {
+  type Address,
+  createPublicClient,
+  encodeFunctionData,
+  erc20Abi,
+  fallback,
+  type Hex,
+  http,
+  isAddressEqual,
+  keccak256,
+  parseAbi,
+  parseTransaction,
+  TransactionReceiptNotFoundError,
+  type TransactionSerializableEIP1559,
+} from 'viem'
+import { z } from 'zod'
+import { ChainsigError, DEFAULT_LIMITS, KYBER_ROUTER, type Limits, USDG } from './chainsig.ts'
+import { all, type Db, one, run } from './db.ts'
+import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
+import { type BuyShares, SettlementError } from './settlement.ts'
+
+const E18 = 10n ** 18n
+const BPS = 10_000n
+const UNITS_PER_SHARE = BigInt(Math.round(1 / SHARES_PER_UNIT)) // 1 unit = 0.001 share
+
+export type SwapLimits = {
+  maxSwapMicro: bigint // SPEC §5.3: $50 per swap
+  maxDayMicro: bigint // $500 per UTC day, over every swap sent
+  maxUnderMarketBps: bigint // refuse a quote worth more than 2 % under the market price
+  slippageBps: bigint // the minimum out the router enforces
+  sizingBufferBps: bigint // first guess of USDG in, above market
+}
+export const SWAP_LIMITS: SwapLimits = {
+  maxSwapMicro: 50_000_000n,
+  maxDayMicro: 500_000_000n,
+  maxUnderMarketBps: 200n,
+  slippageBps: 50n,
+  sizingBufferBps: 100n,
+}
+const APPROVE_GAS = 80_000n
+
+// What we read and send on Robinhood Chain. A fake in tests.
+export type Hood = {
+  gasPrice(): Promise<bigint>
+  usdgAllowance(owner: Address, spender: Address): Promise<bigint>
+  uiMultiplier(token: Address): Promise<bigint>
+  balanceOfUI(token: Address, owner: Address): Promise<bigint>
+  // How many of `address`'s transactions are mined (not pending).
+  minedNonce(address: Address): Promise<number>
+  receipt(hash: Hex): Promise<{ status: 'success' | 'reverted' } | null>
+  sendRawTransaction(raw: Hex): Promise<Hex>
+  waitForReceipt(hash: Hex): Promise<{ status: 'success' | 'reverted' }>
+}
+
+export type Route = { amountIn: string; amountOut: string; summary: unknown }
+export type Built = { amountIn: string; amountOut: string; gas: string; data: Hex; routerAddress: Address }
+// KyberSwap's aggregator. A fake in tests.
+export type Kyber = {
+  route(tokenIn: Address, tokenOut: Address, amountIn: bigint): Promise<Route>
+  build(route: Route, from: Address, slippageBps: bigint): Promise<Built>
+}
+
+// The part of chainsig.ts's warehouse the buyer needs.
+export type Signer = {
+  address(): Promise<Address>
+  sign(tx: TransactionSerializableEIP1559): Promise<Hex>
+  signAndSend(tx: TransactionSerializableEIP1559): Promise<{ hash: Hex }>
+}
+
+type SwapRow = {
+  id: string
+  token: string
+  units: number
+  usdg_in: number
+  need_ui: string
+  bal_before: string
+  nonce: number
+  raw_tx: Hex
+  tx_hash: Hex
+  status: 'sent' | 'done' | 'failed'
+  attempts: number
+  at: number
+}
+
+/** units × 0.001 share, in balanceOfUI's 18 decimals, and the raw balanceOf amount that shows as at least that. */
+export function sharesNeeded(units: bigint, uiMultiplier: bigint): { needUi: bigint; needRaw: bigint } {
+  if (units <= 0n) throw new SettlementError('bad_units', true)
+  if (uiMultiplier <= 0n) throw new SettlementError('bad_multiplier', true)
+  const needUi = (units * E18) / UNITS_PER_SHARE
+  // balanceOfUI = balanceOf × uiMultiplier / 1e18, rounded down: round the raw amount up.
+  const needRaw = (needUi * E18 + uiMultiplier - 1n) / uiMultiplier
+  return { needUi, needRaw }
+}
+
+const utcDay = (ms: number) => Math.floor(ms / 86_400_000)
+
+export function warehouseBuyer(deps: {
+  db: Db
+  hood: Hood
+  kyber: Kyber
+  signer: Signer
+  // USD per token (balanceOf / 1e18) from the market, e.g. quotes.ts's spot.
+  price: (token: string) => Promise<number>
+  limits?: SwapLimits
+  gasLimits?: Limits
+  now?: () => number
+  log?: (msg: string) => void
+}) {
+  const { db, hood, kyber, signer } = deps
+  const limits = deps.limits ?? SWAP_LIMITS
+  const gasLimits = deps.gasLimits ?? DEFAULT_LIMITS
+  const now = deps.now ?? Date.now
+  const log = deps.log ?? (() => {})
+
+  const spentToday = () => {
+    const today = utcDay(now())
+    return all<{ usdg_in: number; at: number }>(
+      db,
+      "SELECT usdg_in, at FROM warehouse_swaps WHERE status IN ('sent', 'done') AND at >= ?",
+      today * 86_400_000,
+    ).reduce((sum, r) => sum + BigInt(r.usdg_in), 0n)
+  }
+
+  async function fees() {
+    const price = await hood.gasPrice()
+    const fee = price * 2n < gasLimits.maxFeePerGas ? price * 2n : gasLimits.maxFeePerGas
+    return { maxFeePerGas: fee, maxPriorityFeePerGas: 0n }
+  }
+
+  // The swap row's transaction landed: check the shares arrived, then it is the proof.
+  async function finish(row: SwapRow, tokenAddr: Address, from: Address): Promise<string> {
+    const after = await hood.balanceOfUI(tokenAddr, from)
+    if (after - BigInt(row.bal_before) < BigInt(row.need_ui)) {
+      run(db, "UPDATE warehouse_swaps SET error = 'short_fill' WHERE id = ?", row.id)
+      // The swap succeeded but the shares aren't there (blocked, burned, wrong token): a person has to look.
+      throw new SettlementError('short_fill', true)
+    }
+    run(db, "UPDATE warehouse_swaps SET status = 'done', error = '' WHERE id = ?", row.id)
+    log(`warehouse bought ${row.need_ui} ${row.token} (ui, 18 dp) for ${row.usdg_in} µUSDG: ${row.tx_hash}`)
+    return row.tx_hash
+  }
+
+  // A swap we signed and recorded earlier: wait for it, rebroadcast it, or learn it never happened.
+  async function resume(row: SwapRow, tokenAddr: Address, from: Address): Promise<string | undefined> {
+    let receipt = await hood.receipt(row.tx_hash)
+    if (!receipt) {
+      try {
+        await hood.sendRawTransaction(row.raw_tx)
+      } catch (e) {
+        // "already known" or "nonce too low": decided below by the receipt and the mined nonce.
+        log(`rebroadcast ${row.tx_hash}: ${(e as Error).message}`)
+      }
+      receipt = await hood.receipt(row.tx_hash)
+      if (!receipt && (await hood.minedNonce(from)) > row.nonce) {
+        // Its nonce went to another transaction and it has no receipt: it never ran, no USDG left.
+        run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'dropped' WHERE id = ?", row.id)
+        return undefined
+      }
+      receipt ??= await hood.waitForReceipt(row.tx_hash)
+    }
+    if (receipt.status !== 'success') {
+      run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", row.id)
+      return undefined
+    }
+    return finish(row, tokenAddr, from)
+  }
+
+  async function buy(party: string, token: string, units: bigint): Promise<string> {
+    if (!isTokenId(token)) throw new SettlementError('unknown_token', true)
+    const tokenAddr = tokens[token].address as Address
+    const id = `${party}:${token}`
+    const from = await signer.address()
+
+    const prior = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)
+    if (prior?.status === 'done') return prior.tx_hash
+    if (prior?.status === 'sent') {
+      const proof = await resume(prior, tokenAddr, from)
+      if (proof) return proof
+    }
+
+    const { needUi, needRaw } = sharesNeeded(units, await hood.uiMultiplier(tokenAddr))
+    const spot = await deps.price(token)
+    if (!Number.isFinite(spot) || spot <= 0) throw new SettlementError('no_price')
+    // The market price in micro-USDG per whole token; from here on everything is integers.
+    const priceMicro = BigInt(Math.round(spot * 1_000_000))
+    const worthMicro = (raw: bigint) => (raw * priceMicro) / E18
+
+    // Size USDG in so the minimum out (after slippage) covers what is owed.
+    const keep = (out: bigint) => (out * (BPS - limits.slippageBps)) / BPS
+    let amountIn = (worthMicro(needRaw) * (BPS + limits.sizingBufferBps)) / BPS + 1n
+    let route = await kyber.route(USDG, tokenAddr, amountIn)
+    if (keep(BigInt(route.amountOut)) < needRaw) {
+      const out = keep(BigInt(route.amountOut))
+      if (out <= 0n) throw new SettlementError('short_quote')
+      amountIn = (amountIn * needRaw * 1002n) / (out * 1000n) + 1n
+      route = await kyber.route(USDG, tokenAddr, amountIn)
+    }
+    if (keep(BigInt(route.amountOut)) < needRaw) throw new SettlementError('short_quote')
+
+    if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit', true)
+    if (spentToday() + amountIn > limits.maxDayMicro) throw new SettlementError('daily_limit')
+
+    const built = await kyber.build(route, from, limits.slippageBps)
+    if (!isAddressEqual(built.routerAddress, KYBER_ROUTER)) throw new SettlementError('wrong_router', true)
+    if (BigInt(built.amountIn) !== amountIn || keep(BigInt(built.amountOut)) < needRaw)
+      throw new SettlementError('short_quote')
+    // What the swap is worth at the market price, against the USDG it costs.
+    if (worthMicro(BigInt(built.amountOut)) * BPS < amountIn * (BPS - limits.maxUnderMarketBps))
+      throw new SettlementError('under_market')
+
+    const fee = await fees()
+    if ((await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn) {
+      await signer.signAndSend({
+        type: 'eip1559',
+        chainId: ROBINHOOD_CHAIN_ID,
+        to: USDG,
+        data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [KYBER_ROUTER, amountIn] }),
+        value: 0n,
+        gas: APPROVE_GAS,
+        ...fee,
+      })
+    }
+
+    const balBefore = await hood.balanceOfUI(tokenAddr, from)
+    const raw = await signer.sign({
+      type: 'eip1559',
+      chainId: ROBINHOOD_CHAIN_ID,
+      to: built.routerAddress,
+      data: built.data,
+      value: 0n,
+      gas: (BigInt(built.gas) * 3n) / 2n,
+      ...fee,
+    })
+    const hash = keccak256(raw)
+    const nonce = parseTransaction(raw).nonce ?? 0
+    // Recorded before it is broadcast: from here on, a retry checks this transaction instead of buying again.
+    run(
+      db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, bal_before, nonce, raw_tx, tx_hash, status, at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', ?)
+       ON CONFLICT (id) DO UPDATE SET units = excluded.units, usdg_in = excluded.usdg_in, need_ui = excluded.need_ui,
+         bal_before = excluded.bal_before, nonce = excluded.nonce, raw_tx = excluded.raw_tx, tx_hash = excluded.tx_hash,
+         status = 'sent', error = '', attempts = attempts + 1, at = excluded.at`,
+      id,
+      token,
+      Number(units),
+      Number(amountIn),
+      needUi.toString(),
+      balBefore.toString(),
+      nonce,
+      raw,
+      hash,
+      now(),
+    )
+    await hood.sendRawTransaction(raw)
+    const receipt = await hood.waitForReceipt(hash)
+    const row = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)!
+    if (receipt.status !== 'success') {
+      run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", id)
+      throw new SettlementError('swap_reverted')
+    }
+    return finish(row, tokenAddr, from)
+  }
+
+  // settlement.ts's BuyShares; signer errors (a check refused, the MPC answer) are not worth retrying blindly.
+  const buyShares: BuyShares = async (party, token, units) => {
+    try {
+      return await buy(party, token, units)
+    } catch (e) {
+      if (e instanceof ChainsigError && e.code !== 'reverted') throw new SettlementError(`chainsig_${e.code}`, true)
+      throw e
+    }
+  }
+
+  return { buy, buyShares, spentToday }
+}
+
+const STOCK_ABI = parseAbi([
+  'function uiMultiplier() view returns (uint256)',
+  'function balanceOfUI(address) view returns (uint256)',
+])
+
+export function robinhoodHood(): Hood {
+  const client = createPublicClient({
+    transport: fallback(ROBINHOOD_RPCS.map((url) => http(url, { timeout: 15_000 }))),
+  })
+  return {
+    gasPrice: () => client.getGasPrice(),
+    usdgAllowance: (owner, spender) =>
+      client.readContract({ address: USDG, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
+    uiMultiplier: (token) => client.readContract({ address: token, abi: STOCK_ABI, functionName: 'uiMultiplier' }),
+    balanceOfUI: (token, owner) =>
+      client.readContract({ address: token, abi: STOCK_ABI, functionName: 'balanceOfUI', args: [owner] }),
+    minedNonce: (address) => client.getTransactionCount({ address, blockTag: 'latest' }),
+    async receipt(hash) {
+      try {
+        return await client.getTransactionReceipt({ hash })
+      } catch (e) {
+        if (e instanceof TransactionReceiptNotFoundError) return null
+        throw e
+      }
+    },
+    sendRawTransaction: (raw) => client.sendRawTransaction({ serializedTransaction: raw }),
+    waitForReceipt: (hash) => client.waitForTransactionReceipt({ hash, timeout: 120_000 }),
+  }
+}
+
+const KYBER_API = 'https://aggregator-api.kyberswap.com/robinhood/api/v1'
+const RouteAnswer = z.object({
+  code: z.literal(0),
+  data: z.object({
+    routeSummary: z.looseObject({ amountIn: z.string().regex(/^\d+$/), amountOut: z.string().regex(/^\d+$/) }),
+  }),
+})
+const BuildAnswer = z.object({
+  code: z.literal(0),
+  data: z.object({
+    amountIn: z.string().regex(/^\d+$/),
+    amountOut: z.string().regex(/^\d+$/),
+    gas: z.string().regex(/^\d+$/),
+    data: z.string().regex(/^0x[0-9a-fA-F]+$/),
+    routerAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  }),
+})
+
+// KyberSwap's public aggregator for Robinhood Chain (no key; spikes 15, 16).
+export function kyberSwap(opts: { fetch?: typeof fetch; clientId?: string } = {}): Kyber {
+  const doFetch = opts.fetch ?? fetch
+  const headers = { 'x-client-id': opts.clientId ?? 'nyxeron' }
+  return {
+    async route(tokenIn, tokenOut, amountIn) {
+      const res = await doFetch(`${KYBER_API}/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}`, {
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      })
+      const parsed = RouteAnswer.safeParse(await res.json().catch(() => null))
+      if (!res.ok || !parsed.success) throw new SettlementError(`kyber_route_${res.status}`)
+      const s = parsed.data.data.routeSummary
+      return { amountIn: s.amountIn, amountOut: s.amountOut, summary: s }
+    },
+    async build(route, from, slippageBps) {
+      const res = await doFetch(`${KYBER_API}/route/build`, {
+        method: 'POST',
+        headers: { ...headers, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          routeSummary: route.summary,
+          sender: from,
+          recipient: from,
+          slippageTolerance: Number(slippageBps),
+          // The approve may not be mined yet; the router itself enforces the minimum out.
+          skipSimulateTx: true,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      const parsed = BuildAnswer.safeParse(await res.json().catch(() => null))
+      if (!res.ok || !parsed.success) throw new SettlementError(`kyber_build_${res.status}`)
+      const d = parsed.data.data
+      return { ...d, data: d.data as Hex, routerAddress: d.routerAddress as Address }
+    },
+  }
+}

@@ -90,13 +90,31 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 1. `release_wholesale(party)`.
 2. `mint_warehouse(token, units, proof)` per token for the total owed. On testnet the proof is `demo:<party>:<token>:1`
-   (the purchase is simulated, SPEC §10). On mainnet `buyShares` will buy through 1Click + Kyber + `chainsig.ts`; until
-   then the party stops with `not_built`.
+   (the purchase is simulated, SPEC §10). On mainnet `buyShares` is to be `warehouseBuyer(...).buyShares` from
+   `swap.ts` (below); until it is wired the party stops with `not_built`.
 3. `settle(party, party:<id>:<batch>, ≤ 32 transfers)` from the contract's `owed(party)`.
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
 (`party_pot`, `is_used_proof`, `is_settled`), so a crash or a lost answer never doubles a step. A failed step retries
 after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`.
+
+## Buying the warehouse's shares (`swap.ts`)
+
+`warehouseBuyer({ db, hood, kyber, signer, price }).buyShares(party, token, units)` buys `units × 0.001` shares of the
+pinned token for the warehouse and returns the swap's tx hash, the proof for `mint_warehouse`:
+
+1. A KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
+   (`balanceOfUI = balanceOf × uiMultiplier / 1e18`, so the raw amount is rounded up).
+2. Refused before anything is signed: over **\$50** in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC
+   day (`daily_limit`), worth more than **2 %** under the market price (`under_market`), another router
+   (`wrong_router`).
+3. `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
+4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction
+   (receipt, rebroadcast, or "its nonce went to another tx, so it never ran") instead of buying again.
+5. After the receipt, the warehouse's `balanceOfUI` must have gone up by what is owed, or the party stops with
+   `short_fill` for a person to look.
+
+`robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 
 ## Rules
 

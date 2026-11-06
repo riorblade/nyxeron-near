@@ -140,6 +140,24 @@ const migrations = [
      created_at        INTEGER NOT NULL
    );
    CREATE INDEX intents_user ON intents(user_id, created_at);`,
+  // 8. the warehouse's share purchases on Robinhood Chain (swap.ts), one per party and token. The signed transaction is
+  // kept before it is broadcast, so a crash or a retry checks that transaction instead of buying again.
+  `CREATE TABLE warehouse_swaps (
+     id         TEXT    PRIMARY KEY,              -- <party>:<token>
+     token      TEXT    NOT NULL,
+     units      INTEGER NOT NULL,
+     usdg_in    INTEGER NOT NULL,                 -- micro-USDG
+     need_ui    TEXT    NOT NULL,                 -- shares owed, 18 decimals, as balanceOfUI counts them
+     bal_before TEXT    NOT NULL,                 -- the warehouse's balanceOfUI before the swap
+     nonce      INTEGER NOT NULL,
+     raw_tx     TEXT    NOT NULL,
+     tx_hash    TEXT    NOT NULL,
+     status     TEXT    NOT NULL CHECK (status IN ('sent', 'done', 'failed')),
+     error      TEXT    NOT NULL DEFAULT '',
+     attempts   INTEGER NOT NULL DEFAULT 1,
+     at         INTEGER NOT NULL                  -- ms of the latest attempt; the daily cap counts by it
+   );
+   CREATE INDEX warehouse_swaps_at ON warehouse_swaps(at);`,
 ]
 
 export function openDb(path: string): Db {
