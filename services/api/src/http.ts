@@ -14,7 +14,8 @@ export class AppError extends Error {
   }
 }
 
-export function validate<T extends ZodType>(target: 'json' | 'query' | 'param', schema: T) {
+// Generic over the target so the web's typed client (hc<AppType>) only asks for the part each route validates.
+export function validate<Target extends 'json' | 'query' | 'param', T extends ZodType>(target: Target, schema: T) {
   return zValidator(target, schema, (result, c) => {
     if (!result.success) {
       const issues = result.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message }))
