@@ -7,7 +7,7 @@ import { type AppEnv, type Identity, requireActive, requireUser } from './auth.t
 import type { Config } from './config.ts'
 import { type Db, run } from './db.ts'
 import { AppError, rateLimit, validate } from './http.ts'
-import { cashOutPaid, type OneClick, openCashOut } from './intents.ts'
+import { cashOutPaid, type OneClick, openCashOut, releaseCashOut, reserveCashOut } from './intents.ts'
 import type { Relayer } from './near.ts'
 
 // What the browser sends: a NEP-366 SignedDelegate, borsh-encoded, base64 (spike 19 proved the round trip).
@@ -118,6 +118,14 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
         })
         if (refused) throw new AppError(403, refused)
         if (!signatureValid(d)) throw new AppError(403, 'bad_signature')
+        const call = d.delegateAction.actions[0]!.functionCall!
+        const cashOutTo =
+          call.methodName === 'ft_transfer'
+            ? (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
+            : undefined
+        // Held before sending, so the same deposit can't go out twice. If the relay throws we don't know whether it
+        // landed, so the hold stays (the player asks for a new quote); a failure on chain releases it.
+        if (cashOutTo && !reserveCashOut(db, user.id, cashOutTo)) throw new AppError(409, 'cash_out_paid')
         const result = await deps.relayer.relay(d)
         run(
           db,
@@ -130,10 +138,9 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
           result.error ?? '',
           Date.now(),
         )
-        const call = d.delegateAction.actions[0]!.functionCall!
-        if (result.ok && call.methodName === 'ft_transfer') {
-          const to = (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
-          await cashOutPaid(deps, user, to, result.hash)
+        if (cashOutTo) {
+          if (result.ok) await cashOutPaid(deps, user, cashOutTo, result.hash)
+          else releaseCashOut(db, user.id, cashOutTo)
         }
         return c.json(result, result.ok ? 200 : 422)
       },

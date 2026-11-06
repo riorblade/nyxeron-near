@@ -148,6 +148,28 @@ export function openCashOut(db: Db, userId: string, depositAddress: string, now 
   return { amount: r.amount_in, expired: r.deadline <= now, paid: r.deposit_tx !== '' }
 }
 
+/** Holds a cash-out before its deposit is relayed: a second request for the same deposit address while the first is
+ * in flight (a double tap, a retry) finds it taken. Returns false when it already was. */
+export function reserveCashOut(db: Db, userId: string, depositAddress: string): boolean {
+  return (
+    db
+      .prepare(
+        "UPDATE intents SET deposit_tx = 'sending' WHERE user_id = ? AND kind = 'cash_out' AND deposit_address = ? AND deposit_tx = ''",
+      )
+      .run(userId, depositAddress).changes === 1
+  )
+}
+
+/** The deposit failed on chain, so no USDC moved: the quote can be paid again. */
+export function releaseCashOut(db: Db, userId: string, depositAddress: string) {
+  run(
+    db,
+    "UPDATE intents SET deposit_tx = '' WHERE user_id = ? AND kind = 'cash_out' AND deposit_address = ? AND deposit_tx = 'sending'",
+    userId,
+    depositAddress,
+  )
+}
+
 /** After the relay sent the player's deposit: remember it (never paid twice) and tell 1Click, best effort. */
 export async function cashOutPaid(
   deps: { db: Db; oneclick?: OneClick },
@@ -157,7 +179,7 @@ export async function cashOutPaid(
 ) {
   run(
     deps.db,
-    "UPDATE intents SET deposit_tx = ? WHERE user_id = ? AND kind = 'cash_out' AND deposit_address = ? AND deposit_tx = ''",
+    "UPDATE intents SET deposit_tx = ? WHERE user_id = ? AND kind = 'cash_out' AND deposit_address = ? AND deposit_tx IN ('', 'sending')",
     txHash,
     user.id,
     depositAddress,

@@ -297,6 +297,23 @@ describe('the relay and cash-outs (money rule)', () => {
     })
   })
 
+  it('two taps at once: the deposit goes out once, the second is refused', async () => {
+    const t = await quoted()
+    const d = cashOutDelegate({ to: t.dep, amount: '5000000' })
+    const [a, b] = await Promise.all([t.relay(d), t.relay(d)])
+    expect([a.status, b.status].sort()).toEqual([200, 403])
+    expect(t.relayer.calls).toEqual([`relay:${USDC_MAIN}:ft_transfer`])
+    expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: 'tx-ok' }])
+  })
+
+  it('a deposit that failed on chain moved no USDC: the quote can be paid again', async () => {
+    const t = await quoted()
+    t.relayer.failRelay()
+    expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(422)
+    expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: '' }])
+    expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(200)
+  })
+
   it.each([
     [
       'an address the api never quoted',
