@@ -4,6 +4,7 @@ import { createApp } from './app.ts'
 import type { Identity, Profile } from './auth.ts'
 import { type Config, loadConfig } from './config.ts'
 import { openDb, run } from './db.ts'
+import type { OneClick } from './intents.ts'
 import type { Relayer } from './near.ts'
 import type { Quotes } from './quotes.ts'
 
@@ -94,10 +95,11 @@ export function testApp(
   identity = fakeIdentity(),
   quotes = fakeQuotes,
   relayer?: Relayer,
+  oneclick?: OneClick,
 ) {
   const cfg: Config = loadConfig({ PRIVY_APP_ID: 'app', PRIVY_APP_SECRET: 'secret', ...env })
   const db = openDb(':memory:')
-  const app = createApp({ cfg, db, identity, quotes, relayer })
+  const app = createApp({ cfg, db, identity, quotes, relayer, oneclick })
   const call = (method: string, path: string, token?: string, body?: unknown) =>
     app.request(path, {
       method,

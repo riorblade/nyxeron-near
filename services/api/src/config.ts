@@ -36,6 +36,9 @@ const Env = z
     OWNER_KEY: z.string().startsWith('ed25519:').optional(),
     // "Get test dollars" (testnet + DEMO_MODE): micro-USDC per grant, once a day per player, sent by the relayer.
     TEST_DOLLARS: z.coerce.number().int().positive().max(20_000_000).default(3_000_000),
+    // NEAR Intents 1Click (Add money / Cash out). The JWT is optional: without it 1Click adds 0.25 % to each quote.
+    ONECLICK_URL: z.url().default('https://1click.chaindefuser.com'),
+    ONECLICK_JWT: z.string().min(10).optional(),
   })
   .refine((e) => !(e.DEMO_MODE && e.NEAR_NETWORK === 'mainnet'), {
     message: 'DEMO_MODE hands out free credits: never on mainnet',

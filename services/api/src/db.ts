@@ -119,6 +119,27 @@ const migrations = [
   // a party, a settle op id or a demo proof the contract already has.
   `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
    INSERT INTO meta (key, value) VALUES ('install', lower(hex(randomblob(4))));`,
+  // 7. Add money / Cash out quotes from 1Click (intents.ts). A cash-out row is what lets the relay send the player's
+  // USDC to that deposit address, once (deposit_tx).
+  `CREATE TABLE intents (
+     id                TEXT    PRIMARY KEY,              -- 1Click correlationId
+     user_id           TEXT    NOT NULL REFERENCES users(id),
+     kind              TEXT    NOT NULL CHECK (kind IN ('add_money', 'cash_out')),
+     origin_asset      TEXT    NOT NULL,
+     destination_asset TEXT    NOT NULL,
+     amount_in         TEXT    NOT NULL,                 -- smallest unit of the origin asset
+     amount_out        TEXT    NOT NULL,
+     deposit_address   TEXT    NOT NULL UNIQUE,
+     deposit_memo      TEXT    NOT NULL DEFAULT '',
+     recipient         TEXT    NOT NULL,
+     refund_to         TEXT    NOT NULL,
+     deadline          INTEGER NOT NULL,                 -- ms; deposit before it
+     status            TEXT    NOT NULL,                 -- 1Click status, PENDING_DEPOSIT … SUCCESS / REFUNDED / FAILED
+     deposit_tx        TEXT    NOT NULL DEFAULT '',      -- the cash-out deposit the relay sent
+     checked_at        INTEGER NOT NULL,
+     created_at        INTEGER NOT NULL
+   );
+   CREATE INDEX intents_user ON intents(user_id, created_at);`,
 ]
 
 export function openDb(path: string): Db {
