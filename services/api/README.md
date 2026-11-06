@@ -109,10 +109,12 @@ pinned token for the warehouse and returns the swap's tx hash, the proof for `mi
    day (`daily_limit`), worth more than **2 %** under the market price (`under_market`), another router
    (`wrong_router`).
 3. `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
-4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction
-   (receipt, rebroadcast, or "its nonce went to another tx, so it never ran") instead of buying again.
-5. After the receipt, the warehouse's `balanceOfUI` must have gone up by what is owed, or the party stops with
-   `short_fill` for a person to look.
+4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
+   receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
+   with `swap_dropped`: a person checks, it is never bought again automatically.
+5. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
+   units, rounded up from `units × 0.001` shares through `uiMultiplier`). Checking this transaction's own logs, not the
+   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 

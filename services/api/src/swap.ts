@@ -1,6 +1,6 @@
 // Buying the warehouse's shares on Robinhood Chain (SPEC §5.3 steps 3–4): a KyberSwap route USDG → the pinned stock
-// token, signed by the warehouse through Chain Signatures, broadcast, and checked by the warehouse's balanceOfUI
-// before the swap's hash is handed back as the proof for mint_warehouse.
+// token, signed by the warehouse through Chain Signatures, broadcast, and checked by the pinned token's Transfer to the
+// warehouse in that very transaction before the swap's hash is handed back as the proof for mint_warehouse.
 import { isTokenId, SHARES_PER_UNIT, tokens } from '@nyxeron/game'
 import {
   type Address,
@@ -12,7 +12,9 @@ import {
   http,
   isAddressEqual,
   keccak256,
+  type Log,
   parseAbi,
+  parseEventLogs,
   parseTransaction,
   TransactionReceiptNotFoundError,
   type TransactionSerializableEIP1559,
@@ -48,13 +50,13 @@ export type Hood = {
   gasPrice(): Promise<bigint>
   usdgAllowance(owner: Address, spender: Address): Promise<bigint>
   uiMultiplier(token: Address): Promise<bigint>
-  balanceOfUI(token: Address, owner: Address): Promise<bigint>
   // How many of `address`'s transactions are mined (not pending).
   minedNonce(address: Address): Promise<number>
-  receipt(hash: Hex): Promise<{ status: 'success' | 'reverted' } | null>
+  receipt(hash: Hex): Promise<Receipt | null>
   sendRawTransaction(raw: Hex): Promise<Hex>
-  waitForReceipt(hash: Hex): Promise<{ status: 'success' | 'reverted' }>
+  waitForReceipt(hash: Hex): Promise<Receipt>
 }
+export type Receipt = { status: 'success' | 'reverted'; logs: Log[] }
 
 export type Route = { amountIn: string; amountOut: string; summary: unknown }
 export type Built = { amountIn: string; amountOut: string; gas: string; data: Hex; routerAddress: Address }
@@ -77,11 +79,12 @@ type SwapRow = {
   units: number
   usdg_in: number
   need_ui: string
-  bal_before: string
+  need_raw: string
   nonce: number
   raw_tx: Hex
   tx_hash: Hex
-  status: 'sent' | 'done' | 'failed'
+  status: 'sent' | 'done' | 'failed' | 'stuck'
+  error: string
   attempts: number
   at: number
 }
@@ -131,20 +134,26 @@ export function warehouseBuyer(deps: {
     return { maxFeePerGas: fee, maxPriorityFeePerGas: 0n }
   }
 
-  // The swap row's transaction landed: check the shares arrived, then it is the proof.
-  async function finish(row: SwapRow, tokenAddr: Address, from: Address): Promise<string> {
-    const after = await hood.balanceOfUI(tokenAddr, from)
-    if (after - BigInt(row.bal_before) < BigInt(row.need_ui)) {
-      run(db, "UPDATE warehouse_swaps SET error = 'short_fill' WHERE id = ?", row.id)
-      // The swap succeeded but the shares aren't there (blocked, burned, wrong token): a person has to look.
-      throw new SettlementError('short_fill', true)
-    }
+  // A state only a person can resolve (did USDG leave or not?). Every later call stops here, it never buys again.
+  const stuck = (id: string, code: string): never => {
+    run(db, "UPDATE warehouse_swaps SET status = 'stuck', error = ? WHERE id = ?", code, id)
+    throw new SettlementError(code, true)
+  }
+
+  // The swap row's transaction landed: the pinned token must have moved what is owed to the warehouse in this very
+  // transaction (not just "the balance went up", which another party's swap could also cause). Then it is the proof.
+  function finish(row: SwapRow, receipt: Receipt, tokenAddr: Address, from: Address): string {
+    const got = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs })
+      .filter((l) => isAddressEqual(l.address, tokenAddr) && isAddressEqual(l.args.to, from))
+      .reduce((sum, l) => sum + l.args.value, 0n)
+    // The swap succeeded but the shares didn't come (blocked, burned, wrong token): a person has to look.
+    if (got < BigInt(row.need_raw)) stuck(row.id, 'short_fill')
     run(db, "UPDATE warehouse_swaps SET status = 'done', error = '' WHERE id = ?", row.id)
     log(`warehouse bought ${row.need_ui} ${row.token} (ui, 18 dp) for ${row.usdg_in} µUSDG: ${row.tx_hash}`)
     return row.tx_hash
   }
 
-  // A swap we signed and recorded earlier: wait for it, rebroadcast it, or learn it never happened.
+  // A swap we signed and recorded earlier: wait for it or rebroadcast it. Undefined = it reverted (no USDG left).
   async function resume(row: SwapRow, tokenAddr: Address, from: Address): Promise<string | undefined> {
     let receipt = await hood.receipt(row.tx_hash)
     if (!receipt) {
@@ -155,18 +164,17 @@ export function warehouseBuyer(deps: {
         log(`rebroadcast ${row.tx_hash}: ${(e as Error).message}`)
       }
       receipt = await hood.receipt(row.tx_hash)
-      if (!receipt && (await hood.minedNonce(from)) > row.nonce) {
-        // Its nonce went to another transaction and it has no receipt: it never ran, no USDG left.
-        run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'dropped' WHERE id = ?", row.id)
-        return undefined
-      }
+      // Its nonce is used and it still has no receipt. Most likely it never ran, but a lagging RPC looks the same, and
+      // guessing wrong buys twice: stop for a person instead of buying again.
+      if (!receipt && (await hood.minedNonce(from)) > row.nonce && !(await hood.receipt(row.tx_hash)))
+        stuck(row.id, 'swap_dropped')
       receipt ??= await hood.waitForReceipt(row.tx_hash)
     }
     if (receipt.status !== 'success') {
       run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", row.id)
       return undefined
     }
-    return finish(row, tokenAddr, from)
+    return finish(row, receipt, tokenAddr, from)
   }
 
   async function buy(party: string, token: string, units: bigint): Promise<string> {
@@ -177,6 +185,7 @@ export function warehouseBuyer(deps: {
 
     const prior = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)
     if (prior?.status === 'done') return prior.tx_hash
+    if (prior?.status === 'stuck') throw new SettlementError(prior.error, true)
     if (prior?.status === 'sent') {
       const proof = await resume(prior, tokenAddr, from)
       if (proof) return proof
@@ -225,7 +234,6 @@ export function warehouseBuyer(deps: {
       })
     }
 
-    const balBefore = await hood.balanceOfUI(tokenAddr, from)
     const raw = await signer.sign({
       type: 'eip1559',
       chainId: ROBINHOOD_CHAIN_ID,
@@ -240,17 +248,17 @@ export function warehouseBuyer(deps: {
     // Recorded before it is broadcast: from here on, a retry checks this transaction instead of buying again.
     run(
       db,
-      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, bal_before, nonce, raw_tx, tx_hash, status, at)
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', ?)
        ON CONFLICT (id) DO UPDATE SET units = excluded.units, usdg_in = excluded.usdg_in, need_ui = excluded.need_ui,
-         bal_before = excluded.bal_before, nonce = excluded.nonce, raw_tx = excluded.raw_tx, tx_hash = excluded.tx_hash,
+         need_raw = excluded.need_raw, nonce = excluded.nonce, raw_tx = excluded.raw_tx, tx_hash = excluded.tx_hash,
          status = 'sent', error = '', attempts = attempts + 1, at = excluded.at`,
       id,
       token,
       Number(units),
       Number(amountIn),
       needUi.toString(),
-      balBefore.toString(),
+      needRaw.toString(),
       nonce,
       raw,
       hash,
@@ -263,7 +271,7 @@ export function warehouseBuyer(deps: {
       run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", id)
       throw new SettlementError('swap_reverted')
     }
-    return finish(row, tokenAddr, from)
+    return finish(row, receipt, tokenAddr, from)
   }
 
   // settlement.ts's BuyShares; signer errors (a check refused, the MPC answer) are not worth retrying blindly.
@@ -279,10 +287,7 @@ export function warehouseBuyer(deps: {
   return { buy, buyShares, spentToday }
 }
 
-const STOCK_ABI = parseAbi([
-  'function uiMultiplier() view returns (uint256)',
-  'function balanceOfUI(address) view returns (uint256)',
-])
+const STOCK_ABI = parseAbi(['function uiMultiplier() view returns (uint256)'])
 
 export function robinhoodHood(): Hood {
   const client = createPublicClient({
@@ -293,8 +298,6 @@ export function robinhoodHood(): Hood {
     usdgAllowance: (owner, spender) =>
       client.readContract({ address: USDG, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
     uiMultiplier: (token) => client.readContract({ address: token, abi: STOCK_ABI, functionName: 'uiMultiplier' }),
-    balanceOfUI: (token, owner) =>
-      client.readContract({ address: token, abi: STOCK_ABI, functionName: 'balanceOfUI', args: [owner] }),
     minedNonce: (address) => client.getTransactionCount({ address, blockTag: 'latest' }),
     async receipt(hash) {
       try {

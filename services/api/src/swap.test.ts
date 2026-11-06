@@ -1,14 +1,48 @@
-import { type Address, decodeFunctionData, erc20Abi, type Hex, keccak256, parseTransaction } from 'viem'
+import { tokens } from '@nyxeron/game'
+import {
+  type Address,
+  decodeFunctionData,
+  encodeAbiParameters,
+  encodeEventTopics,
+  erc20Abi,
+  type Hex,
+  keccak256,
+  type Log,
+  parseTransaction,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
 import { KYBER_ROUTER } from './chainsig.ts'
 import { type Db, one, openDb, run } from './db.ts'
 import { SettlementError } from './settlement.ts'
-import { type Built, type Hood, type Kyber, type Route, type Signer, sharesNeeded, warehouseBuyer } from './swap.ts'
+import {
+  type Built,
+  type Hood,
+  type Kyber,
+  type Receipt,
+  type Route,
+  type Signer,
+  sharesNeeded,
+  warehouseBuyer,
+} from './swap.ts'
 
 const me = privateKeyToAccount(`0x${'11'.repeat(32)}`)
 const E18 = 10n ** 18n
 const NOW = Date.UTC(2026, 10, 6, 12)
+const TSLA = tokens.tsla.address as Address
+const POOL: Address = `0x${'77'.repeat(20)}`
+const SOMEONE: Address = `0x${'88'.repeat(20)}`
+
+const transfer = (token: Address, from: Address, to: Address, value: bigint) =>
+  ({
+    address: token,
+    topics: encodeEventTopics({ abi: erc20Abi, eventName: 'Transfer', args: { from, to } }),
+    data: encodeAbiParameters([{ type: 'uint256' }], [value]),
+  }) as unknown as Log
+
+// What the swap's receipt shows: the pinned token to the warehouse ('full'), nothing, the token to someone else, or
+// another token to the warehouse.
+type Fill = 'full' | 'none' | 'elsewhere' | 'other_token'
 
 // TSLA at $400 and a market where $1 of USDG buys `rate` × its worth (1 = fair).
 function fakeKyber(opts: { rate?: number; router?: Address } = {}) {
@@ -36,12 +70,11 @@ function fakeKyber(opts: { rate?: number; router?: Address } = {}) {
 }
 
 // Robinhood Chain: the warehouse's TSLA (uiMultiplier 1), its USDG allowance, nonces and receipts.
-function fakeHood(opts: { fill?: 'full' | 'none'; status?: 'success' | 'reverted'; sendFails?: boolean } = {}) {
+function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFails?: boolean } = {}) {
   const state = {
-    balance: 5n * E18,
     allowance: 0n,
     mined: 0,
-    receipts: new Map<Hex, 'success' | 'reverted'>(),
+    receipts: new Map<Hex, Receipt>(),
     sent: [] as Hex[],
     approvals: [] as bigint[],
     lastOut: 0n,
@@ -57,15 +90,11 @@ function fakeHood(opts: { fill?: 'full' | 'none'; status?: 'success' | 'reverted
     async uiMultiplier() {
       return E18
     },
-    async balanceOfUI() {
-      return state.balance
-    },
     async minedNonce() {
       return state.mined
     },
     async receipt(hash) {
-      const s = state.receipts.get(hash)
-      return s ? { status: s } : null
+      return state.receipts.get(hash) ?? null
     },
     async sendRawTransaction(raw) {
       if (state.sendFails) throw new Error('connection reset')
@@ -74,14 +103,19 @@ function fakeHood(opts: { fill?: 'full' | 'none'; status?: 'success' | 'reverted
       const tx = parseTransaction(raw)
       state.mined = Math.max(state.mined, (tx.nonce ?? 0) + 1)
       const status = opts.status ?? 'success'
-      state.receipts.set(hash, status)
-      if (status === 'success' && (opts.fill ?? 'full') === 'full') state.balance += state.lastOut
+      const logs = {
+        full: [transfer(TSLA, POOL, me.address, state.lastOut)],
+        none: [],
+        elsewhere: [transfer(TSLA, POOL, SOMEONE, state.lastOut)],
+        other_token: [transfer(tokens.nvda.address as Address, POOL, me.address, state.lastOut)],
+      }[opts.fill ?? 'full']
+      state.receipts.set(hash, { status, logs: status === 'success' ? logs : [] })
       return hash
     },
     async waitForReceipt(hash) {
-      const s = state.receipts.get(hash)
-      if (!s) throw new Error('timeout')
-      return { status: s }
+      const r = state.receipts.get(hash)
+      if (!r) throw new Error('timeout')
+      return r
     },
   }
   return { hood, state }
@@ -114,7 +148,7 @@ function fakeSigner(state: ReturnType<typeof fakeHood>['state']) {
   return { signer, signed }
 }
 
-function setup(o: { rate?: number; router?: Address; fill?: 'full' | 'none'; status?: 'success' | 'reverted' } = {}) {
+function setup(o: { rate?: number; router?: Address; fill?: Fill; status?: 'success' | 'reverted' } = {}) {
   const db = openDb(':memory:')
   const k = fakeKyber(o)
   const h = fakeHood(o)
@@ -212,7 +246,7 @@ describe('limits (SPEC §5.3)', () => {
     const add = (id: string, micro: number, at: number) =>
       run(
         t.db,
-        `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, bal_before, nonce, raw_tx, tx_hash, status, at)
+        `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
          VALUES (?, 'tsla', 1, ?, '0', '0', 0, '0x', '0x', 'done', ?)`,
         id,
         micro,
@@ -244,11 +278,17 @@ describe('limits (SPEC §5.3)', () => {
 })
 
 describe('proof only when the shares arrived', () => {
-  it('a swap that succeeded but left the balance short stops the party for a person to look', async () => {
-    const t = setup({ fill: 'none' })
-    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill', permanent: true })
-    expect(swapRow(t.db)).toMatchObject({ status: 'sent', error: 'short_fill' })
-  })
+  for (const fill of ['none', 'elsewhere', 'other_token'] as const) {
+    it(`a swap that succeeded without the pinned token reaching the warehouse (${fill}) stops for a person`, async () => {
+      const t = setup({ fill })
+      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill', permanent: true })
+      expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'short_fill' })
+      // and stays stopped: no second purchase, no proof from a later look
+      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill', permanent: true })
+      expect(t.routes.length).toBe(1)
+      expect(t.state.sent.length).toBe(1)
+    })
+  }
 
   it('a reverted swap is not a proof, and the next try buys again', async () => {
     const t = setup({ status: 'reverted' })
@@ -280,18 +320,30 @@ describe('never buying twice', () => {
     expect(t.routes.length).toBe(1)
   })
 
-  it('a recorded swap whose nonce went to another transaction never ran: buy again', async () => {
+  it('a recorded swap with no receipt whose nonce is used: stop for a person, never buy again', async () => {
     const t = setup()
     t.state.sendFails = true
     await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toThrow()
-    const first = swapRow(t.db)!
-    t.state.mined = 99 // its nonce is long used, and it has no receipt
-    const proof = await t.buyer.buyShares('p1', 'tsla', 10n).catch((e: unknown) => e)
-    expect(proof).toBeInstanceOf(Error) // still can't send
+    t.state.mined = 99 // its nonce is used, and no RPC has a receipt for it
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'swap_dropped', permanent: true })
     t.state.sendFails = false
-    const again = await t.buyer.buyShares('p1', 'tsla', 10n)
-    expect(again).not.toBe(first.tx_hash)
-    expect(swapRow(t.db)).toMatchObject({ status: 'done', attempts: 2 })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'swap_dropped', permanent: true })
+    expect(swapRow(t.db)).toMatchObject({ status: 'stuck', attempts: 1 })
+    expect(t.routes.length).toBe(1)
+    expect(t.state.sent.length).toBe(0)
+  })
+
+  it('a receipt that a lagging RPC only shows on the second look still counts', async () => {
+    const t = setup()
+    const first = await t.buyer.buyShares('p1', 'tsla', 10n)
+    // pretend the row was left 'sent' by a crash, and the receipt is missing from the first two looks
+    run(t.db, "UPDATE warehouse_swaps SET status = 'sent'")
+    const receipt = t.state.receipts.get(first as Hex)!
+    let looks = 0
+    t.hood.receipt = async () => (++looks <= 2 ? null : receipt)
+    t.state.mined = 99
+    expect(await t.buyer.buyShares('p1', 'tsla', 10n)).toBe(first)
+    expect(t.routes.length).toBe(1)
   })
 
   it('a failed signer check is permanent for the settlement job', async () => {

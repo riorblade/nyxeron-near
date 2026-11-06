@@ -148,11 +148,11 @@ const migrations = [
      units      INTEGER NOT NULL,
      usdg_in    INTEGER NOT NULL,                 -- micro-USDG
      need_ui    TEXT    NOT NULL,                 -- shares owed, 18 decimals, as balanceOfUI counts them
-     bal_before TEXT    NOT NULL,                 -- the warehouse's balanceOfUI before the swap
+     need_raw   TEXT    NOT NULL,                 -- the same in balanceOf units: the swap must Transfer at least this
      nonce      INTEGER NOT NULL,
      raw_tx     TEXT    NOT NULL,
      tx_hash    TEXT    NOT NULL,
-     status     TEXT    NOT NULL CHECK (status IN ('sent', 'done', 'failed')),
+     status     TEXT    NOT NULL CHECK (status IN ('sent', 'done', 'failed', 'stuck')), -- stuck: a person looks
      error      TEXT    NOT NULL DEFAULT '',
      attempts   INTEGER NOT NULL DEFAULT 1,
      at         INTEGER NOT NULL                  -- ms of the latest attempt; the daily cap counts by it
