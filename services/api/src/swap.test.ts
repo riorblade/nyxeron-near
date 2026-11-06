@@ -109,7 +109,7 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
         elsewhere: [transfer(TSLA, POOL, SOMEONE, state.lastOut)],
         other_token: [transfer(tokens.nvda.address as Address, POOL, me.address, state.lastOut)],
       }[opts.fill ?? 'full']
-      state.receipts.set(hash, { status, logs: status === 'success' ? logs : [] })
+      state.receipts.set(hash, { transactionHash: hash, status, logs: status === 'success' ? logs : [] })
       return hash
     },
     async waitForReceipt(hash) {
@@ -331,6 +331,35 @@ describe('never buying twice', () => {
     expect(swapRow(t.db)).toMatchObject({ status: 'stuck', attempts: 1 })
     expect(t.routes.length).toBe(1)
     expect(t.state.sent.length).toBe(0)
+  })
+
+  it('a receipt for another transaction at the same nonce is never a proof', async () => {
+    const t = setup()
+    const wait = t.hood.waitForReceipt
+    t.hood.waitForReceipt = async (hash) => ({ ...(await wait(hash)), transactionHash: `0x${'ee'.repeat(32)}` })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'receipt_mismatch',
+      permanent: true,
+    })
+    expect(swapRow(t.db)).toMatchObject({ status: 'stuck' })
+  })
+
+  it('a reverted receipt for another transaction does not let the swap be bought again', async () => {
+    const t = setup({ status: 'reverted' })
+    const wait = t.hood.waitForReceipt
+    t.hood.waitForReceipt = async (hash) => ({ ...(await wait(hash)), transactionHash: `0x${'ee'.repeat(32)}` })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'receipt_mismatch',
+      permanent: true,
+    })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'receipt_mismatch' })
+    expect(t.routes.length).toBe(1)
+  })
+
+  it('a stuck swap still counts toward the day', async () => {
+    const t = setup({ fill: 'none' })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill' })
+    expect(t.buyer.spentToday()).toBe(BigInt(swapRow(t.db)!.usdg_in))
   })
 
   it('a receipt that a lagging RPC only shows on the second look still counts', async () => {

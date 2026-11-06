@@ -56,7 +56,7 @@ export type Hood = {
   sendRawTransaction(raw: Hex): Promise<Hex>
   waitForReceipt(hash: Hex): Promise<Receipt>
 }
-export type Receipt = { status: 'success' | 'reverted'; logs: Log[] }
+export type Receipt = { transactionHash: Hex; status: 'success' | 'reverted'; logs: Log[] }
 
 export type Route = { amountIn: string; amountOut: string; summary: unknown }
 export type Built = { amountIn: string; amountOut: string; gas: string; data: Hex; routerAddress: Address }
@@ -123,7 +123,8 @@ export function warehouseBuyer(deps: {
     const today = utcDay(now())
     return all<{ usdg_in: number; at: number }>(
       db,
-      "SELECT usdg_in, at FROM warehouse_swaps WHERE status IN ('sent', 'done') AND at >= ?",
+      // A stuck swap may have spent its USDG: it counts until a person resolves it.
+      "SELECT usdg_in, at FROM warehouse_swaps WHERE status IN ('sent', 'done', 'stuck') AND at >= ?",
       today * 86_400_000,
     ).reduce((sum, r) => sum + BigInt(r.usdg_in), 0n)
   }
@@ -143,6 +144,8 @@ export function warehouseBuyer(deps: {
   // The swap row's transaction landed: the pinned token must have moved what is owed to the warehouse in this very
   // transaction (not just "the balance went up", which another party's swap could also cause). Then it is the proof.
   function finish(row: SwapRow, receipt: Receipt, tokenAddr: Address, from: Address): string {
+    // A receipt for another transaction (a replacement at the same nonce) proves nothing about this one.
+    if (receipt.transactionHash.toLowerCase() !== row.tx_hash.toLowerCase()) stuck(row.id, 'receipt_mismatch')
     const got = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs })
       .filter((l) => isAddressEqual(l.address, tokenAddr) && isAddressEqual(l.args.to, from))
       .reduce((sum, l) => sum + l.args.value, 0n)
@@ -170,6 +173,7 @@ export function warehouseBuyer(deps: {
         stuck(row.id, 'swap_dropped')
       receipt ??= await hood.waitForReceipt(row.tx_hash)
     }
+    if (receipt.transactionHash.toLowerCase() !== row.tx_hash.toLowerCase()) stuck(row.id, 'receipt_mismatch')
     if (receipt.status !== 'success') {
       run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", row.id)
       return undefined
@@ -267,6 +271,7 @@ export function warehouseBuyer(deps: {
     await hood.sendRawTransaction(raw)
     const receipt = await hood.waitForReceipt(hash)
     const row = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)!
+    if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) stuck(id, 'receipt_mismatch')
     if (receipt.status !== 'success') {
       run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", id)
       throw new SettlementError('swap_reverted')
