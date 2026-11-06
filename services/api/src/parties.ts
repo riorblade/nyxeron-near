@@ -9,7 +9,7 @@ import { all, type Db, one, run, tx } from './db.ts'
 import { AppError, validate } from './http.ts'
 import type { Relayer } from './near.ts'
 import type { Quotes } from './quotes.ts'
-import { settlementView } from './settlement.ts'
+import { chainParty, settlementView } from './settlement.ts'
 
 export const QUOTE_TTL_MS = 60_000
 export const MAX_QTY = 20
@@ -59,6 +59,8 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
     )
     return {
       id: p.id,
+      // The party id on chain: what owed(party) and party_pot(party) take on the contract.
+      chainParty: chainParty(db, p.id),
       title: p.title,
       host: { name: host?.name ?? '', nearAccount: host?.near_account ?? '' },
       seed: p.seed,
@@ -206,7 +208,7 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
             v: 2,
             contract: cfg.CONTRACT_ID, // the contract refuses a quote meant for another deploy
             id: `q_${randomBytes(16).toString('base64url')}`,
-            party: String(p.id),
+            party: chainParty(db, p.id), // unique across databases (settlement.ts)
             buyer,
             ceo,
             token,

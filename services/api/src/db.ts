@@ -115,6 +115,10 @@ const migrations = [
      UNIQUE (party_id, seq)
    );
    CREATE INDEX chain_ops_status ON chain_ops(status);`,
+  // 6. this database's own id. The contract sees party `<install>-<id>`, so a fresh database (a redeploy) never reuses
+  // a party, a settle op id or a demo proof the contract already has.
+  `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   INSERT INTO meta (key, value) VALUES ('install', lower(hex(randomblob(4))));`,
 ]
 
 export function openDb(path: string): Db {

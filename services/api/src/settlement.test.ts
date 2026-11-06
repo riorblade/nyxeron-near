@@ -4,6 +4,7 @@ import { all, openDb, run } from './db.ts'
 import {
   backoff,
   buySharesFor,
+  chainParty,
   GRACE_MS,
   MAX_ATTEMPTS,
   MAX_KEY_LEN,
@@ -29,7 +30,11 @@ const owedRow = (n: number, token: string, qty: number): Owed => ({
 // The contract's settlement side in memory: pots, owed, used proofs, settled op ids. `fail(method)` makes the next call
 // to it throw; `landThenThrow(method)` applies it on chain but loses the answer (a timeout).
 function fakeChain(owedByParty: Record<string, Owed[]>) {
-  const pots = new Map<string, { held: string; released: boolean }>()
+  const pots = new Map<string, { held: string; released: boolean }>(
+    Object.entries(owedByParty)
+      .filter(([, o]) => o.length)
+      .map(([p]) => [p, { held: '410000', released: false }]),
+  )
   const owed = new Map(Object.entries(owedByParty).map(([p, o]) => [p, o.map((x) => ({ ...x }))]))
   const proofs = new Set<string>()
   const settled = new Set<string>()
@@ -107,7 +112,8 @@ function world(owedByParty: Record<string, Owed[]>, endsAt = 1_000) {
       Number(id),
       endsAt,
     )
-  const fake = fakeChain(owedByParty)
+  run(db, "UPDATE meta SET value = 't' WHERE key = 'install'") // chain party ids read t-<id>
+  const fake = fakeChain(Object.fromEntries(Object.entries(owedByParty).map(([id, o]) => [`t-${id}`, o])))
   let t = endsAt + GRACE_MS
   const cfg = loadConfig({ PRIVY_APP_ID: 'a', PRIVY_APP_SECRET: 's' })
   const job = settlement({ db, chain: fake.chain, buyShares: buySharesFor(cfg), now: () => t })
@@ -135,8 +141,14 @@ describe('planOps', () => {
       ...Array.from({ length: 40 }, (_, i) => owedRow(i, 'tsla', 1)),
       ...Array.from({ length: 30 }, (_, i) => owedRow(i, 'nvda', 2)),
     ]
-    const ops = planOps(7, owed)
-    expect(ops.map((o) => o.id)).toEqual(['mint:7:nvda', 'mint:7:tsla', 'party:7:1', 'party:7:2', 'party:7:3'])
+    const ops = planOps('t-7', owed)
+    expect(ops.map((o) => o.id)).toEqual([
+      'mint:t-7:nvda',
+      'mint:t-7:tsla',
+      'party:t-7:1',
+      'party:t-7:2',
+      'party:t-7:3',
+    ])
     expect(ops[0]!.payload).toEqual({ token: 'nvda', units: '60' })
     expect(ops[1]!.payload).toEqual({ token: 'tsla', units: '40' })
     const batches = ops.slice(2).map((o) => (o.payload as { transfers: unknown[] }).transfers.length)
@@ -145,12 +157,14 @@ describe('planOps', () => {
   })
 
   it('has nothing to do for a party nobody bought at', () => {
-    expect(planOps(1, [])).toEqual([])
+    expect(planOps('t-1', [])).toEqual([])
   })
 
   it('keeps ids and proofs inside the contract limits', async () => {
     const big = 2 ** 31
-    for (const op of planOps(big, [owedRow(1, 'googl', 1)])) expect(op.id.length).toBeLessThanOrEqual(MAX_KEY_LEN)
+    // the longest chain party: 8 hex chars of install id, a dash, the biggest party id
+    for (const op of planOps(`ffffffff-${big}`, [owedRow(1, 'googl', 1)]))
+      expect(op.id.length).toBeLessThanOrEqual(MAX_KEY_LEN)
     const proof = await buySharesFor(loadConfig({ PRIVY_APP_ID: 'a', PRIVY_APP_SECRET: 's' }))(String(big), 'googl', 1n)
     expect(proof).toBe(`demo:${big}:googl:1`)
     expect(proof.length).toBeLessThanOrEqual(MAX_PROOF_LEN)
@@ -177,13 +191,13 @@ describe('the settlement job', () => {
   it('releases, mints each token, settles every guest, in that order, one transaction per tick', async () => {
     const w = world({ 7: [owedRow(1, 'tsla', 3), owedRow(2, 'tsla', 1), owedRow(2, 'nvda', 2)] })
     await w.job.tick()
-    expect(w.fake.calls).toEqual(['release:7'])
+    expect(w.fake.calls).toEqual(['release:t-7'])
     await w.runAll()
     expect(w.fake.calls).toEqual([
-      'release:7',
-      'mint:nvda:2:demo:7:nvda:1',
-      'mint:tsla:4:demo:7:tsla:1',
-      'settle:party:7:1:3',
+      'release:t-7',
+      'mint:nvda:2:demo:t-7:nvda:1',
+      'mint:tsla:4:demo:t-7:tsla:1',
+      'settle:party:t-7:1:3',
     ])
     expect(w.status(7)).toBe('done')
     expect(await w.fake.chain.owed('7')).toEqual([])
@@ -197,14 +211,38 @@ describe('the settlement job', () => {
     expect(w.fake.calls).toEqual([])
     w.advance(1)
     await w.job.tick()
-    expect(w.fake.calls).toEqual(['release:3'])
+    expect(w.fake.calls).toEqual(['release:t-3'])
   })
 
-  it('a party nobody bought at is released and done, with no mint and no settle', async () => {
+  it('a party nobody bought at has no pot: done without a release, a mint or a settle', async () => {
     const w = world({ 4: [] })
     await w.runAll()
-    expect(w.fake.calls).toEqual(['release:4'])
+    expect(w.fake.calls).toEqual([])
     expect(w.status(4)).toBe('done')
+  })
+
+  it('a release whose USDC transfer bounced (pot put back) is retried, not taken as done', async () => {
+    const w = world({ 12: [owedRow(1, 'tsla', 1)] })
+    const release = w.fake.chain.release
+    let bounced = false
+    w.fake.chain.release = async (party) => {
+      if (bounced) return release(party)
+      bounced = true
+      return 'tx-bounced' // the call "succeeds" but the pot stays held
+    }
+    await w.job.tick()
+    expect(w.ops(12)[0]).toMatchObject({ kind: 'release', status: 'pending', error: 'release_not_landed' })
+    w.advance(60_000)
+    await w.runAll()
+    expect(w.status(12)).toBe('done')
+    expect(w.fake.minted.get('tsla')).toBe(1n)
+  })
+
+  it("chain ids carry this database's install id, so a fresh database never reuses a party, op id or proof", () => {
+    const a = openDb(':memory:')
+    const b = openDb(':memory:')
+    expect(chainParty(a, 1)).toMatch(/^[0-9a-f]{8}-1$/)
+    expect(chainParty(a, 1)).not.toBe(chainParty(b, 1))
   })
 
   it('retries a failed call after its backoff, never before', async () => {
@@ -213,7 +251,7 @@ describe('the settlement job', () => {
     await w.job.tick()
     expect(w.ops(5)[0]).toMatchObject({ status: 'pending', attempts: 1 })
     await w.job.tick()
-    expect(w.fake.calls).toEqual(['release:5']) // still backing off
+    expect(w.fake.calls).toEqual(['release:t-5']) // still backing off
     w.advance(backoff(1))
     await w.runAll()
     expect(w.status(5)).toBe('done')
@@ -231,7 +269,7 @@ describe('the settlement job', () => {
     const before = w.fake.calls.length
     await w.runAll()
     expect(w.fake.calls.length).toBe(before) // a failed party sends nothing more
-    expect(retryOp(w.db, 'mint:6:tsla', w.at())).toBe(true)
+    expect(retryOp(w.db, 'mint:t-6:tsla', w.at())).toBe(true)
     await w.runAll()
     expect(w.status(6)).toBe('done')
     expect(w.fake.minted.get('tsla')).toBe(1n)
@@ -259,7 +297,7 @@ describe('the settlement job', () => {
     await w.runAll()
     const calls = w.fake.calls.length
     // Pretend we crashed after the settle landed but before it was marked done.
-    run(w.db, "UPDATE chain_ops SET status = 'sent', tx_hash = '' WHERE id = 'party:9:1'")
+    run(w.db, "UPDATE chain_ops SET status = 'sent', tx_hash = '' WHERE id = 'party:t-9:1'")
     run(w.db, "UPDATE settlements SET status = 'pending' WHERE party_id = 9")
     await w.runAll()
     expect(w.fake.calls.length).toBe(calls) // nothing resent
@@ -281,7 +319,7 @@ describe('the settlement job', () => {
       db,
       "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (1, 'host', 'P', 1, 0, 0, 0)",
     )
-    const fake = fakeChain({ 1: [owedRow(1, 'tsla', 1)] })
+    const fake = fakeChain({ [chainParty(db, 1)]: [owedRow(1, 'tsla', 1)] })
     const cfg = loadConfig({
       PRIVY_APP_ID: 'a',
       PRIVY_APP_SECRET: 's',
@@ -290,7 +328,7 @@ describe('the settlement job', () => {
     })
     const job = settlement({ db, chain: fake.chain, buyShares: buySharesFor(cfg), now: () => GRACE_MS + 1 })
     for (let i = 0; i < 5; i++) await job.tick()
-    expect(fake.calls).toEqual(['release:1'])
+    expect(fake.calls).toEqual([`release:${chainParty(db, 1)}`])
     expect(all(db, "SELECT error FROM chain_ops WHERE kind = 'mint'")).toEqual([{ error: 'not_built' }])
   })
 })
@@ -304,7 +342,7 @@ describe('GET /api/parties/:id/settlement and the admin view', () => {
     expect(await view()).toEqual({ status: 'live', ops: [] })
     run(t.db, 'UPDATE parties SET ends_at = 0 WHERE id = ?', id)
     expect(await view()).toEqual({ status: 'waiting', ops: [] })
-    const fake = fakeChain({ [id]: [owedRow(1, 'tsla', 2)] })
+    const fake = fakeChain({ [chainParty(t.db, id)]: [owedRow(1, 'tsla', 2)] })
     const job = settlement({ db: t.db, chain: fake.chain, buyShares: buySharesFor(t.cfg), now: () => GRACE_MS + 1 })
     for (let i = 0; i < 5; i++) await job.tick()
     expect(await view()).toEqual({

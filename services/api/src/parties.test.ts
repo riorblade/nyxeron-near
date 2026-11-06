@@ -139,7 +139,7 @@ describe('POST /api/parties/:id/quote', () => {
     expect(quote).toMatchObject({
       v: 2,
       contract: 'nyxeron.testnet',
-      party: String(id),
+      party: expect.stringMatching(new RegExp(`^[0-9a-f]{8}-${id}$`)),
       buyer: guest,
       ceo: host,
       token: 'tsla',

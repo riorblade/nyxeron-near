@@ -61,8 +61,16 @@ export class SettlementError extends Error {
   }
 }
 
-// The party id on chain is the api's id as a string, the same as in the signed quotes.
-export const chainParty = (partyId: number) => String(partyId)
+const installs = new WeakMap<Db, string>()
+/** The party id the contract sees (and the signed quotes carry): `<install>-<id>`, unique across databases. */
+export function chainParty(db: Db, partyId: number): string {
+  let install = installs.get(db)
+  if (!install) {
+    install = one<{ value: string }>(db, "SELECT value FROM meta WHERE key = 'install'")!.value
+    installs.set(db, install)
+  }
+  return `${install}-${partyId}`
+}
 
 /** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: not built yet (1Click + Kyber). */
 export function buySharesFor(cfg: Config): BuyShares {
@@ -74,14 +82,14 @@ export function buySharesFor(cfg: Config): BuyShares {
 
 /** The ops after the release, from the owed snapshot (frozen once the party is released): one mint per token for the
  * total owed, then the transfers sorted and cut into batches of at most 32. */
-export function planOps(partyId: number, owed: Owed[]): OpSpec[] {
+export function planOps(party: string, owed: Owed[]): OpSpec[] {
   const units = new Map<string, bigint>()
   for (const o of owed) units.set(o.token_id, (units.get(o.token_id) ?? 0n) + BigInt(o.qty))
   const mints: OpSpec[] = [...units.entries()]
     .filter(([, u]) => u > 0n)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([token, u], i) => ({
-      id: `mint:${partyId}:${token}`,
+      id: `mint:${party}:${token}`,
       seq: i + 1,
       kind: 'mint',
       payload: { token, units: u.toString() } satisfies MintPayload,
@@ -94,7 +102,7 @@ export function planOps(partyId: number, owed: Owed[]): OpSpec[] {
   for (let i = 0; i < transfers.length; i += MAX_SETTLE_TRANSFERS) {
     const batch = settles.length + 1
     settles.push({
-      id: `party:${partyId}:${batch}`,
+      id: `party:${party}:${batch}`,
       seq: mints.length + batch,
       kind: 'settle',
       payload: { transfers: transfers.slice(i, i + MAX_SETTLE_TRANSFERS) } satisfies SettlePayload,
@@ -162,7 +170,7 @@ export function settlement(deps: {
 
   // Already on chain? Asked before every send, so a resumed or retried op never lands twice.
   async function landed(op: OpRow): Promise<boolean> {
-    const party = chainParty(op.party_id)
+    const party = chainParty(db, op.party_id)
     if (op.kind === 'release') {
       const pot = await chain.pot(party)
       return pot.released && BigInt(pot.held) === 0n
@@ -175,8 +183,13 @@ export function settlement(deps: {
   }
 
   async function send(op: OpRow): Promise<string> {
-    const party = chainParty(op.party_id)
-    if (op.kind === 'release') return chain.release(party)
+    const party = chainParty(db, op.party_id)
+    if (op.kind === 'release') {
+      const hash = await chain.release(party)
+      // A release whose USDC transfer bounced still "succeeds" (the contract puts the pot back): check, don't trust it.
+      if (!(await landed(op))) throw new SettlementError('release_not_landed')
+      return hash
+    }
     if (op.kind === 'mint') {
       const p = JSON.parse(op.payload) as MintPayload
       if (p.proof === undefined) {
@@ -223,14 +236,21 @@ export function settlement(deps: {
   // Moves one party one step. Returns true when it sent (or tried to send) a transaction.
   async function step(p: PartyRow): Promise<boolean> {
     let ops = opsOf(p.id)
+    const party = chainParty(db, p.id)
     if (!ops.length) {
+      // No drink sold: the contract has no pot to release and nobody is owed anything.
+      const pot = await chain.pot(party)
+      if (!pot.released && BigInt(pot.held) === 0n) {
+        setParty(p.id, 'done')
+        return false
+      }
       setParty(p.id, 'pending')
       insertOps(p.id, [{ id: `release:${p.id}`, seq: 0, kind: 'release', payload: {} }])
       ops = opsOf(p.id)
     }
     // Released and nothing planned after it yet: plan from what the contract says each guest is owed.
     if (ops.length === 1 && ops[0]!.kind === 'release' && ops[0]!.status === 'done') {
-      const specs = planOps(p.id, await chain.owed(chainParty(p.id)))
+      const specs = planOps(party, await chain.owed(party))
       if (!specs.length) {
         setParty(p.id, 'done')
         return false
