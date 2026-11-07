@@ -158,6 +158,23 @@ const migrations = [
      at         INTEGER NOT NULL                  -- ms of the latest attempt; the daily cap counts by it
    );
    CREATE INDEX warehouse_swaps_at ON warehouse_swaps(at);`,
+  // 9. the treasury's deposits through 1Click that fund the warehouse with USDG and gas (fund.ts). A row is written
+  // before the USDC is sent, so a crash or a lost answer is looked at by a person instead of sent again.
+  `CREATE TABLE warehouse_funding (
+     id              TEXT    PRIMARY KEY,              -- 1Click correlationId
+     asset           TEXT    NOT NULL CHECK (asset IN ('usdg', 'eth')),
+     amount_in       INTEGER NOT NULL,                 -- micro-USDC sent
+     min_out         TEXT    NOT NULL,                 -- the least 1Click delivers, in the asset's smallest unit
+     deposit_address TEXT    NOT NULL UNIQUE,
+     status          TEXT    NOT NULL CHECK (status IN ('quoted', 'sent', 'done', 'refunded', 'failed', 'stuck')),
+     oneclick_status TEXT    NOT NULL DEFAULT '',
+     deposit_tx      TEXT    NOT NULL DEFAULT '',
+     error           TEXT    NOT NULL DEFAULT '',
+     deadline        INTEGER NOT NULL,                 -- ms; the end of 1Click's deposit window
+     checked_at      INTEGER NOT NULL,
+     created_at      INTEGER NOT NULL                  -- the daily cap counts by it
+   );
+   CREATE INDEX warehouse_funding_created ON warehouse_funding(created_at);`,
 ]
 
 export function openDb(path: string): Db {

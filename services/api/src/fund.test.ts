@@ -1,0 +1,379 @@
+import { createHash } from 'node:crypto'
+import type { Address } from 'viem'
+import { describe, expect, it } from 'vitest'
+import { USDG } from './chainsig.ts'
+import { USDC_BY_NETWORK } from './config.ts'
+import { all, one, openDb, run } from './db.ts'
+import { FUND_LIMITS, type Treasury, warehouseFunder } from './fund.ts'
+import type { OneClick, OneClickToken, QuoteRequest } from './intents.ts'
+
+const USDC = USDC_BY_NETWORK.mainnet
+const USDC_ASSET = `nep141:${USDC}`
+const WAREHOUSE: Address = '0x975B19e0ae6A0fA87D51Fa618fC12724c137b33C'
+const TREASURY = 'treasury.near'
+const NOW = Date.UTC(2026, 10, 7, 12)
+const E18 = 10n ** 18n
+
+// Test data shaped like 1Click's /v0/tokens on 2026-11-07 (the real ids are read at run time).
+const USDG_ASSET = `nep141:hood-${USDG}.omft.near`
+const ETH_ASSET = 'nep141:hood.omft.near'
+type Listed = OneClickToken & { contractAddress?: string }
+const LISTED: Listed[] = [
+  { assetId: USDC_ASSET, decimals: 6, blockchain: 'near', symbol: 'USDC', price: 1, contractAddress: USDC },
+  { assetId: USDG_ASSET, decimals: 6, blockchain: 'hood', symbol: 'USDG', price: 1, contractAddress: USDG },
+  { assetId: ETH_ASSET, decimals: 18, blockchain: 'hood', symbol: 'ETH', price: 2500 },
+  // Another hood token called USDG at another address: never the one we fund with.
+  {
+    assetId: 'nep141:hood-0x1111111111111111111111111111111111111111.omft.near',
+    decimals: 6,
+    blockchain: 'hood',
+    symbol: 'USDG',
+    price: 1,
+    contractAddress: '0x1111111111111111111111111111111111111111',
+  },
+]
+
+// 1Click: a quote loses `lossBps` of the input; `tamper` edits the answer, `status` is what /status says per address.
+function fakeOneClick(opts: { lossBps?: bigint; tamper?: (a: Answer) => void; list?: Listed[] } = {}) {
+  const quotes: QuoteRequest[] = []
+  const submitted: string[] = []
+  const status = new Map<string, string>()
+  let statusCalls = 0
+  const oneclick: OneClick = {
+    async tokens() {
+      return opts.list ?? LISTED
+    },
+    async quote(req) {
+      quotes.push(req)
+      const depositAddress = createHash('sha256').update(`dep-${quotes.length}`).digest('hex')
+      const out = (BigInt(req.amount) * (10_000n - (opts.lossBps ?? 150n))) / 10_000n // micro-USD worth
+      const minOut = req.destinationAsset === ETH_ASSET ? (out * 10n ** 12n) / 2500n : out
+      const answer: Answer = {
+        correlationId: `corr-${quotes.length}`,
+        quote: {
+          depositAddress,
+          depositMemo: null,
+          amountIn: req.amount,
+          minAmountOut: minOut.toString(),
+          deadline: new Date(NOW + 3 * 86_400_000).toISOString(),
+        },
+        quoteRequest: { ...req },
+      }
+      opts.tamper?.(answer)
+      return answer as never
+    },
+    async status(addr) {
+      statusCalls++
+      return { status: status.get(addr) ?? 'PENDING_DEPOSIT' }
+    },
+    async submitDeposit(d) {
+      submitted.push(d.txHash)
+    },
+  }
+  return { oneclick, quotes, submitted, status, statusCalls: () => statusCalls }
+}
+type Answer = {
+  correlationId: string
+  quote: {
+    depositAddress: string
+    depositMemo: string | null
+    amountIn: string
+    minAmountOut: string
+    deadline: string
+  }
+  quoteRequest: Record<string, unknown>
+}
+
+// The treasury: its USDC, the accounts USDC knows, and every deposit it sent. `fail` makes the next one fail on chain,
+// `throws` lose its answer.
+function fakeTreasury(usdc = 1_000_000_000n) {
+  const state = { usdc, registered: new Set<string>(), deposits: [] as string[], fail: false, throws: false }
+  const treasury: Treasury = {
+    accountId: TREASURY,
+    async usdcBalance() {
+      return state.usdc
+    },
+    async isRegistered(id) {
+      return state.registered.has(id)
+    },
+    async deposit(to, amount, register) {
+      if (state.throws) throw new Error('timeout')
+      state.deposits.push(`${register ? 'register+' : ''}${to}:${amount}`)
+      if (state.fail) {
+        state.fail = false
+        return { hash: 'tx-failed', ok: false, error: 'not registered' }
+      }
+      state.usdc -= amount
+      return { hash: `tx-${state.deposits.length}`, ok: true }
+    },
+  }
+  return { treasury, state }
+}
+
+function setup(o: Parameters<typeof fakeOneClick>[0] & { usdc?: bigint } = {}) {
+  const db = openDb(':memory:')
+  let t = NOW
+  const fc = fakeOneClick(o)
+  const tr = fakeTreasury(o.usdc)
+  // The warehouse starts full; tests drain what they need.
+  const held = { usdg: 100_000_000n, eth: E18 }
+  const logs: string[] = []
+  const funder = warehouseFunder({
+    db,
+    oneclick: fc.oneclick,
+    treasury: tr.treasury,
+    chain: { usdgBalance: async () => held.usdg, ethBalance: async () => held.eth },
+    warehouse: async () => WAREHOUSE,
+    usdcId: USDC,
+    now: () => t,
+    log: (m) => logs.push(m),
+  })
+  const rows = () =>
+    all<{ id: string; asset: string; status: string; amount_in: number; error: string }>(
+      db,
+      'SELECT id, asset, status, amount_in, error FROM warehouse_funding ORDER BY created_at, id',
+    )
+  return { db, funder, ...fc, ...tr, held, logs, rows, later: (ms: number) => (t += ms) }
+}
+
+describe('keeping the warehouse funded', () => {
+  it('does nothing while the warehouse holds enough of both', async () => {
+    const t = setup()
+    await t.funder.tick()
+    expect(t.quotes).toEqual([])
+  })
+
+  it('tops up USDG: a 1Click quote from the treasury to the warehouse, sent with the registration, then followed', async () => {
+    const t = setup()
+    t.held.usdg = FUND_LIMITS.usdgFloor - 1n
+    await t.funder.tick()
+    expect(t.quotes).toHaveLength(1)
+    expect(t.quotes[0]).toMatchObject({
+      dry: false,
+      originAsset: USDC_ASSET,
+      destinationAsset: USDG_ASSET,
+      amount: '100000000',
+      recipient: WAREHOUSE,
+      refundTo: TREASURY,
+      recipientType: 'DESTINATION_CHAIN',
+      refundType: 'ORIGIN_CHAIN',
+    })
+    const dep = createHash('sha256').update('dep-1').digest('hex')
+    // 1Click's deposit address is new to USDC: registered in the same transaction (issue #65).
+    expect(t.state.deposits).toEqual([`register+${dep}:100000000`])
+    expect(t.submitted).toEqual(['tx-1'])
+    expect(t.rows()).toMatchObject([{ asset: 'usdg', status: 'sent', amount_in: 100_000_000 }])
+
+    // In flight: no second deposit while 1Click works, however low the balance still reads.
+    t.later(10_000)
+    await t.funder.tick()
+    expect(t.quotes).toHaveLength(1)
+
+    t.status.set(dep, 'SUCCESS')
+    t.later(10_000)
+    t.held.usdg = 150_000_000n
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'done' }])
+    expect(t.quotes).toHaveLength(1)
+  })
+
+  it('does not register an address USDC already knows', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    t.state.registered.add(createHash('sha256').update('dep-1').digest('hex'))
+    await t.funder.tick()
+    expect(t.state.deposits[0]).not.toMatch(/^register\+/)
+  })
+
+  it('tops up gas first, one deposit per tick, then USDG', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    t.held.eth = FUND_LIMITS.ethFloor - 1n
+    await t.funder.tick()
+    expect(t.quotes.map((q) => [q.destinationAsset, q.amount])).toEqual([[ETH_ASSET, '5000000']])
+    await t.funder.tick()
+    expect(t.quotes.map((q) => q.destinationAsset)).toEqual([ETH_ASSET, USDG_ASSET])
+  })
+
+  it('sends what the treasury has, and nothing below the minimum deposit', async () => {
+    const t = setup({ usdc: 30_000_000n })
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.quotes[0]!.amount).toBe('30000000')
+
+    const poor = setup({ usdc: FUND_LIMITS.minRefill - 1n })
+    poor.held.usdg = 0n
+    await poor.funder.tick()
+    expect(poor.quotes).toEqual([])
+    expect(poor.logs.join()).toContain('treasury_low')
+  })
+
+  it('funds with the USDG at our pinned address only, and stops when 1Click no longer lists it', async () => {
+    const t = setup({ list: LISTED.filter((x) => x.assetId !== USDG_ASSET) })
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.quotes).toEqual([])
+    expect(t.logs.join()).toContain('asset_not_listed')
+  })
+})
+
+describe('checking 1Click’s quote before any USDC moves', () => {
+  it.each([
+    ['another recipient', (a: Answer) => (a.quoteRequest.recipient = `0x${'22'.repeat(20)}`), 'wrong_recipient'],
+    ['another asset out', (a: Answer) => (a.quoteRequest.destinationAsset = ETH_ASSET), 'wrong_asset'],
+    ['another asset in', (a: Answer) => (a.quoteRequest.originAsset = 'nep141:usdt.tether-token.near'), 'wrong_asset'],
+    ['refunds elsewhere', (a: Answer) => (a.quoteRequest.refundTo = 'someone.near'), 'wrong_refund'],
+    ['another amount', (a: Answer) => (a.quote.amountIn = '100000001'), 'wrong_amount'],
+    ['a memo we would not send', (a: Answer) => (a.quote.depositMemo = '42'), 'memo_not_supported'],
+    ['a named deposit account', (a: Answer) => (a.quote.depositAddress = 'evil.near'), 'bad_quote'],
+    ['an expired deadline', (a: Answer) => (a.quote.deadline = new Date(NOW).toISOString()), 'bad_quote'],
+  ])('refuses %s', async (_, tamper, code) => {
+    const t = setup({ tamper })
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.state.deposits).toEqual([])
+    expect(t.rows()).toEqual([])
+    expect(t.logs.join()).toContain(code)
+  })
+
+  it('refuses a quote losing more than 3 %, for USDG and for ETH, and takes one just under', async () => {
+    for (const asset of ['usdg', 'eth'] as const) {
+      const costly = setup({ lossBps: 301n })
+      costly.held[asset] = 0n
+      await costly.funder.tick()
+      expect(costly.state.deposits, asset).toEqual([])
+      expect(costly.logs.join()).toContain('too_costly')
+
+      const fine = setup({ lossBps: 300n })
+      fine.held[asset] = 0n
+      await fine.funder.tick()
+      expect(fine.state.deposits, asset).toHaveLength(1)
+    }
+  })
+})
+
+describe('limits and unclear states', () => {
+  it('stops at the daily cap; yesterday and deposits that failed on chain do not count', async () => {
+    const t = setup()
+    const add = (id: string, micro: number, at: number, status: string) =>
+      run(
+        t.db,
+        `INSERT INTO warehouse_funding (id, asset, amount_in, min_out, deposit_address, status, deadline, checked_at,
+           created_at) VALUES (?, 'usdg', ?, '0', ?, ?, 0, 0, ?)`,
+        id,
+        micro,
+        `addr-${id}`,
+        status,
+        at,
+      )
+    add('old', 500_000_000, NOW - 86_400_000, 'done')
+    add('a', 450_000_000, NOW - 1000, 'done')
+    add('b', 100_000_000, NOW - 1000, 'failed')
+    add('c', 60_000_000, NOW - 1000, 'refunded')
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.quotes).toEqual([]) // 510 + 100 > 600
+    expect(t.logs.join()).toContain('daily_limit')
+    run(t.db, "DELETE FROM warehouse_funding WHERE id = 'c'")
+    await t.funder.tick()
+    expect(t.state.deposits).toHaveLength(1) // 450 + 100 ≤ 600
+  })
+
+  it('a deposit that failed on chain moved nothing: the next tick tries again', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    t.state.fail = true
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'failed' }])
+    await t.funder.tick()
+    expect(t.rows().map((r) => r.status)).toEqual(['failed', 'sent'])
+  })
+
+  it('a deposit whose answer was lost stops for a person and blocks that asset only', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    t.state.throws = true
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ asset: 'usdg', status: 'stuck', error: 'deposit_unknown' }])
+    t.state.throws = false
+    for (let i = 0; i < 3; i++) {
+      t.later(60_000)
+      await t.funder.tick()
+    }
+    expect(t.quotes).toHaveLength(1)
+    // It still counts toward the day, and gas can still be topped up.
+    expect(t.funder.spentToday()).toBe(100_000_000n)
+    t.held.eth = 0n
+    await t.funder.tick()
+    expect(t.rows().map((r) => r.asset)).toEqual(['usdg', 'eth'])
+  })
+
+  it('the deposit is on record as quoted while the USDC is being sent', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    const seen: unknown[] = []
+    const send = t.treasury.deposit
+    t.treasury.deposit = async (...a) => {
+      seen.push(...all(t.db, 'SELECT status, deposit_address FROM warehouse_funding'))
+      return send(...a)
+    }
+    await t.funder.tick()
+    expect(seen).toEqual([{ status: 'quoted', deposit_address: createHash('sha256').update('dep-1').digest('hex') }])
+  })
+
+  it('a row left quoted by a crash is not sent again', async () => {
+    const t = setup()
+    run(
+      t.db,
+      `INSERT INTO warehouse_funding (id, asset, amount_in, min_out, deposit_address, status, deadline, checked_at,
+         created_at) VALUES ('crash', 'usdg', 100000000, '0', 'addr', 'quoted', ?, 0, ?)`,
+      NOW + 1000,
+      NOW,
+    )
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ id: 'crash', status: 'stuck', error: 'deposit_unknown' }])
+    expect(t.quotes).toEqual([])
+  })
+
+  it('a refund frees the asset for the next refill; a failed swap or a missed deadline stops for a person', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    await t.funder.tick()
+    const dep1 = createHash('sha256').update('dep-1').digest('hex')
+    t.status.set(dep1, 'REFUNDED')
+    t.later(10_000)
+    await t.funder.tick()
+    expect(t.rows().map((r) => r.status)).toEqual(['refunded', 'sent'])
+
+    const dep2 = createHash('sha256').update('dep-2').digest('hex')
+    t.status.set(dep2, 'FAILED')
+    t.later(10_000)
+    await t.funder.tick()
+    expect(t.rows().map((r) => [r.status, r.error])).toEqual([
+      ['refunded', ''],
+      ['stuck', 'failed'],
+    ])
+
+    const late = setup()
+    late.held.eth = 0n
+    await late.funder.tick()
+    late.later(3 * 86_400_000 + 1)
+    await late.funder.tick()
+    expect(late.rows()).toMatchObject([{ status: 'stuck', error: 'past_deadline' }])
+  })
+
+  it('asks 1Click for a status at most every 10 seconds', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    await t.funder.tick()
+    await t.funder.tick()
+    t.later(9_999)
+    await t.funder.tick()
+    expect(t.statusCalls()).toBe(1) // the first follow-up (checked_at starts at 0)
+    t.later(1)
+    await t.funder.tick()
+    expect(t.statusCalls()).toBe(2)
+    expect(one(t.db, 'SELECT oneclick_status FROM warehouse_funding')).toEqual({ oneclick_status: 'PENDING_DEPOSIT' })
+  })
+})
