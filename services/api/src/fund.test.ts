@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
+import { Account, JsonRpcProvider, KeyPair, type KeyPairString, type SignedTransaction } from 'near-api-js'
 import type { Address } from 'viem'
 import { describe, expect, it } from 'vitest'
 import { USDG } from './chainsig.ts'
 import { USDC_BY_NETWORK } from './config.ts'
 import { all, one, openDb, run } from './db.ts'
-import { FUND_LIMITS, type Treasury, warehouseFunder } from './fund.ts'
+import { FUND_LIMITS, nearTreasury, type Treasury, warehouseFunder } from './fund.ts'
 import type { OneClick, OneClickToken, QuoteRequest } from './intents.ts'
 
 const USDC = USDC_BY_NETWORK.mainnet
@@ -375,5 +376,62 @@ describe('limits and unclear states', () => {
     await t.funder.tick()
     expect(t.statusCalls()).toBe(2)
     expect(one(t.db, 'SELECT oneclick_status FROM warehouse_funding')).toEqual({ oneclick_status: 'PENDING_DEPOSIT' })
+  })
+})
+
+// nearTreasury on near-api-js's own Account, against a fake RPC that keeps what it was sent.
+describe('the treasury’s deposit transaction', () => {
+  class FakeRpc extends JsonRpcProvider {
+    sent: SignedTransaction[] = []
+    fail = false
+    constructor() {
+      super({ url: 'http://fake' })
+    }
+    override async viewAccessKey() {
+      return { nonce: 1n, permission: 'FullAccess', block_height: 1, block_hash: '1'.repeat(32) } as never
+    }
+    override async viewBlock() {
+      return { header: { hash: '1'.repeat(32), height: 1 } } as never
+    }
+    override async sendTransactionUntil(tx: SignedTransaction) {
+      this.sent.push(tx)
+      const status = this.fail
+        ? { Failure: { ActionError: { index: 1, kind: { FunctionCallError: { ExecutionError: 'not registered' } } } } }
+        : { SuccessValue: '' }
+      return {
+        status,
+        transaction: { hash: 'tx-deposit' },
+        transaction_outcome: { id: 'tx-deposit', block_hash: '1'.repeat(32) },
+        receipts_outcome: [],
+      } as never
+    }
+  }
+  const setupReal = () => {
+    const rpc = new FakeRpc()
+    const account = new Account('w.near', rpc, KeyPair.fromRandom('ed25519').toString() as KeyPairString)
+    return { rpc, treasury: nearTreasury({ account, usdcId: USDC }) }
+  }
+  const calls = (tx: SignedTransaction) =>
+    tx.transaction.actions.map((a) => {
+      const f = a.functionCall!
+      return [f.methodName, JSON.parse(Buffer.from(f.args).toString()), f.deposit.toString()]
+    })
+
+  it('registers and transfers in one transaction to USDC, 1 yocto on the transfer', async () => {
+    const t = setupReal()
+    expect(await t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).toEqual({ hash: 'tx-deposit', ok: true })
+    expect(t.rpc.sent[0]!.transaction.receiverId).toBe(USDC)
+    expect(calls(t.rpc.sent[0]!)).toEqual([
+      ['storage_deposit', { account_id: 'ab'.repeat(32), registration_only: true }, '1250000000000000000000'],
+      ['ft_transfer', { receiver_id: 'ab'.repeat(32), amount: '5000000' }, '1'],
+    ])
+    await t.treasury.deposit('ab'.repeat(32), 1n, false)
+    expect(calls(t.rpc.sent[1]!).map(([m]) => m)).toEqual(['ft_transfer'])
+  })
+
+  it('a failure on chain comes back with its hash, not as a throw the funder must treat as unknown', async () => {
+    const t = setupReal()
+    t.rpc.fail = true
+    expect(await t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).toMatchObject({ hash: 'tx-deposit', ok: false })
   })
 })

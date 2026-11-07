@@ -4,7 +4,7 @@ import { serve } from '@hono/node-server'
 import type { TokenId } from '@nyxeron/game'
 import { createApp } from './app.ts'
 import { privyIdentity } from './auth.ts'
-import { nearMpc, robinhoodChain, warehouse } from './chainsig.ts'
+import { nearMpc, robinhoodChain, warehouse, warehouseAccount } from './chainsig.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
 import { nearTreasury, warehouseFunder } from './fund.ts'
@@ -36,8 +36,10 @@ let buyShares: BuyShares | undefined
 let fundTimer: ReturnType<typeof setInterval> | undefined
 if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_KEY) {
   const hood = robinhoodHood()
+  // One Account object for the MPC requests and the deposits, so they never fight over the key's nonce.
+  const account = warehouseAccount(cfg.NEAR_NETWORK, cfg.WAREHOUSE_ACCOUNT_ID, cfg.WAREHOUSE_KEY)
   const signer = warehouse({
-    mpc: nearMpc({ network: cfg.NEAR_NETWORK, accountId: cfg.WAREHOUSE_ACCOUNT_ID, key: cfg.WAREHOUSE_KEY }),
+    mpc: nearMpc({ network: cfg.NEAR_NETWORK, account }),
     chain: robinhoodChain(),
   })
   buyShares = warehouseBuyer({
@@ -51,12 +53,7 @@ if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_
   const funder = warehouseFunder({
     db,
     oneclick,
-    treasury: nearTreasury({
-      network: cfg.NEAR_NETWORK,
-      accountId: cfg.WAREHOUSE_ACCOUNT_ID,
-      key: cfg.WAREHOUSE_KEY,
-      usdcId: cfg.USDC_CONTRACT_ID,
-    }),
+    treasury: nearTreasury({ account, usdcId: cfg.USDC_CONTRACT_ID }),
     chain: hood,
     warehouse: signer.address,
     usdcId: cfg.USDC_CONTRACT_ID,

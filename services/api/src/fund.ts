@@ -2,14 +2,13 @@
 // 1Click to the warehouse's address as USDG (what swap.ts spends) and a little ETH (its gas). The warehouse is kept above
 // a floor of each, one deposit in flight per asset; every deposit is recorded before it is sent, and a state where we
 // can't tell whether USDC left stops as `stuck` for a person instead of sending again.
-import { Account, actions, type KeyPairString, nearToYocto, teraToGas } from 'near-api-js'
+import { type Account, actions, nearToYocto, teraToGas } from 'near-api-js'
 import { type Address, isAddressEqual } from 'viem'
 import { z } from 'zod'
 import { USDG } from './chainsig.ts'
-import type { Config } from './config.ts'
 import { all, type Db, one, run } from './db.ts'
 import { type OneClick, type OneClickToken, QUOTE_VALID_MS } from './intents.ts'
-import { nearProvider, type RelayResult, summarise } from './near.ts'
+import { type RelayResult, summarise } from './near.ts'
 
 const BPS = 10_000n
 const TOKENS_TTL_MS = 10 * 60_000
@@ -305,23 +304,19 @@ export function warehouseFunder(deps: {
   return { tick, spentToday }
 }
 
-// The treasury account with a full-access key: ft_transfer needs 1 yoctoNEAR, which a function-call key can't attach.
-export function nearTreasury(opts: {
-  network: Config['NEAR_NETWORK']
-  accountId: string
-  key: string
-  usdcId: string
-}): Treasury {
-  const provider = nearProvider(opts.network)
-  const account = new Account(opts.accountId, provider, opts.key as KeyPairString)
+// The treasury account, the same Account object the MPC requests use (chainsig.ts warehouseAccount), so they share one
+// nonce. A full-access key: ft_transfer needs 1 yoctoNEAR, which a function-call key can't attach.
+export function nearTreasury(opts: { account: Account; usdcId: string }): Treasury {
+  const { account } = opts
+  const provider = account.provider
   const usdc = opts.usdcId
   return {
-    accountId: opts.accountId,
+    accountId: account.accountId,
     async usdcBalance() {
       const raw = await provider.callFunction<string>({
         contractId: usdc,
         method: 'ft_balance_of',
-        args: { account_id: opts.accountId },
+        args: { account_id: account.accountId },
       })
       return BigInt(raw ?? 0)
     },
@@ -349,6 +344,9 @@ export function nearTreasury(opts: {
             : []),
           actions.functionCall('ft_transfer', { receiver_id: to, amount: amount.toString() }, teraToGas('50'), 1n),
         ],
+        // A failure on chain comes back as an outcome with its hash (the deposit is `failed`, nothing moved), not as a
+        // throw, which the funder has to treat as "did it go?".
+        throwOnFailure: false,
       })
       return summarise(o as unknown as Parameters<typeof summarise>[0])
     },
