@@ -79,6 +79,8 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
     approvals: [] as bigint[],
     lastOut: 0n,
     sendFails: opts.sendFails ?? false,
+    usdg: 10n ** 12n, // $1M
+    eth: E18,
   }
   const hood: Hood = {
     async gasPrice() {
@@ -86,6 +88,12 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
     },
     async usdgAllowance() {
       return state.allowance
+    },
+    async usdgBalance() {
+      return state.usdg
+    },
+    async ethBalance() {
+      return state.eth
     },
     async uiMultiplier() {
       return E18
@@ -227,6 +235,47 @@ describe('buying for a party', () => {
   it('refuses an unknown token', async () => {
     const t = setup()
     await expect(t.buyer.buyShares('p1', 'doge', 1n)).rejects.toMatchObject({ code: 'unknown_token', permanent: true })
+  })
+})
+
+describe('what the warehouse holds', () => {
+  // The fake's swap: 800k gas × 1.5, at twice the 0.02 gwei gas price; the approve adds 80k.
+  const SWAP_WEI = 1_200_000n * 40_000_000n
+  const APPROVE_WEI = 80_000n * 40_000_000n
+
+  it('signs nothing when the warehouse lacks the gas for the approve and the swap, and buys once it has it', async () => {
+    const t = setup()
+    t.state.eth = SWAP_WEI + APPROVE_WEI - 1n
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'warehouse_low_eth',
+      permanent: false,
+    })
+    expect(t.signed).toEqual([])
+    expect(swapRow(t.db)).toBeUndefined()
+    t.state.eth = SWAP_WEI + APPROVE_WEI
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(swapRow(t.db)).toMatchObject({ status: 'done' })
+  })
+
+  it('needs no gas for an approve it will not send', async () => {
+    const t = setup()
+    t.state.allowance = 10n ** 12n
+    t.state.eth = SWAP_WEI
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(t.state.approvals).toEqual([])
+  })
+
+  it('signs nothing when the warehouse holds less USDG than the swap costs', async () => {
+    const t = setup()
+    t.state.usdg = 0n
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'warehouse_low_usdg',
+      permanent: false,
+    })
+    expect(t.signed).toEqual([])
+    t.state.usdg = 4_100_000n // the swap sizes ≈ $4.06 for 0.01 TSLA at $400
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(BigInt(swapRow(t.db)!.usdg_in)).toBeLessThanOrEqual(4_100_000n)
   })
 })
 

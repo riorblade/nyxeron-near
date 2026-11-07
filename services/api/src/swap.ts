@@ -49,6 +49,8 @@ const APPROVE_GAS = 80_000n
 export type Hood = {
   gasPrice(): Promise<bigint>
   usdgAllowance(owner: Address, spender: Address): Promise<bigint>
+  usdgBalance(owner: Address): Promise<bigint>
+  ethBalance(owner: Address): Promise<bigint>
   uiMultiplier(token: Address): Promise<bigint>
   // How many of `address`'s transactions are mined (not pending).
   minedNonce(address: Address): Promise<number>
@@ -226,7 +228,14 @@ export function warehouseBuyer(deps: {
       throw new SettlementError('under_market')
 
     const fee = await fees()
-    if ((await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn) {
+    const swapGas = (BigInt(built.gas) * 3n) / 2n
+    const approve = (await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn
+    // Nothing is signed that the warehouse can't pay: a swap without the USDG reverts and still burns gas. Retryable:
+    // fund.ts tops the warehouse up from the treasury.
+    if ((await hood.ethBalance(from)) < (swapGas + (approve ? APPROVE_GAS : 0n)) * fee.maxFeePerGas)
+      throw new SettlementError('warehouse_low_eth')
+    if ((await hood.usdgBalance(from)) < amountIn) throw new SettlementError('warehouse_low_usdg')
+    if (approve) {
       await signer.signAndSend({
         type: 'eip1559',
         chainId: ROBINHOOD_CHAIN_ID,
@@ -244,7 +253,7 @@ export function warehouseBuyer(deps: {
       to: built.routerAddress,
       data: built.data,
       value: 0n,
-      gas: (BigInt(built.gas) * 3n) / 2n,
+      gas: swapGas,
       ...fee,
     })
     const hash = keccak256(raw)
@@ -302,6 +311,9 @@ export function robinhoodHood(): Hood {
     gasPrice: () => client.getGasPrice(),
     usdgAllowance: (owner, spender) =>
       client.readContract({ address: USDG, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
+    usdgBalance: (owner) =>
+      client.readContract({ address: USDG, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
+    ethBalance: (address) => client.getBalance({ address }),
     uiMultiplier: (token) => client.readContract({ address: token, abi: STOCK_ABI, functionName: 'uiMultiplier' }),
     minedNonce: (address) => client.getTransactionCount({ address, blockTag: 'latest' }),
     async receipt(hash) {
