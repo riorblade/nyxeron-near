@@ -396,6 +396,23 @@ describe('GET /api/parties/:id/settlement and the admin view', () => {
     expect(list.failed).toEqual([
       { id: `release:${id}`, party: id, kind: 'release', attempts: 5, error: 'rpc timeout', updatedAt: 0 },
     ])
+    expect(list).toMatchObject({ stuck: [] })
+    run(
+      t.db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, error, at)
+       VALUES ('p:tsla', 'tsla', 1, 1, '0', '0', 0, '0x', '0xswap', 'stuck', 'short_fill', 5)`,
+    )
+    run(
+      t.db,
+      `INSERT INTO warehouse_funding (id, asset, amount_in, min_out, deposit_address, status, error, deposit_tx, deadline,
+         checked_at, created_at) VALUES ('corr', 'usdg', 1, '0', 'dep', 'stuck', 'deposit_unknown', '', 0, 0, 9)`,
+    )
+    expect(await (await t.call('GET', '/api/admin/settlement', 'tok-boss')).json()).toMatchObject({
+      stuck: [
+        { kind: 'funding', id: 'corr', error: 'deposit_unknown', hash: '', at: 9 },
+        { kind: 'swap', id: 'p:tsla', error: 'short_fill', hash: '0xswap', at: 5 },
+      ],
+    })
     expect((await t.call('POST', `/api/admin/settlement/release:${id}/retry`, 'tok-guest')).status).toBe(403)
     expect((await t.call('POST', `/api/admin/settlement/release:${id}/retry`, 'tok-boss')).status).toBe(200)
     expect((await t.call('POST', `/api/admin/settlement/release:${id}/retry`, 'tok-boss')).status).toBe(404)

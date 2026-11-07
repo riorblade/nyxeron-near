@@ -59,7 +59,7 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 | `PUT /api/parties/:id/prices`          | host          | body `{ prices: { tsla: 800000 } }`, each within wholesale … 3× wholesale                                                                                                                                                                                                                                                                                                                                                |
 | `POST /api/parties/:id/quote`          | player        | body `{ token, qty }` (1–20) → `{ quote, payment }`: `payment` is the exact `ft_transfer_call` to sign and send to `/api/relay`; valid 60 s                                                                                                                                                                                                                                                                              |
 | `GET /api/parties/:id/settlement`      | player        | `{ status, ops: [{ kind, token?, units?, hash?, status }] }`; status `live` → `waiting` → `pending` → `done` (or `failed`), `off` without an owner key; ops are `release`, `mint` per token, `settle` per batch of ≤ 32 guests                                                                                                                                                                                           |
-| `GET /api/admin/settlement`            | back office   | `{ failed: [{ id, party, kind, attempts, error, updatedAt }] }`, settlement steps out of retries                                                                                                                                                                                                                                                                                                                         |
+| `GET /api/admin/settlement`            | back office   | `{ failed: [{ id, party, kind, attempts, error, updatedAt }], stuck: [{ kind, id, error, hash, at }] }`, settlement steps out of retries and warehouse swaps / fundings (`kind` `swap` / `funding`) stopped for a person                                                                                                                                                                                                 |
 | `POST /api/admin/settlement/:op/retry` | owner, admin  | runs a failed step again (it checks the chain first, so it never doubles a step) → `{ ok }`                                                                                                                                                                                                                                                                                                                              |
 
 Error codes so far: `unauthorized` (401); `banned`, `not_admin`, `not_host`, `wrong_sender`, `wrong_key`,
@@ -137,8 +137,15 @@ USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinho
 4. 1Click's status, at most every 10 s: `SUCCESS` → `done`, `REFUNDED` → `refunded` (the USDC is back in the
    treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
 
-A `stuck` row blocks that asset's refills and counts toward the day until a person checks the deposit (nearblocks, the
-1Click explorer) and sets its `status` to `done` or `failed` in the database. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
+A `stuck` row is listed in `GET /api/admin/settlement`; it blocks that asset's refills and counts toward its day until a
+person checks the deposit (nearblocks, the 1Click explorer) and sets its `status` to `done` or `failed` in the database.
+
+The MPC requests and the deposits sign with one `Account` object (`warehouseAccount` in `chainsig.ts`), so they share
+the key's nonce. near-api-js refreshes a nonce only on `InvalidNonceError`, which its failover provider wraps;
+`NonceRetryProvider` unwraps it when every RPC refused the nonce (nothing ran), so a key also used elsewhere costs one
+re-sign, not every transaction after it. Run one api process per warehouse account: the one-in-flight rule is per
+process. While the warehouse waits for funds, a party's mint retries with settlement's backoff (5 tries, ≈ 4 min);
+if funding takes longer, retry the step from the back office. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
 one swap's gas ≈ 0.00003 ETH.
 
 ## Rules
