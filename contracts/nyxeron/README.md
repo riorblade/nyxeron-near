@@ -143,7 +143,7 @@ on USDC too, or their transfers fail (margin waits for `claim_margin`, a release
 - `settle` of 32 transfers with the longest ids (64-char accounts and `party`, 64-char `op_id`): 23.1 TGas and under
   10,000 of the 16,384 log bytes NEAR allows per call (21.9 TGas, 11,040 bytes with the largest amounts, v1). The log
   cap, not gas, sets the batch limit: every transfer emits an event.
-- Wasm: ~250 KB, so about 2.5 NEAR of the contract's balance is locked for code.
+- Wasm: 345,655 bytes for v2 on testnet (2026-11-07), so about 3.5 NEAR of the contract's balance is locked for code.
 - Storage for new holders comes out of the contract's balance (no `storage_deposit`): 141 bytes ≈ 0.0014 NEAR per new
   holder with a 64-char implicit account. Keep the balance topped up. A holder could spread units over many new
   accounts to lock the contract's NEAR, but each new account costs them at least one unit (0.001 share, ~\$0.40 for
@@ -167,4 +167,4 @@ cargo near build non-reproducible-wasm        # dev build → target/near/nyxero
 cargo near build reproducible-wasm            # release build (Docker)
 ```
 
-Mainnet deploys only with the team's yes. Security review: [AUDIT.md](AUDIT.md).
+Mainnet deploys only with the team's yes, step by step in [MAINNET.md](MAINNET.md). Security review: [AUDIT.md](AUDIT.md).
