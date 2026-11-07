@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { USDG } from './chainsig.ts'
 import { all, type Db, one, run } from './db.ts'
 import { type OneClick, type OneClickToken, QUOTE_VALID_MS } from './intents.ts'
-import { type RelayResult, summarise } from './near.ts'
+import type { RelayResult } from './near.ts'
 
 const BPS = 10_000n
 const TOKENS_TTL_MS = 10 * 60_000
@@ -23,6 +23,7 @@ export type FundLimits = {
   minRefill: bigint // micro-USDC: 1Click's flat withdraw fee makes a smaller deposit too costly
   maxDay: bigint // micro-USDC over every refill of a UTC day
   maxLossBps: bigint // the quote's minimum out must be worth at least 97 % of the USDC sent
+  maxFailedDay: number // deposits that failed on chain in a UTC day before the funder stops (gas, 1Click quotes)
   slippageBps: number
 }
 export const FUND_LIMITS: FundLimits = {
@@ -34,6 +35,7 @@ export const FUND_LIMITS: FundLimits = {
   minRefill: 5_000_000n,
   maxDay: 600_000_000n,
   maxLossBps: 300n,
+  maxFailedDay: 3,
   slippageBps: 100,
 }
 
@@ -191,6 +193,13 @@ export function warehouseFunder(deps: {
     const amount = held < want ? held : want
     if (amount < limits.minRefill) throw new FundError('treasury_low')
     if (spentToday() + amount > limits.maxDay) throw new FundError('daily_limit')
+    const failed = one<{ n: number }>(
+      db,
+      "SELECT COUNT(*) AS n FROM warehouse_funding WHERE status = 'failed' AND created_at >= ?",
+      utcDay(now()) * 86_400_000,
+    )!.n
+    // A deposit that keeps failing on chain (no NEAR for the registration, USDC paused) must not retry every tick.
+    if (failed >= limits.maxFailedDay) throw new FundError('too_many_failures')
     let answer: unknown
     try {
       answer = await oneclick.quote({
@@ -348,7 +357,28 @@ export function nearTreasury(opts: { account: Account; usdcId: string }): Treasu
         // throw, which the funder has to treat as "did it go?".
         throwOnFailure: false,
       })
-      return summarise(o as unknown as Parameters<typeof summarise>[0])
+      return depositOutcome(o as unknown as DepositOutcome)
     },
   }
+}
+
+type ExecStatus = Record<string, unknown> | string
+type DepositOutcome = {
+  transaction: { hash: string }
+  transaction_outcome?: { outcome?: { receipt_ids?: string[] } }
+  receipts_outcome?: { id: string; outcome: { status: ExecStatus } }[]
+}
+
+/** Did the deposit's USDC move? Only the receipt that ran our actions (storage_deposit + ft_transfer, together) says:
+ * it failed → both reverted, nothing moved; it succeeded → the USDC is at the deposit address, whatever a later
+ * receipt (a storage refund) did. No outcome for it is a throw, which the funder parks as stuck. */
+export function depositOutcome(o: DepositOutcome): RelayResult {
+  const hash = o.transaction.hash
+  const id = o.transaction_outcome?.outcome?.receipt_ids?.[0]
+  const status = o.receipts_outcome?.find((r) => r.id === id)?.outcome.status
+  if (typeof status === 'object' && status !== null) {
+    if ('Failure' in status) return { hash, ok: false, error: JSON.stringify(status.Failure).slice(0, 300) }
+    if ('SuccessValue' in status || 'SuccessReceiptId' in status) return { hash, ok: true }
+  }
+  throw new Error(`deposit ${hash}: its receipt's outcome is ${JSON.stringify(status)}`)
 }

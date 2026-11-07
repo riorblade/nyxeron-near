@@ -290,6 +290,22 @@ describe('limits and unclear states', () => {
     expect(t.rows().map((r) => r.status)).toEqual(['failed', 'sent'])
   })
 
+  it('stops for the day after three deposits failed on chain', async () => {
+    const t = setup()
+    t.held.usdg = 0n
+    for (let i = 0; i < 3; i++) {
+      t.state.fail = true
+      await t.funder.tick()
+    }
+    expect(t.rows().map((r) => r.status)).toEqual(['failed', 'failed', 'failed'])
+    await t.funder.tick()
+    expect(t.quotes).toHaveLength(3)
+    expect(t.logs.join()).toContain('too_many_failures')
+    t.later(86_400_000)
+    await t.funder.tick()
+    expect(t.quotes).toHaveLength(4)
+  })
+
   it('a deposit whose answer was lost stops for a person and blocks that asset only', async () => {
     const t = setup()
     t.held.usdg = 0n
@@ -384,6 +400,8 @@ describe('the treasury’s deposit transaction', () => {
   class FakeRpc extends JsonRpcProvider {
     sent: SignedTransaction[] = []
     fail = false
+    refundFails = false
+    noReceipt = false
     constructor() {
       super({ url: 'http://fake' })
     }
@@ -395,14 +413,21 @@ describe('the treasury’s deposit transaction', () => {
     }
     override async sendTransactionUntil(tx: SignedTransaction) {
       this.sent.push(tx)
-      const status = this.fail
-        ? { Failure: { ActionError: { index: 1, kind: { FunctionCallError: { ExecutionError: 'not registered' } } } } }
-        : { SuccessValue: '' }
+      const failure = { Failure: { ActionError: { index: 1, kind: { FunctionCallError: { ExecutionError: 'x' } } } } }
+      // Like the real deposit (testnet 2QVdMW…): receipt 1 runs our actions on USDC, receipt 2 refunds the sender.
+      const actions = this.fail ? failure : { SuccessValue: '' }
       return {
-        status,
+        status: this.fail || this.refundFails ? failure : { SuccessValue: '' },
         transaction: { hash: 'tx-deposit' },
-        transaction_outcome: { id: 'tx-deposit', block_hash: '1'.repeat(32) },
-        receipts_outcome: [],
+        transaction_outcome: {
+          id: 'tx-deposit',
+          block_hash: '1'.repeat(32),
+          outcome: { receipt_ids: ['r-actions'] },
+        },
+        receipts_outcome: [
+          ...(this.noReceipt ? [] : [{ id: 'r-actions', outcome: { status: actions } }]),
+          { id: 'r-refund', outcome: { status: this.refundFails ? failure : { SuccessValue: '' } } },
+        ],
       } as never
     }
   }
@@ -433,5 +458,17 @@ describe('the treasury’s deposit transaction', () => {
     const t = setupReal()
     t.rpc.fail = true
     expect(await t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).toMatchObject({ hash: 'tx-deposit', ok: false })
+  })
+
+  it('judges by the receipt that ran the transfer: a failed refund after it still means the USDC moved', async () => {
+    const t = setupReal()
+    t.rpc.refundFails = true
+    expect(await t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).toEqual({ hash: 'tx-deposit', ok: true })
+  })
+
+  it('without that receipt’s outcome it throws, so the funder stops for a person', async () => {
+    const t = setupReal()
+    t.rpc.noReceipt = true
+    await expect(t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).rejects.toThrow(/receipt/)
   })
 })

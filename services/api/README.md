@@ -132,8 +132,10 @@ USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinho
    address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, and
    a minimum out worth at least **97 %** of what we send (1Click's own price); otherwise nothing is sent.
 3. The deposit is written to `warehouse_funding` as `quoted`, then sent in one transaction: `storage_deposit` for the
-   deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. A failure on chain moved nothing (`failed`);
-   a lost answer, or a `quoted` row found after a restart, is `stuck` with `deposit_unknown`.
+   deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. The receipt that ran those two actions decides:
+   failed → both reverted, nothing moved (`failed`; three in a UTC day stop the funder until the next,
+   `too_many_failures`); succeeded → the USDC left, whatever a later refund receipt did. A lost answer, no outcome
+   for that receipt, or a `quoted` row found after a restart is `stuck` with `deposit_unknown`.
 4. 1Click's status, at most every 10 s: `SUCCESS` → `done`, `REFUNDED` → `refunded` (the USDC is back in the
    treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
 
