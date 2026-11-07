@@ -1,15 +1,19 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { serve } from '@hono/node-server'
+import type { TokenId } from '@nyxeron/game'
 import { createApp } from './app.ts'
 import { privyIdentity } from './auth.ts'
+import { nearMpc, robinhoodChain, warehouse } from './chainsig.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
+import { nearTreasury, warehouseFunder } from './fund.ts'
 import { oneClick } from './intents.ts'
 import { nearOwnerChain, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
 import { robinhoodReader, verifyMenu } from './robinhood.ts'
-import { buySharesFor, settlement } from './settlement.ts'
+import { type BuyShares, buySharesFor, settlement } from './settlement.ts'
+import { kyberSwap, robinhoodHood, warehouseBuyer } from './swap.ts'
 
 const cfg = loadConfig()
 mkdirSync(cfg.DATA_DIR, { recursive: true })
@@ -23,13 +27,57 @@ const relayer = nearRelayer(cfg)
 if (!relayer) console.warn('no relayer key: /api/relay and /api/onboard answer 503 relayer_off')
 // Add money / Cash out. Testnet answers dry quotes only (1Click has no testnet).
 const oneclick = oneClick({ url: cfg.ONECLICK_URL, jwt: cfg.ONECLICK_JWT })
-const app = createApp({ cfg, db, identity, quotes: marketQuotes({ allowed: new Set(menu.ok) }), relayer, oneclick })
+const quotes = marketQuotes({ allowed: new Set(menu.ok) })
+const app = createApp({ cfg, db, identity, quotes, relayer, oneclick })
+
+// Mainnet: the warehouse buys the real shares (swap.ts) and the treasury keeps it in USDG and gas (fund.ts), both with
+// the warehouse account's key. Testnet keeps simulated purchases (SPEC §10).
+let buyShares: BuyShares | undefined
+let fundTimer: ReturnType<typeof setInterval> | undefined
+if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_KEY) {
+  const hood = robinhoodHood()
+  const signer = warehouse({
+    mpc: nearMpc({ network: cfg.NEAR_NETWORK, accountId: cfg.WAREHOUSE_ACCOUNT_ID, key: cfg.WAREHOUSE_KEY }),
+    chain: robinhoodChain(),
+  })
+  buyShares = warehouseBuyer({
+    db,
+    hood,
+    kyber: kyberSwap(),
+    signer,
+    price: (token) => quotes.spot(token as TokenId),
+    log: console.log,
+  }).buyShares
+  const funder = warehouseFunder({
+    db,
+    oneclick,
+    treasury: nearTreasury({
+      network: cfg.NEAR_NETWORK,
+      accountId: cfg.WAREHOUSE_ACCOUNT_ID,
+      key: cfg.WAREHOUSE_KEY,
+      usdcId: cfg.USDC_CONTRACT_ID,
+    }),
+    chain: hood,
+    warehouse: signer.address,
+    usdcId: cfg.USDC_CONTRACT_ID,
+    log: console.log,
+  })
+  fundTimer = setInterval(() => {
+    void funder.tick().catch((e: unknown) => console.error('warehouse funding tick', e))
+  }, 15_000)
+  void signer.address().then(
+    (a) => console.log(`warehouse ${a} on Robinhood Chain, controlled by ${cfg.WAREHOUSE_ACCOUNT_ID}`),
+    (e: unknown) => console.error('warehouse address', e),
+  )
+} else if (cfg.NEAR_NETWORK === 'mainnet') {
+  console.warn('no warehouse key: mainnet parties stop at their mint (not_built)')
+}
 
 // After each party: release its wholesale, back the owed units, settle them to the guests (one tx at a time).
 const owner = nearOwnerChain(cfg)
 const settleTimer = owner
   ? setInterval(() => {
-      void settlement({ db, chain: owner, buyShares: buySharesFor(cfg), log: console.log })
+      void settlement({ db, chain: owner, buyShares: buySharesFor(cfg, buyShares), log: console.log })
         .tick()
         .catch((e: unknown) => console.error('settlement tick', e))
     }, 10_000)
@@ -44,6 +92,7 @@ const server = serve({ fetch: app.fetch, port: cfg.PORT }, (info) =>
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     clearInterval(settleTimer)
+    clearInterval(fundTimer)
     server.close(() => {
       db.close()
       process.exit(0)

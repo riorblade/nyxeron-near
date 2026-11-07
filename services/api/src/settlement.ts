@@ -72,11 +72,13 @@ export function chainParty(db: Db, partyId: number): string {
   return `${install}-${partyId}`
 }
 
-/** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: not built yet (1Click + Kyber). */
-export function buySharesFor(cfg: Config): BuyShares {
-  return async (party, token) => {
-    if (cfg.NEAR_NETWORK !== 'testnet') throw new SettlementError('not_built', true)
-    return `demo:${party}:${token}:1`
+/** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: the warehouse's real swap (swap.ts),
+ * or `not_built` when the api has no warehouse account. */
+export function buySharesFor(cfg: Config, mainnet?: BuyShares): BuyShares {
+  return async (party, token, units) => {
+    if (cfg.NEAR_NETWORK === 'testnet') return `demo:${party}:${token}:1`
+    if (!mainnet) throw new SettlementError('not_built', true)
+    return mainnet(party, token, units)
   }
 }
 

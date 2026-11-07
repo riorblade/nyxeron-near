@@ -90,8 +90,8 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 1. `release_wholesale(party)`.
 2. `mint_warehouse(token, units, proof)` per token for the total owed. On testnet the proof is `demo:<party>:<token>:1`
-   (the purchase is simulated, SPEC §10). On mainnet `buyShares` is to be `warehouseBuyer(...).buyShares` from
-   `swap.ts` (below); until it is wired the party stops with `not_built`.
+   (the purchase is simulated, SPEC §10). On mainnet it is the warehouse's real swap (`swap.ts`, below) when
+   `WAREHOUSE_ACCOUNT_ID` / `WAREHOUSE_KEY` are set; without them the party stops with `not_built`.
 3. `settle(party, party:<id>:<batch>, ≤ 32 transfers)` from the contract's `owed(party)`.
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
@@ -108,7 +108,9 @@ pinned token for the warehouse and returns the swap's tx hash, the proof for `mi
 2. Refused before anything is signed: over **\$50** in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC
    day (`daily_limit`), worth more than **2 %** under the market price (`under_market`), another router
    (`wrong_router`).
-3. `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
+3. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
+   and the approve (`warehouse_low_eth`) are retried while `fund.ts` tops it up.
+   `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
 4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
    receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
    with `swap_dropped`: a person checks, it is never bought again automatically.
@@ -117,6 +119,27 @@ pinned token for the warehouse and returns the swap's tx hash, the proof for `mi
    balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
+
+## Funding the warehouse (`fund.ts`)
+
+SPEC §5.3 step 2. On mainnet the warehouse account is also the contract's treasury: released wholesale lands there as
+USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinhood Chain address above a floor of USDG
+(**\$60**, refilled with \$100) and of ETH for gas (**0.0002 ETH**, refilled with \$5), through 1Click:
+
+1. ETH first, then USDG; at most one deposit per tick and one in flight per asset. Less than **\$5** in the treasury
+   (`treasury_low`) or over **\$600** of deposits in a UTC day (`daily_limit`, refunds count) sends nothing.
+2. A 1Click quote from the treasury's USDC. Its answer must name the warehouse as recipient, USDG by its contract
+   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, and
+   a minimum out worth at least **97 %** of what we send (1Click's own price); otherwise nothing is sent.
+3. The deposit is written to `warehouse_funding` as `quoted`, then sent in one transaction: `storage_deposit` for the
+   deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. A failure on chain moved nothing (`failed`);
+   a lost answer, or a `quoted` row found after a restart, is `stuck` with `deposit_unknown`.
+4. 1Click's status, at most every 10 s: `SUCCESS` → `done`, `REFUNDED` → `refunded` (the USDC is back in the
+   treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
+
+A `stuck` row blocks that asset's refills and counts toward the day until a person checks the deposit (nearblocks, the
+1Click explorer) and sets its `status` to `done` or `failed` in the database. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
+one swap's gas ≈ 0.00003 ETH.
 
 ## Rules
 

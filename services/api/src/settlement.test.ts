@@ -312,7 +312,7 @@ describe('the settlement job', () => {
     expect(w.fake.calls.length).toBe(calls)
   })
 
-  it('on mainnet the share purchase is not built yet: the party stops at its first mint, nothing minted', async () => {
+  it('on mainnet without a warehouse account the party stops at its first mint, nothing minted', async () => {
     const db = openDb(':memory:')
     run(db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
     run(
@@ -330,6 +330,27 @@ describe('the settlement job', () => {
     for (let i = 0; i < 5; i++) await job.tick()
     expect(fake.calls).toEqual([`release:${chainParty(db, 1)}`])
     expect(all(db, "SELECT error FROM chain_ops WHERE kind = 'mint'")).toEqual([{ error: 'not_built' }])
+  })
+
+  it('on mainnet with the warehouse buyer, its swap hash is the mint proof', async () => {
+    const db = openDb(':memory:')
+    run(db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
+    run(
+      db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (1, 'host', 'P', 1, 0, 0, 0)",
+    )
+    const party = chainParty(db, 1)
+    const fake = fakeChain({ [party]: [owedRow(1, 'tsla', 3)] })
+    const cfg = loadConfig({ PRIVY_APP_ID: 'a', PRIVY_APP_SECRET: 's', NEAR_NETWORK: 'mainnet', CONTRACT_ID: 'x.near' })
+    const bought: string[] = []
+    const buy = async (p: string, token: string, units: bigint) => {
+      bought.push(`${p}:${token}:${units}`)
+      return '0xswap'
+    }
+    const job = settlement({ db, chain: fake.chain, buyShares: buySharesFor(cfg, buy), now: () => GRACE_MS + 1 })
+    for (let i = 0; i < 5; i++) await job.tick()
+    expect(bought).toEqual([`${party}:tsla:3`])
+    expect(fake.calls).toContain('mint:tsla:3:0xswap')
   })
 })
 

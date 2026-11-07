@@ -42,6 +42,8 @@ describe('relayer config', () => {
 describe('owner, test dollars and blank lines', () => {
   it('needs the owner account and key together; test dollars default to $3', () => {
     expect(() => loadConfig({ ...base, OWNER_ACCOUNT_ID: 'nyxeron-api.testnet' })).toThrow(/together/)
+    expect(() => loadConfig({ ...base, WAREHOUSE_ACCOUNT_ID: 'nyxeron-warehouse.near' })).toThrow(/together/)
+    expect(() => loadConfig({ ...base, WAREHOUSE_KEY: 'ed25519:x' })).toThrow(/together/)
     expect(loadConfig(base).TEST_DOLLARS).toBe(3_000_000)
     expect(() => loadConfig({ ...base, TEST_DOLLARS: '0' })).toThrow(/TEST_DOLLARS/)
   })
