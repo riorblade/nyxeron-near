@@ -279,6 +279,7 @@ describe('the relay and cash-outs (money rule)', () => {
     const body = (await json(await t.call('POST', '/api/me/cash-out', 'tok-alice', { to, amount: '5' }))) as {
       intent: { depositAddress: string }
     }
+    t.relayer.balances.set(`${USDC_MAIN}:${aliceAccount}`, 5_000_000n)
     const relay = (signedDelegate: string, token = 'tok-alice') =>
       t.call('POST', '/api/relay', token, { signedDelegate })
     return { ...t, dep: body.intent.depositAddress, relay }
@@ -288,7 +289,8 @@ describe('the relay and cash-outs (money rule)', () => {
     const t = await quoted()
     const res = await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))
     expect(res.status).toBe(200)
-    expect(t.relayer.calls).toEqual([`relay:${USDC_MAIN}:ft_transfer`])
+    // 1Click's deposit address is new to USDC: without the registration the transfer fails on chain (issue #65).
+    expect(t.relayer.calls).toEqual([`register:${t.dep}`, `relay:${USDC_MAIN}:ft_transfer`])
     expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: 'tx-ok' }])
     expect(t.submitted).toEqual([{ txHash: 'tx-ok', depositAddress: t.dep, nearSenderAccount: aliceAccount }])
     // Paying the same deposit address twice is refused.
@@ -302,7 +304,7 @@ describe('the relay and cash-outs (money rule)', () => {
     const d = cashOutDelegate({ to: t.dep, amount: '5000000' })
     const [a, b] = await Promise.all([t.relay(d), t.relay(d)])
     expect([a.status, b.status].sort()).toEqual([200, 403])
-    expect(t.relayer.calls).toEqual([`relay:${USDC_MAIN}:ft_transfer`])
+    expect(t.relayer.calls).toEqual([`register:${t.dep}`, `relay:${USDC_MAIN}:ft_transfer`])
     expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: 'tx-ok' }])
   })
 
@@ -311,6 +313,25 @@ describe('the relay and cash-outs (money rule)', () => {
     t.relayer.failRelay()
     expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(422)
     expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: '' }])
+    expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(200)
+  })
+
+  it('a deposit address USDC already knows is not registered again', async () => {
+    const t = await quoted()
+    t.relayer.registered.add(`${USDC_MAIN}:${t.dep}`)
+    expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(200)
+    expect(t.relayer.calls).toEqual([`relay:${USDC_MAIN}:ft_transfer`])
+  })
+
+  it('a player without the USDC is refused before the relayer pays for a registration, and can try again', async () => {
+    const t = await quoted()
+    t.relayer.balances.set(`${USDC_MAIN}:${aliceAccount}`, 4_999_999n)
+    const res = await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))
+    expect(res.status).toBe(409)
+    expect(await json(res)).toEqual({ error: 'not_enough_usdc' })
+    expect(t.relayer.calls).toEqual([])
+    expect(all(t.db, 'SELECT deposit_tx FROM intents')).toEqual([{ deposit_tx: '' }])
+    t.relayer.balances.set(`${USDC_MAIN}:${aliceAccount}`, 5_000_000n)
     expect((await t.relay(cashOutDelegate({ to: t.dep, amount: '5000000' }))).status).toBe(200)
   })
 
