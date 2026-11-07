@@ -95,6 +95,15 @@ export function checkDelegate(
   return 'receiver_not_allowed'
 }
 
+// 1Click's deposit address is a fresh implicit account USDC has no storage for, and a NEP-141 ft_transfer to an
+// unregistered account panics (issue #65). The relayer registers it (0.00125 NEAR), but only for a player who holds the
+// amount, so nobody can make the relayer pay for registrations with transfers that would fail anyway.
+async function registerDeposit(relayer: Relayer, usdc: string, player: string, depositAddress: string, amount: string) {
+  if (await relayer.isRegistered(usdc, depositAddress)) return
+  if ((await relayer.ftBalance(usdc, player)) < BigInt(amount)) throw new AppError(409, 'not_enough_usdc')
+  await relayer.register(usdc, depositAddress)
+}
+
 export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; relayer?: Relayer; oneclick?: OneClick }) {
   const { cfg, db } = deps
   const limited = rateLimit(20, 60_000)
@@ -119,13 +128,23 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
         if (refused) throw new AppError(403, refused)
         if (!signatureValid(d)) throw new AppError(403, 'bad_signature')
         const call = d.delegateAction.actions[0]!.functionCall!
-        const cashOutTo =
+        const cashOut =
           call.methodName === 'ft_transfer'
-            ? (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
+            ? (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string; amount: string })
             : undefined
+        const cashOutTo = cashOut?.receiver_id
         // Held before sending, so the same deposit can't go out twice. If the relay throws we don't know whether it
         // landed, so the hold stays (the player asks for a new quote); a failure on chain releases it.
         if (cashOutTo && !reserveCashOut(db, user.id, cashOutTo)) throw new AppError(409, 'cash_out_paid')
+        if (cashOut && cashOutTo) {
+          try {
+            await registerDeposit(deps.relayer, cfg.USDC_CONTRACT_ID, user.near_account, cashOutTo, cashOut.amount)
+          } catch (e) {
+            // Nothing was sent yet: the quote can be paid again.
+            releaseCashOut(db, user.id, cashOutTo)
+            throw e
+          }
+        }
         const result = await deps.relayer.relay(d)
         run(
           db,
