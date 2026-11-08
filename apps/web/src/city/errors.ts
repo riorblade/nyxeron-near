@@ -21,6 +21,13 @@ const MESSAGES: Record<string, string> = {
   paused: 'Buying is paused right now.',
   party_full: "This party can't take more orders right now. Try another drink.",
   refunded: 'Your payment was sent back to you. Try again.',
+  // Get test dollars (testnet only)
+  faucet_empty: 'The test faucet is empty right now.',
+  faucet_failed: "Sending test dollars didn't work. Try again.",
+  faucet_off: 'Test dollars are off right now.',
+  demo_off: 'Test dollars are off right now.',
+  not_testnet: 'Test dollars only exist on the test network.',
+  not_onboarded: 'Your account is still being set up. Try again in a moment.',
 }
 
 // Why the contract refunded a purchase (its `refund` event, passed on by the relay as "refund:<reason>"; the reasons
