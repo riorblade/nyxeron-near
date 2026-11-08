@@ -72,11 +72,25 @@ export function summarise(o: Outcome): RelayResult {
 
 export function nearRelayer(cfg: Config): Relayer | undefined {
   if (!cfg.RELAYER_ACCOUNT_ID || !cfg.RELAYER_KEY) return undefined
-  const provider = nearProvider(cfg.NEAR_NETWORK)
-  const relayer = new Account(cfg.RELAYER_ACCOUNT_ID, provider, cfg.RELAYER_KEY as KeyPairString)
+  return relayerOn(
+    new Account(cfg.RELAYER_ACCOUNT_ID, nearProvider(cfg.NEAR_NETWORK), cfg.RELAYER_KEY as KeyPairString),
+  )
+}
+
+// The relayer's calls on a near-api-js Account (its own RPCs in tests).
+export function relayerOn(relayer: Account): Relayer {
+  const provider = relayer.provider
   return {
     async relay(signed) {
-      return summarise((await relayer.relayMetaTransaction(signed as never)) as unknown as Outcome)
+      // relayMetaTransaction's transaction, but a failure on chain comes back as an outcome with its hash: by default
+      // near-api-js throws when the Delegate receipt itself fails (expired, nonce used, testnet k8UMQ4…), and the relay
+      // route reads a throw as "may have landed".
+      const o = await relayer.signAndSendTransaction({
+        receiverId: signed.delegateAction.senderId,
+        actions: [actions.signedDelegate(signed as never)],
+        throwOnFailure: false,
+      })
+      return summarise(o as unknown as Outcome)
     },
     async accountExists(accountId) {
       return provider.viewAccount({ accountId }).then(
@@ -131,6 +145,7 @@ export function nearRelayer(cfg: Config): Relayer | undefined {
             1n,
           ),
         ],
+        throwOnFailure: false,
       })) as unknown as Outcome
       return summarise(o)
     },
