@@ -38,3 +38,17 @@ describe('relayer config', () => {
     )
   })
 })
+
+describe('owner, test dollars and blank lines', () => {
+  it('needs the owner account and key together; test dollars default to $3', () => {
+    expect(() => loadConfig({ ...base, OWNER_ACCOUNT_ID: 'nyxeron-api.testnet' })).toThrow(/together/)
+    expect(loadConfig(base).TEST_DOLLARS).toBe(3_000_000)
+    expect(() => loadConfig({ ...base, TEST_DOLLARS: '0' })).toThrow(/TEST_DOLLARS/)
+  })
+
+  it('treats a blank line from .env.example (KEY=) as not set', () => {
+    const cfg = loadConfig({ ...base, RELAYER_ACCOUNT_ID: '', RELAYER_KEY: '', OWNER_KEY: '', CONTRACT_ID: '' })
+    expect(cfg.RELAYER_ACCOUNT_ID).toBeUndefined()
+    expect(cfg.CONTRACT_ID).toBe('nyxeron.testnet')
+  })
+})

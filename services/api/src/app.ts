@@ -5,6 +5,7 @@ import type { Identity } from './auth.ts'
 import type { Config } from './config.ts'
 import type { Db } from './db.ts'
 import { AppError } from './http.ts'
+import type { OneClick } from './intents.ts'
 import type { Relayer } from './near.ts'
 import { onboardRoutes } from './onboard.ts'
 import { configRoutes, partyRoutes } from './parties.ts'
@@ -12,7 +13,7 @@ import { playerRoutes } from './players.ts'
 import { type Quotes, quoteRoutes } from './quotes.ts'
 import { relayRoutes } from './relay.ts'
 
-export type Deps = { cfg: Config; db: Db; identity: Identity; quotes: Quotes; relayer?: Relayer }
+export type Deps = { cfg: Config; db: Db; identity: Identity; quotes: Quotes; relayer?: Relayer; oneclick?: OneClick }
 
 export function createApp(deps: Deps) {
   const app = new Hono()
@@ -30,7 +31,7 @@ export function createApp(deps: Deps) {
     .route('/onboard', onboardRoutes(deps))
     .route('/relay', relayRoutes(deps))
     .route('/parties', partyRoutes(deps))
-    .route('/config', configRoutes(deps.cfg))
+    .route('/config', configRoutes(deps.cfg, deps.relayer))
   return app
 }
 

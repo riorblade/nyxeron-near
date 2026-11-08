@@ -80,6 +80,66 @@ const migrations = [
      created_at     INTEGER NOT NULL
    );
    CREATE INDEX quotes_party ON quotes(party_id);`,
+  // 4. "Get test dollars" grants on testnet: real Circle testnet USDC sent by the relayer, so not play credits.
+  // A row is written before the transfer is sent, so two requests at once can't both pass the once-a-day check.
+  `CREATE TABLE test_dollars (
+     id       INTEGER PRIMARY KEY,
+     user_id  TEXT    NOT NULL REFERENCES users(id),
+     account  TEXT    NOT NULL,                    -- NEAR account the dollars went to
+     amount   INTEGER NOT NULL CHECK (amount > 0), -- micro-USDC
+     status   TEXT    NOT NULL CHECK (status IN ('sending', 'sent', 'failed')),
+     tx_hash  TEXT    NOT NULL DEFAULT '',
+     error    TEXT    NOT NULL DEFAULT '',
+     at       INTEGER NOT NULL
+   );
+   CREATE INDEX test_dollars_user ON test_dollars(user_id, at);`,
+  // 5. settlement at party end: one row per party, and the outbox of its on-chain steps (settlement.ts)
+  `CREATE TABLE settlements (
+     party_id   INTEGER PRIMARY KEY REFERENCES parties(id),
+     status     TEXT    NOT NULL CHECK (status IN ('pending', 'done', 'failed')),
+     error      TEXT    NOT NULL DEFAULT '',
+     updated_at INTEGER NOT NULL
+   );
+   CREATE TABLE chain_ops (
+     id         TEXT    PRIMARY KEY,               -- release:<party>, mint:<party>:<token>, party:<party>:<batch>
+     party_id   INTEGER NOT NULL REFERENCES parties(id),
+     seq        INTEGER NOT NULL,                  -- order within the party
+     kind       TEXT    NOT NULL CHECK (kind IN ('release', 'mint', 'settle')),
+     payload    TEXT    NOT NULL,                  -- JSON: token + units (+ proof) for a mint, transfers for a settle
+     status     TEXT    NOT NULL CHECK (status IN ('pending', 'sent', 'done', 'failed')),
+     attempts   INTEGER NOT NULL DEFAULT 0,
+     next_at    INTEGER NOT NULL,
+     tx_hash    TEXT    NOT NULL DEFAULT '',
+     error      TEXT    NOT NULL DEFAULT '',
+     updated_at INTEGER NOT NULL,
+     UNIQUE (party_id, seq)
+   );
+   CREATE INDEX chain_ops_status ON chain_ops(status);`,
+  // 6. this database's own id. The contract sees party `<install>-<id>`, so a fresh database (a redeploy) never reuses
+  // a party, a settle op id or a demo proof the contract already has.
+  `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+   INSERT INTO meta (key, value) VALUES ('install', lower(hex(randomblob(4))));`,
+  // 7. Add money / Cash out quotes from 1Click (intents.ts). A cash-out row is what lets the relay send the player's
+  // USDC to that deposit address, once (deposit_tx).
+  `CREATE TABLE intents (
+     id                TEXT    PRIMARY KEY,              -- 1Click correlationId
+     user_id           TEXT    NOT NULL REFERENCES users(id),
+     kind              TEXT    NOT NULL CHECK (kind IN ('add_money', 'cash_out')),
+     origin_asset      TEXT    NOT NULL,
+     destination_asset TEXT    NOT NULL,
+     amount_in         TEXT    NOT NULL,                 -- smallest unit of the origin asset
+     amount_out        TEXT    NOT NULL,
+     deposit_address   TEXT    NOT NULL UNIQUE,
+     deposit_memo      TEXT    NOT NULL DEFAULT '',
+     recipient         TEXT    NOT NULL,
+     refund_to         TEXT    NOT NULL,
+     deadline          INTEGER NOT NULL,                 -- ms; deposit before it
+     status            TEXT    NOT NULL,                 -- 1Click status, PENDING_DEPOSIT … SUCCESS / REFUNDED / FAILED
+     deposit_tx        TEXT    NOT NULL DEFAULT '',      -- the cash-out deposit the relay sent
+     checked_at        INTEGER NOT NULL,
+     created_at        INTEGER NOT NULL
+   );
+   CREATE INDEX intents_user ON intents(user_id, created_at);`,
 ]
 
 export function openDb(path: string): Db {
