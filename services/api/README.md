@@ -144,7 +144,8 @@ person checks the deposit (nearblocks, the 1Click explorer) and sets its `status
 
 The MPC requests and the deposits sign with one `Account` object (`warehouseAccount` in `chainsig.ts`), so they share
 the key's nonce. near-api-js refreshes a nonce only on `InvalidNonceError`, which its failover provider wraps;
-`NonceRetryProvider` unwraps it when every RPC refused the nonce (nothing ran), so a key also used elsewhere costs one
+`NonceRetryProvider` (`near.ts`, behind every signing account: relayer, owner, warehouse) unwraps it when every RPC
+refused the nonce (nothing ran), so a key also used elsewhere (the relayer and owner as one account, the CLI) costs one
 re-sign, not every transaction after it. Run one api process per warehouse account: the one-in-flight rule is per
 process. While the warehouse waits for funds, a party's mint retries with settlement's backoff (5 tries, ≈ 4 min);
 if funding takes longer, retry the step from the back office. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;

@@ -1,12 +1,14 @@
 import {
   Account,
   actions,
+  FailoverRpcError,
   FailoverRpcProvider,
   JsonRpcProvider,
   type KeyPairString,
   nearToYocto,
   teraToGas,
 } from 'near-api-js'
+import { InvalidNonceError } from 'near-api-js/rpc-errors'
 import type { Config } from './config.ts'
 import type { SignedDelegateWire } from './relay.ts'
 import type { Owed, SettleChain } from './settlement.ts'
@@ -18,8 +20,33 @@ const RPCS = {
   testnet: ['https://test.rpc.fastnear.com', 'https://near-testnet.drpc.org', 'https://testnet-rpc.intea.rs'],
 } as const
 
+/** When every RPC refused a transaction for its nonce, nothing ran: hand near-api-js the InvalidNonceError itself.
+ * Anything else (a timeout on one RPC, then a refusal on the next) stays a FailoverRpcError, because the first RPC may
+ * have taken the transaction. */
+export function unwrapNonce(e: unknown): unknown {
+  if (e instanceof FailoverRpcError && e.errors.length > 0 && e.errors.every((x) => x instanceof InvalidNonceError))
+    return e.errors[0]
+  return e
+}
+
+// near-api-js keeps each Account's next nonce in memory and refreshes it only on an InvalidNonceError, but the failover
+// provider wraps every error, so a nonce taken by anything else signing with the key (another Account object, another
+// process, the CLI) failed every transaction after it. With the error unwrapped, near-api-js re-reads the nonce and
+// signs again (a rejected nonce means the transaction never ran, so this can't send twice).
+export class NonceRetryProvider extends FailoverRpcProvider {
+  override async sendTransactionUntil(...args: Parameters<FailoverRpcProvider['sendTransactionUntil']>) {
+    try {
+      return await super.sendTransactionUntil(...args)
+    } catch (e) {
+      throw unwrapNonce(e)
+    }
+  }
+}
+
+// Every signing account uses it: the relayer and the owner may be one account (config.ts), each with its own Account
+// object, and the warehouse's MPC requests and deposits share a key too.
 export function nearProvider(network: Config['NEAR_NETWORK']) {
-  return new FailoverRpcProvider(RPCS[network].map((url) => new JsonRpcProvider({ url })))
+  return new NonceRetryProvider(RPCS[network].map((url) => new JsonRpcProvider({ url })))
 }
 
 export type RelayResult = { hash: string; ok: boolean; error?: string }

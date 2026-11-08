@@ -1,8 +1,7 @@
 // The warehouse on Robinhood Chain: an EVM address that NEAR Chain Signatures controls for the api's NEAR account.
 // There is no private key for it anywhere. Every transaction is checked here before we pay for a sign request, and the
 // signature is checked before anything is broadcast (spike 16, SPEC §5.3).
-import { Account, FailoverRpcError, FailoverRpcProvider, type KeyPairString, PublicKey, teraToGas } from 'near-api-js'
-import { InvalidNonceError } from 'near-api-js/rpc-errors'
+import { Account, type KeyPairString, PublicKey, teraToGas } from 'near-api-js'
 import {
   type Address,
   createPublicClient,
@@ -163,32 +162,9 @@ export function warehouse(deps: {
   return { address, sign, signAndSend }
 }
 
-/** When every RPC refused a transaction for its nonce, nothing ran: hand near-api-js the InvalidNonceError itself.
- * Anything else (a timeout on one RPC, then a refusal on the next) stays a FailoverRpcError, because the first RPC may
- * have taken the transaction. */
-export function unwrapNonce(e: unknown): unknown {
-  if (e instanceof FailoverRpcError && e.errors.length > 0 && e.errors.every((x) => x instanceof InvalidNonceError))
-    return e.errors[0]
-  return e
-}
-
-// near-api-js keeps each Account's next nonce in memory and refreshes it only on an InvalidNonceError, but the failover
-// provider wraps every error, so a nonce taken by anything else signing with the key (another Account object, another
-// process, the CLI) failed every transaction after it. With the error unwrapped, near-api-js re-reads the nonce and
-// signs again (a rejected nonce means the transaction never ran, so this can't send twice).
-export class NonceRetryProvider extends FailoverRpcProvider {
-  override async sendTransactionUntil(...args: Parameters<FailoverRpcProvider['sendTransactionUntil']>) {
-    try {
-      return await super.sendTransactionUntil(...args)
-    } catch (e) {
-      throw unwrapNonce(e)
-    }
-  }
-}
-
 /** The warehouse account, one object for everything it signs (MPC requests and the treasury's deposits). */
 export function warehouseAccount(network: Config['NEAR_NETWORK'], accountId: string, key: string): Account {
-  return new Account(accountId, new NonceRetryProvider(nearProvider(network).providers), key as KeyPairString)
+  return new Account(accountId, nearProvider(network), key as KeyPairString)
 }
 
 // The real MPC contract, called by `account`. `sign` needs 1 yocto, so its key must be a full-access key.
