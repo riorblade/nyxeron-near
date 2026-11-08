@@ -86,9 +86,9 @@ describe('POST /api/relay', () => {
       'receiver_not_allowed',
     ],
     [
-      'a plain USDC transfer',
+      'a plain USDC transfer, not to a cash-out address this api quoted (intents.test.ts)',
       { method: 'ft_transfer', args: { receiver_id: CONTRACT, amount: '1' } },
-      'method_not_allowed',
+      'receiver_not_allowed',
     ],
     ['more than 1 yocto attached', { deposit: 2n }, 'deposit_not_allowed'],
     ['no yocto on ft_transfer_call', { deposit: 0n }, 'deposit_not_allowed'],

@@ -38,30 +38,38 @@ export function implicitKey(account: string): PublicKey {
   return new PublicKey({ keyType: KeyType.ED25519, data: fromHex(account) })
 }
 
-// A USDC ft_transfer_call to our contract, as the relayer allows it: one call, 1 yocto, nonce and expiry from chain.
-export async function paymentDelegate(
-  provider: Provider,
-  p: { sender: string; usdc: string; contract: string; amount: string; msg: string },
-): Promise<DelegateAction> {
-  const publicKey = implicitKey(p.sender)
+/** One contract call exactly as the api hands it over (the `payment` of a drink quote). Gas and deposit are used as
+ * they are: the relayer only accepts what the api built. */
+export type Call = { receiverId: string; method: string; args: Record<string, unknown>; gas: string; deposit: string }
+
+// The player's delegate for one call: nonce and expiry from chain, signed later by signDelegate.
+export async function delegateFor(provider: Provider, sender: string, call: Call): Promise<DelegateAction> {
+  const publicKey = implicitKey(sender)
   const [access, head] = await Promise.all([
-    provider.viewAccessKey({ accountId: p.sender, publicKey: publicKey.toString() }),
+    provider.viewAccessKey({ accountId: sender, publicKey: publicKey.toString() }),
     provider.viewBlock({ finality: 'final' }),
   ])
   return buildDelegateAction({
-    senderId: p.sender,
-    receiverId: p.usdc,
+    senderId: sender,
+    receiverId: call.receiverId,
     nonce: BigInt((access as unknown as { nonce: bigint | number }).nonce) + 1n,
     maxBlockHeight: BigInt(head.header.height) + VALID_BLOCKS,
     publicKey,
-    actions: [
-      actions.functionCall(
-        'ft_transfer_call',
-        { receiver_id: p.contract, amount: p.amount, msg: p.msg },
-        PAYMENT_GAS,
-        1n,
-      ),
-    ],
+    actions: [actions.functionCall(call.method, call.args, BigInt(call.gas), BigInt(call.deposit))],
+  })
+}
+
+// A USDC ft_transfer_call to our contract, as the relayer allows it (the spike 10 test payment).
+export function paymentDelegate(
+  provider: Provider,
+  p: { sender: string; usdc: string; contract: string; amount: string; msg: string },
+): Promise<DelegateAction> {
+  return delegateFor(provider, p.sender, {
+    receiverId: p.usdc,
+    method: 'ft_transfer_call',
+    args: { receiver_id: p.contract, amount: p.amount, msg: p.msg },
+    gas: String(PAYMENT_GAS),
+    deposit: '1',
   })
 }
 

@@ -137,8 +137,9 @@ describe('POST /api/parties/:id/quote', () => {
     expect(valid).toBe(true)
     expect(quote).toEqual(body.quote)
     expect(quote).toMatchObject({
-      v: 1,
-      party: String(id),
+      v: 2,
+      contract: 'nyxeron.testnet',
+      party: expect.stringMatching(new RegExp(`^[0-9a-f]{8}-${id}$`)),
       buyer: guest,
       ceo: host,
       token: 'tsla',

@@ -15,6 +15,9 @@ export function Landing() {
         <Link href="/practice" className="rounded-xl bg-gold px-6 py-3 font-bold text-night hover:brightness-110">
           Play · no sign-in
         </Link>
+        <Link href="/city" className="rounded-xl border border-line px-6 py-3 font-semibold hover:border-violet">
+          City · sign in
+        </Link>
       </div>
       <ul className="mt-12 grid gap-4 text-sm text-muted sm:grid-cols-3">
         <li>
@@ -26,8 +29,7 @@ export function Landing() {
           menu.
         </li>
         <li>
-          <span className="block font-semibold text-ink">City</span>Real parties, real dollars, real shares. Coming with
-          sign-in.
+          <span className="block font-semibold text-ink">City</span>Real parties, real dollars, real shares.
         </li>
       </ul>
     </main>
