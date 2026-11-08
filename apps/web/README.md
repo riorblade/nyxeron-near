@@ -24,7 +24,9 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 | `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                 |
 | `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                          |
 
-Add money / Cash out show their screens; the 1Click endpoints come with the api's `intents.ts`. Collect shares (in the
+Add money / Cash out (`city/MoneyPanel.tsx`, `city/money.ts`) quote through the api's 1Click endpoints; on testnet every
+quote is a dry run (nothing to send), on mainnet Add money shows the deposit address and Cash out signs the USDC transfer
+here and relays it. Collect shares (in the
 portfolio) reads `owed(chainParty)` from the contract and `GET /api/parties/:id/settlement` for each party this browser
 bought at. Get test dollars shows only when `/api/config` has `testDollars` (testnet with `DEMO_MODE`).
 
