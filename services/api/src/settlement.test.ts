@@ -3,9 +3,11 @@ import { loadConfig } from './config.ts'
 import { all, openDb, run } from './db.ts'
 import {
   backoff,
+  type BuyShares,
   buySharesFor,
   chainParty,
   GRACE_MS,
+  LEASE_MS,
   MAX_ATTEMPTS,
   MAX_KEY_LEN,
   MAX_PROOF_LEN,
@@ -275,6 +277,46 @@ describe('the settlement job', () => {
     expect(w.fake.minted.get('tsla')).toBe(1n)
   })
 
+  it('two ticks at once, or two jobs on one database, never run a step twice (a slow buy)', async () => {
+    const w = world({ 13: [owedRow(1, 'tsla', 2)] })
+    let buys = 0
+    let finish: () => void = () => {}
+    const slowBuy: BuyShares = async (party, token) => {
+      buys++
+      await new Promise<void>((r) => (finish = r)) // a mainnet buy: MPC signatures + a swap, seconds
+      return `swap:${party}:${token}`
+    }
+    const a = settlement({ db: w.db, chain: w.fake.chain, buyShares: slowBuy, now: w.at })
+    const b = settlement({ db: w.db, chain: w.fake.chain, buyShares: slowBuy, now: w.at })
+    await a.tick() // release
+    const first = a.tick() // the mint: starts the buy and waits on it
+    await new Promise((r) => setTimeout(r, 0))
+    await Promise.all([a.tick(), b.tick(), b.tick()]) // the next timer ticks, and another process
+    w.advance(5 * 60_000) // still inside the lease
+    await b.tick()
+    expect(buys).toBe(1)
+    finish()
+    await first
+    for (let i = 0; i < 5; i++) await a.tick()
+    expect(buys).toBe(1)
+    expect(w.fake.minted.get('tsla')).toBe(2n)
+    expect(w.status(13)).toBe('done')
+  })
+
+  it('a step whose process died mid-send runs again once its lease is over (on-chain check first)', async () => {
+    const w = world({ 14: [owedRow(1, 'nvda', 1)] })
+    await w.job.tick() // release
+    w.fake.fail('mint')
+    await w.job.tick() // plans the mint, which fails once
+    run(w.db, "UPDATE chain_ops SET status = 'sent', next_at = ? WHERE kind = 'mint'", w.at() + LEASE_MS) // died here
+    await w.job.tick()
+    expect(w.fake.minted.get('nvda')).toBeUndefined()
+    w.advance(LEASE_MS + 1)
+    await w.runAll()
+    expect(w.fake.minted.get('nvda')).toBe(1n)
+    expect(w.status(14)).toBe('done')
+  })
+
   it('an answer lost after the call landed is found on chain: never minted or settled twice', async () => {
     const w = world({ 8: [owedRow(1, 'aapl', 2)] })
     await w.job.tick() // release
@@ -299,6 +341,7 @@ describe('the settlement job', () => {
     // Pretend we crashed after the settle landed but before it was marked done.
     run(w.db, "UPDATE chain_ops SET status = 'sent', tx_hash = '' WHERE id = 'party:t-9:1'")
     run(w.db, "UPDATE settlements SET status = 'pending' WHERE party_id = 9")
+    w.advance(LEASE_MS + 1) // the dead process's lease runs out
     await w.runAll()
     expect(w.fake.calls.length).toBe(calls) // nothing resent
     expect(w.status(9)).toBe('done')
