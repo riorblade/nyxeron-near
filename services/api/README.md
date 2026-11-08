@@ -66,7 +66,7 @@ Error codes so far: `unauthorized` (401); `banned`, `not_admin`, `not_host`, `wr
 `bad_signature`, `receiver_not_allowed`, `method_not_allowed`, `deposit_not_allowed`, `gas_too_high`, `one_call_only`,
 `bad_args`, `not_testnet`, `demo_off`, `read_only`, `amount_not_allowed`, `cash_out_paid`, `cash_out_expired` (403); `bad_request`, `bad_delegate`, `unknown_token`, `below_wholesale`, `above_cap`, `unknown_asset`, `bad_amount` (400); `not_found`,
 `no_party`, `no_failed_op`, `no_intent` (404); `no_near_account`, `insufficient_credits`, `party_over`, `party_not_live`, `reprice_needed`,
-`host_has_no_near_account`, `not_onboarded` (409); `faucet_failed`, `quote_failed` (502); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
+`host_has_no_near_account`, `not_onboarded`, `not_enough_usdc` (409); `faucet_failed`, `quote_failed` (502); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
 `relayer_off`, `quotes_off`, `faucet_off`, `faucet_empty`, `intents_off`, `intents_unavailable` (503).
 
 ## Add money and Cash out (`intents.ts`)
@@ -78,7 +78,10 @@ min); the player's USDC is `nep141:<USDC_CONTRACT_ID>`.
   1Click registers USDC storage on delivery. A refund goes back to `refundTo` on the source chain.
 - **Cash out:** a quote from the player's USDC to their address on another chain, refunds to their NEAR account. The
   player signs the USDC `ft_transfer` to the deposit address; the relay accepts it only for that player's open quote,
-  its exact amount, once (`deposit_tx`), then tells 1Click (`/v0/deposit/submit`, best effort).
+  its exact amount, once (`deposit_tx`), then tells 1Click (`/v0/deposit/submit`, best effort). The deposit address
+  is a fresh implicit account USDC doesn't know, and a transfer to it would panic (`not registered`), so the relayer
+  first registers it on USDC (`storage_deposit`, 0.00125 NEAR), only for a player who holds the amount
+  (`not_enough_usdc`, 409, otherwise).
 - **Testnet:** 1Click has no testnet (SPEC §10), so every quote is a dry run against mainnet ids: real numbers, no
   deposit address, nothing stored and nothing to sign (`dry: true`).
 - Without `ONECLICK_JWT`, 1Click adds 0.25 % to every quote.
