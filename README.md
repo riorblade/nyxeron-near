@@ -23,34 +23,36 @@ piece of a real share, in their own account, without learning what a blockchain 
 
 Every step says what to do and what you should see.
 
-| #   | Do                                                                                     | See                                                                                                       |
-| --- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 1   | Open the demo and tap **Play · no sign-in**                                            | Practice mode: your club, a menu of stocks at live market prices, no account needed                       |
-| 2   | Move a drink's price slider, then tap **Open the doors · 22:00**                       | Guests arrive; each one buys or passes ("too steep") in the live feed, with sales and crowd energy        |
-| 3   | During the night, change the DJ or start a happy hour; tap **Skip to closing** (or 4×) | The night report: sales, your margin, and how many shares the guests went home with                       |
-| 4   | Tap **Fast-forward a week with this menu**                                             | Seven nights simulated in about a second, with each night's guests, drinks, margin and reputation         |
-| 5   | Go back and tap **City · sign in**, sign in with Google                                | A NEAR account is made for you (an implicit account, shown in the bar), balance in dollars                |
-| 6   | **Host a party**: give it a name and a length, tap **Open it**                         | Your party page with its menu; as the host you can set each price between wholesale and 3× wholesale      |
-| 7   | Open a party and buy a drink                                                           | No pop-up and no gas: the payment is signed in the background, sent by our relayer, and lands on chain    |
-| 8   | **Your portfolio**                                                                     | Stock units you hold (NEP-245 on our contract) and shares still owed to you from parties                  |
-| 9   | Open **/proof**                                                                        | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses |
+| #   | Do                                                                                                        | See                                                                                                                 |
+| --- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 1   | Open the demo, tap **Play · no sign-in**, then **Play** on the title screen                               | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices, no account needed       |
+| 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; then **Open club** (bottom right) | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                               |
+| 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                 | The night report: stars, goals, "Why it went this way" and a receipt of what sold                                   |
+| 4   | Tap **Next night**, then **Week** in the dock                                                             | Seven nights simulated at once, with each night's guests, drinks, margin and reputation                             |
+| 5   | Go back to the start and tap **City · sign in**, sign in with Google                                      | A NEAR account is made for you (shown in the bar, linked to the explorer), balance in dollars                       |
+| 6   | Tap **Get test dollars**                                                                                  | Test USDC lands in your own account and the balance goes up (testnet only, once a day)                              |
+| 7   | **Host a party**: give it a name and a length, tap **Open it**                                            | Your party page with its menu; as the host you can set each price between wholesale and 3× wholesale                |
+| 8   | Buy a drink at the party                                                                                  | No pop-up and no gas: the payment is signed in the background, sent by our relayer, and a receipt link appears      |
+| 9   | After the party ends, look at **Collect shares** in your portfolio                                        | "Your shares are on their way", then "Delivered", with a delivery receipt; the units show under **Shares you hold** |
+| 10  | Tap **Add money**, pick USDC on Base, an amount and an address                                            | A live NEAR Intents quote ("You send … You get about …"); on testnet it is a dry run and nothing is sent            |
+| 11  | Open **/proof**                                                                                           | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses           |
 
-<!-- TODO(#39) before submission, check each against what is merged and live:
-  - step 7 needs test dollars in the account: "Get test dollars" (SPEC §10) is not built yet.
-  - Collect shares after a party (settle) and the per-party proof on /proof wait on the settlement job.
-  - Add money / Cash out through NEAR Intents (1Click) are not built yet; the UI says "Not open yet".
+<!-- TODO(#39) before submission:
+  - steps 6, 9, 10 need #80 and #81 merged; steps 8–9 need the api's quote key on nyxeron.testnet (#77) and the
+    settlement job running with the owner key on the deployed api.
+  - per-party steps on /proof need a public read (Kiel's proof.ts); until then they show on the party page.
   - Run every step from a clean browser (incognito, no extensions) and on a phone. -->
 
 ## How it uses NEAR
 
-| Part              | NEAR feature                                                                                                          | Where                                              |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                | `apps/web/src/auth`                                |
-| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit           | `apps/web/src/near`, `services/api/src/relay.ts`   |
-| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money | `contracts/nyxeron`, `services/api/src/parties.ts` |
-| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                             | `contracts/nyxeron`                                |
-| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures      | `services/api/src/chainsig.ts`                     |
-| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                   | planned                                            |
+| Part              | NEAR feature                                                                                                          | Where                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                | `apps/web/src/auth`                                         |
+| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit           | `apps/web/src/near`, `services/api/src/relay.ts`            |
+| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money | `contracts/nyxeron`, `services/api/src/parties.ts`          |
+| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                             | `contracts/nyxeron`                                         |
+| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures      | `services/api/src/chainsig.ts`                              |
+| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                   | `services/api/src/intents.ts`, `apps/web/src/city/money.ts` |
 
 The server can never move a player's dollars: only the player signs a payment. The relayer accepts one action to our
 contract or to USDC, with at most 1 yocto attached, and nothing else.
