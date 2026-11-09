@@ -16,6 +16,7 @@ const MESSAGES: Record<string, string> = {
   too_soon: 'Slow down a little and try again.',
   too_many: 'Slow down a little and try again.',
   not_enough_balance: "You don't have enough dollars for that. Add money first.",
+  not_enough_usdc: "You don't have enough dollars for that. Add money first.",
   expired: 'That took too long. Tap buy again.',
   prices_changed: 'Prices changed. Tap buy again.',
   paused: 'Buying is paused right now.',
@@ -28,6 +29,17 @@ const MESSAGES: Record<string, string> = {
   demo_off: 'Test dollars are off right now.',
   not_testnet: 'Test dollars only exist on the test network.',
   not_onboarded: 'Your account is still being set up. Try again in a moment.',
+  // Add money / Cash out (NEAR Intents 1Click)
+  intents_off: 'Adding and cashing out money is off right now.',
+  intents_unavailable: "We can't reach the money service right now. Try again in a moment.",
+  unknown_asset: "That coin isn't available right now. Pick another.",
+  quote_failed: "Couldn't get a quote. Check the address and amount, then try again.",
+  bad_amount: 'That amount is outside what we can send. Try another.',
+  cash_out_paid: 'This cash-out was already sent.',
+  cash_out_expired: 'That quote expired. Get a new one.',
+  receiver_not_allowed: 'That transfer is not allowed. Get a new quote.',
+  amount_not_allowed: 'The amount no longer matches the quote. Get a new one.',
+  no_intent: "We can't find that transfer.",
 }
 
 // Why the contract refunded a purchase (its `refund` event, passed on by the relay as "refund:<reason>"; the reasons

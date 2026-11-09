@@ -3,6 +3,7 @@ import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { explorer } from '../near/chain.ts'
 import { playerMessage } from './errors.ts'
+import { MoneyPanel } from './MoneyPanel.tsx'
 
 /** Who is signed in, their dollars, and the way in and out of the game (Add money / Cash out). */
 export function AccountBar({ account }: { account: Account }) {
@@ -40,7 +41,7 @@ export function AccountBar({ account }: { account: Account }) {
           Sign out
         </button>
       </div>
-      {panel && <MoneyPanel kind={panel} onClose={() => setPanel(undefined)} />}
+      {panel && <MoneyPanel account={account} kind={panel} onClose={() => setPanel(undefined)} />}
     </div>
   )
 }
@@ -81,37 +82,6 @@ function TestDollars({ account }: { account: Account }) {
           {state.note ?? 'The test faucet is empty right now.'}
         </span>
       )}
-    </div>
-  )
-}
-
-// Add money and Cash out go through NEAR Intents 1Click (any chain in, any chain out). The screens are here; the api
-// endpoints arrive with services/api intents.ts, so for now they explain what will happen.
-function MoneyPanel({ kind, onClose }: { kind: 'add' | 'cashout'; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-night/80 p-4" onClick={onClose}>
-      <section
-        role="dialog"
-        aria-label={kind === 'add' ? 'Add money' : 'Cash out'}
-        className="w-full max-w-md rounded-2xl border border-line bg-panel p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-xl font-bold">{kind === 'add' ? 'Add money' : 'Cash out'}</h2>
-        <p className="mt-2 text-sm text-muted">
-          {kind === 'add'
-            ? 'Send dollars (USDC) from any chain or exchange; they land in your own account here, usually in under a minute.'
-            : 'Send your dollars to any chain or exchange. You sign it here, we pay the fees.'}
-        </p>
-        <p className="mt-4 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-gold">
-          Not open yet: this is coming in the next update.
-        </p>
-        <button
-          onClick={onClose}
-          className="mt-5 w-full rounded-xl border border-line py-2 text-sm hover:border-violet"
-        >
-          Close
-        </button>
-      </section>
     </div>
   )
 }
