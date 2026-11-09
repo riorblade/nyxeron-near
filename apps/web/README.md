@@ -18,14 +18,15 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 | ----------------- | ------------------------------------------------------------------------------------------------------- |
 | `/`               | Landing                                                                                                 |
 | `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage |
-| `/city`           | Sign in (Privy), wallet + onboarding, dollar balance, live parties, host a party, portfolio             |
-| `/city/party/:id` | The party menu, one-tap buy (quote → delegate → relay); the host also sets prices here                  |
+| `/city`           | Sign in (Privy), wallet + onboarding, dollar balance, Get test dollars, parties, host, portfolio        |
+| `/city/party/:id` | Menu, one-tap buy (quote → delegate → relay), host prices; after it ends, the settlement steps          |
 | `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                   |
-| `/admin`          | Back office, lazy-loaded: role, players                                                                 |
+| `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                 |
 | `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                          |
 
-Add money / Cash out show their screens; the 1Click endpoints come with the api's `intents.ts`. Collect shares reads
-`owed(party)`, which arrives with contract v2.
+Add money / Cash out show their screens; the 1Click endpoints come with the api's `intents.ts`. Collect shares (in the
+portfolio) reads `owed(chainParty)` from the contract and `GET /api/parties/:id/settlement` for each party this browser
+bought at. Get test dollars shows only when `/api/config` has `testDollars` (testnet with `DEMO_MODE`).
 
 `src/practice/` is the game screen, laid out like our course prototype: title → the day (venue carousel with a padlock
 on rooms the reputation hasn't opened, menu and DJ windows) → the night (HUD over the club) → the night report.

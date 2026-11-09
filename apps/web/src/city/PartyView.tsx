@@ -10,6 +10,7 @@ import { Link } from '../router.tsx'
 import { buyDrink } from './buy.ts'
 import { PlayerError, playerMessage } from './errors.ts'
 import { HostPrices } from './HostPrices.tsx'
+import { type Settlement, settleHash, settlementNote, stepLabel } from './settlement.ts'
 import { rememberParty } from './visited.ts'
 
 type Party = InferResponseType<Account['api']['parties'][':id']['$get'], 200>
@@ -28,6 +29,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const [error, setError] = useState<string>()
   const [drinks, setDrinks] = useState<Drink[]>([])
   const [busy, setBusy] = useState<string>()
+  const [settlement, setSettlement] = useState<Settlement>()
 
   const load = useCallback(async () => {
     const r = await account.api.parties[':id'].$get({ param: { id: String(partyId) } })
@@ -35,7 +37,11 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
       const body = (await r.json().catch(() => ({}))) as { error?: string }
       return setError(playerMessage(body.error ?? 'unknown'))
     }
-    setParty(await r.json())
+    const p = await r.json()
+    setParty(p)
+    if (p.live) return
+    const s = await account.api.parties[':id'].settlement.$get({ param: { id: String(partyId) } })
+    if (s.ok) setSettlement(await s.json())
   }, [account.api, partyId])
 
   useEffect(() => {
@@ -130,6 +136,43 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
           ))}
         </ul>
         {!account.canPay && <p className="mt-3 text-xs text-muted">Setting up your account…</p>}
+        {!party.live && settlement && (
+          <p className="mt-3 text-sm">
+            <span className="text-muted">Shares: </span>
+            {settlementNote(settlement.status).text}{' '}
+            {settleHash(settlement) && account.config && (
+              <a
+                className="text-xs text-muted hover:text-ink"
+                href={`${explorer(account.config.network)}/txns/${settleHash(settlement)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                delivery receipt ↗
+              </a>
+            )}
+          </p>
+        )}
+        {!party.live && settlement && settlement.ops.length > 0 && account.config && (
+          <ol className="mt-2 list-decimal pl-5 text-xs text-muted">
+            {settlement.ops.map((op, i) => (
+              <li key={i}>
+                {stepLabel(op, (id) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase())}{' '}
+                {op.hash ? (
+                  <a
+                    className="hover:text-ink"
+                    href={`${explorer(account.config!.network)}/txns/${op.hash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    tx ↗
+                  </a>
+                ) : (
+                  `(${op.status})`
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
       <section className="rounded-2xl border border-line bg-panel p-4">
         <h3 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Your drinks</h3>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { explorer } from '../near/chain.ts'
+import { playerMessage } from './errors.ts'
 
 /** Who is signed in, their dollars, and the way in and out of the game (Add money / Cash out). */
 export function AccountBar({ account }: { account: Account }) {
@@ -28,6 +29,7 @@ export function AccountBar({ account }: { account: Account }) {
           <div className="text-xs text-muted">Balance</div>
           <div className="text-lg font-bold tabular-nums">{balance === undefined ? '…' : usd(balance)}</div>
         </div>
+        {config?.testDollars && <TestDollars account={account} />}
         <button onClick={() => setPanel('add')} className="rounded-xl bg-gold px-3 py-2 text-sm font-bold text-night">
           Add money
         </button>
@@ -39,6 +41,46 @@ export function AccountBar({ account }: { account: Account }) {
         </button>
       </div>
       {panel && <MoneyPanel kind={panel} onClose={() => setPanel(undefined)} />}
+    </div>
+  )
+}
+
+// Testnet only (DEMO_MODE): a few real Circle testnet dollars from our faucet, once a day, so a judge can buy drinks.
+function TestDollars({ account }: { account: Account }) {
+  const [state, setState] = useState<{ busy?: boolean; note?: string; ok?: boolean }>({})
+  const grant = account.config!.testDollars!
+  const empty = grant.faucetBalance !== null && grant.faucetBalance < grant.amount
+
+  const get = async () => {
+    setState({ busy: true })
+    const r = await account.api.me['test-dollars'].$post()
+    if (r.ok) {
+      setState({ ok: true, note: `${usd(grant.amount)} on the way.` })
+      // The transfer is final when the api answers; read the balance now and once more in case the RPC lags.
+      void account.refreshBalance()
+      setTimeout(() => void account.refreshBalance(), 3000)
+    } else {
+      const code = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? 'unknown'
+      setState({ note: code === 'too_soon' ? "You already got today's test dollars." : playerMessage(code) })
+    }
+    void account.reloadConfig()
+  }
+
+  return (
+    <div className="flex flex-col items-end">
+      <button
+        onClick={() => void get()}
+        disabled={state.busy || empty || !account.canPay}
+        title={empty ? 'The test faucet is empty right now.' : `Free test dollars (${usd(grant.amount)}), once a day`}
+        className="rounded-xl border border-neon/60 px-3 py-2 text-sm text-neon disabled:opacity-40"
+      >
+        {state.busy ? 'Sending…' : 'Get test dollars'}
+      </button>
+      {(state.note || empty) && (
+        <span className={`mt-1 text-xs ${state.ok ? 'text-up' : 'text-muted'}`}>
+          {state.note ?? 'The test faucet is empty right now.'}
+        </span>
+      )}
     </div>
   )
 }
