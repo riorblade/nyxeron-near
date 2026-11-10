@@ -56,7 +56,8 @@ const ROUTER = parseAbi([
 ])
 const EXECUTOR: Address = `0x${'8f'.repeat(20)}`
 // A built call that does something other than what was asked for.
-type Tamper = 'not_swap' | 'src_token' | 'dst_token' | 'receiver' | 'amount' | 'src_amounts' | 'fee' | 'min_return'
+type Tamper =
+  'not_swap' | 'src_token' | 'dst_token' | 'receiver' | 'amount' | 'src_amounts' | 'fee' | 'permit' | 'min_return'
 
 // TSLA at $400 and a market where $1 of USDG buys `rate` × its worth (1 = fair).
 function fakeKyber(opts: { rate?: number; router?: Address; tamper?: Tamper } = {}) {
@@ -84,7 +85,7 @@ function fakeKyber(opts: { rate?: number; router?: Address; tamper?: Tamper } = 
         amount: t === 'amount' ? amountIn * 2n : amountIn,
         minReturnAmount: t === 'min_return' ? 0n : minOut,
         flags: 0n,
-        permit: '0x' as Hex,
+        permit: (t === 'permit' ? '0x01' : '0x') as Hex,
       }
       const data =
         t === 'not_swap'
@@ -258,11 +259,19 @@ describe('buying for a party', () => {
     expect(swapRow(t.db)).toMatchObject({ status: 'done', tx_hash: proof })
   })
 
-  it('skips the approve when the allowance already covers the swap', async () => {
+  it('skips the approve when the allowance is exactly the swap', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    // the fake doesn't spend the allowance, so it is still exactly what the same swap costs
+    await t.buyer.buyShares('p2', 'tsla', 10n)
+    expect(t.state.approvals.length).toBe(1)
+  })
+
+  it('re-approves exactly the swap when a larger allowance was left over', async () => {
     const t = setup()
     t.state.allowance = 10n ** 12n
     await t.buyer.buyShares('p1', 'tsla', 10n)
-    expect(t.state.approvals).toEqual([])
+    expect(t.state.approvals).toEqual([BigInt(swapRow(t.db)!.usdg_in)])
   })
 
   it('re-quotes a bigger amount when the first guess comes up short', async () => {
@@ -299,10 +308,10 @@ describe('what the warehouse holds', () => {
 
   it('needs no gas for an approve it will not send', async () => {
     const t = setup()
-    t.state.allowance = 10n ** 12n
+    await t.buyer.buyShares('p1', 'tsla', 10n) // leaves (in the fake) an allowance of exactly the same swap
     t.state.eth = SWAP_WEI
-    await t.buyer.buyShares('p1', 'tsla', 10n)
-    expect(t.state.approvals).toEqual([])
+    await t.buyer.buyShares('p2', 'tsla', 10n)
+    expect(t.state.approvals.length).toBe(1)
   })
 
   it('signs nothing when the warehouse holds less USDG than the swap costs', async () => {
@@ -554,6 +563,7 @@ describe('the router call Kyber built', () => {
     ['amount', 'bad_swap_call_amount'],
     ['src_amounts', 'bad_swap_call_src_amounts'],
     ['fee', 'bad_swap_call_fee'],
+    ['permit', 'bad_swap_call_permit'],
     ['min_return', 'bad_swap_call_min_return'],
   ]
   for (const [tamper, code] of cases) {

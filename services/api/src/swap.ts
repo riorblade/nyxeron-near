@@ -133,6 +133,7 @@ export function checkSwapCall(
   if (desc.amount !== want.amountIn) bad('amount')
   if (desc.srcAmounts.reduce((sum, a) => sum + a, 0n) > want.amountIn) bad('src_amounts')
   if (desc.feeReceivers.length > 0 || desc.feeAmounts.some((f) => f > 0n)) bad('fee')
+  if (desc.permit !== '0x') bad('permit')
   if (desc.minReturnAmount < want.needRaw) bad('min_return')
   return desc.minReturnAmount
 }
@@ -324,7 +325,9 @@ export function warehouseBuyer(deps: {
 
       const fee = await fees()
       const swapGas = (BigInt(built.gas) * 3n) / 2n
-      const approve = (await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn
+      // Exactly this swap's amount every time: an allowance left by a swap that reverted is never more than the swap
+      // checked above.
+      const approve = (await hood.usdgAllowance(from, KYBER_ROUTER)) !== amountIn
       // Nothing is signed that the warehouse can't pay: a swap without the USDG reverts and still burns gas. Retryable:
       // fund.ts tops the warehouse up from the treasury.
       if ((await hood.ethBalance(from)) < (swapGas + (approve ? APPROVE_GAS : 0n)) * fee.maxFeePerGas)
