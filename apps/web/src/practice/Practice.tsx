@@ -21,6 +21,7 @@ import {
 } from '@nyxeron/game'
 import { Component, type CSSProperties, lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { clock, pct, usd } from '../format.ts'
+import { useMusic } from '../audio/music.ts'
 import { navigate } from '../router.tsx'
 import { Icon, Mark, Star } from './icons.tsx'
 import { type Career, usePractice } from './usePractice.ts'
@@ -83,6 +84,7 @@ export function Practice() {
   const [level, setLevel] = useState<number>(unlocked)
   const [win, setWin] = useState<Win>(null)
   useEffect(() => setLevel(unlocked), [unlocked])
+  useMusic(p.phase === 'party' ? 'club' : 'lounge')
 
   if (!night || !source)
     return (

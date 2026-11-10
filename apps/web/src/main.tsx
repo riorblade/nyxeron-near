@@ -1,6 +1,8 @@
 import './index.css'
 import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
+import { MusicToggle } from './audio/MusicToggle.tsx'
+import { type MusicMode, useMusic } from './audio/music.ts'
 import { Landing } from './landing/Landing.tsx'
 import { Practice } from './practice/Practice.tsx'
 import { Proof } from './proof/Proof.tsx'
@@ -10,6 +12,25 @@ import { usePath } from './router.tsx'
 const SpikeRoute = lazy(() => import('./spike/SpikeRoute.tsx'))
 const CityRoute = lazy(() => import('./city/CityRoute.tsx'))
 const AdminRoute = lazy(() => import('./admin/AdminRoute.tsx'))
+
+// Practice picks its own music (lounge on the menus, the DJ crate during a night).
+const musicFor = (path: string): MusicMode | null =>
+  path.startsWith('/practice')
+    ? null
+    : path.startsWith('/city/party')
+      ? 'club'
+      : path.startsWith('/admin') || path.startsWith('/proof') || path.startsWith('/spike')
+        ? 'off'
+        : 'lounge'
+
+function Music() {
+  const want = musicFor(usePath())
+  return want ? <Want mode={want} /> : null
+}
+function Want({ mode }: { mode: MusicMode }) {
+  useMusic(mode)
+  return null
+}
 
 function App() {
   const path = usePath()
@@ -39,5 +60,7 @@ function App() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
+    <Music />
+    <MusicToggle />
   </StrictMode>,
 )
