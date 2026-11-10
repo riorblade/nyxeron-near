@@ -21,7 +21,13 @@ class NoVenue extends Component<{ children: ReactNode }, { failed: boolean }> {
 
 /** A live City party has no simulated night, so the club shows its lively preview crowd, priced from today's market. */
 /** `walk`: the guest walks the club as their own avatar (the same scene, so nothing reloads). */
-export function ClubBackdrop(props: { level: number; walk?: { name: string; onExit: () => void } }) {
+export function ClubBackdrop(props: {
+  level: number
+  walk?: { name: string; onExit: () => void }
+  /** The host's moves running now, and when the last pyro went off (ms). */
+  moves?: string[]
+  pyroAt?: number | null
+}) {
   const [market, setMarket] = useState<Market>()
   const [cam, setCam] = useState<CamMode>('behind')
   const [emote, setEmote] = useState<Emote | null>(null)
@@ -37,7 +43,17 @@ export function ClubBackdrop(props: { level: number; walk?: { name: string; onEx
     >
       <NoVenue>
         <Suspense fallback={null}>
-          {market && <Venue level={props.level} market={market} me={me} cam={cam} emote={emote} />}
+          {market && (
+            <Venue
+              level={props.level}
+              market={market}
+              me={me}
+              cam={cam}
+              emote={emote}
+              moves={props.moves}
+              pyroAt={props.pyroAt}
+            />
+          )}
         </Suspense>
       </NoVenue>
       {walk ? (
