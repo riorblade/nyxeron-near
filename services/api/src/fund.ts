@@ -5,7 +5,7 @@
 import { type Account, actions, nearToYocto, teraToGas } from 'near-api-js'
 import { type Address, isAddressEqual } from 'viem'
 import { z } from 'zod'
-import { USDG } from './chainsig.ts'
+import { DEFAULT_LIMITS, USDG } from './chainsig.ts'
 import { all, type Db, one, run } from './db.ts'
 import { type OneClick, type OneClickToken, QUOTE_VALID_MS } from './intents.ts'
 import type { RelayResult } from './near.ts'
@@ -13,6 +13,14 @@ import type { RelayResult } from './near.ts'
 const BPS = 10_000n
 const TOKENS_TTL_MS = 10 * 60_000
 const STATUS_EVERY_MS = 10_000
+// After 1Click says SUCCESS, how long the warehouse's balance may lag behind before a person looks.
+const SUCCESS_GRACE_MS = 10 * 60_000
+// What one warehouse transaction (a swap or its approve) can cost in gas at most: chainsig.ts's caps.
+const MAX_TX_WEI = DEFAULT_LIMITS.maxGas * DEFAULT_LIMITS.maxFeePerGas
+// Robinhood Chain's WETH (name and symbol read on chain 2026-11-10); its DexScreener price is the second source for ETH.
+export const HOOD_WETH: Address = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73'
+const DEXSCREENER = 'https://api.dexscreener.com/tokens/v1/robinhood'
+const MIN_PRICE_LIQUIDITY_USD = 100_000
 
 export type FundAsset = 'usdg' | 'eth'
 export type FundLimits = {
@@ -65,6 +73,8 @@ type FundRow = {
   deposit_tx: string
   error: string
   deadline: number
+  balance_before: string
+  balance_at: number
   checked_at: number
   created_at: number
 }
@@ -80,10 +90,15 @@ const QuoteAnswer = z.object({
     deadline: z.string(),
   }),
   quoteRequest: z.looseObject({
+    dry: z.boolean(),
+    swapType: z.string(),
+    depositType: z.string(),
     originAsset: z.string(),
     destinationAsset: z.string(),
     recipient: z.string(),
+    recipientType: z.string(),
     refundTo: z.string(),
+    refundType: z.string(),
   }),
 })
 
@@ -103,6 +118,8 @@ export function warehouseFunder(deps: {
   treasury: Treasury
   chain: WarehouseBalances
   warehouse: () => Promise<Address>
+  // USD per ETH from a source other than 1Click (its own `price` would make the 97 % check circular). USDG is $1.
+  ethPrice: () => Promise<number>
   usdcId: string // the treasury's USDC contract (mainnet)
   limits?: FundLimits
   now?: () => number
@@ -164,29 +181,48 @@ export function warehouseFunder(deps: {
     return t
   }
 
-  // 1Click's answer for exactly this deposit: our USDC in, `to` out to the warehouse, refunds to the treasury, and
-  // what arrives at worst worth at least 97 % of what we send.
-  function check(answer: unknown, to: Listed, amount: bigint, warehouse: Address) {
+  // 1Click's answer for exactly this deposit: a real (not dry) EXACT_INPUT swap of our USDC, `to` out to the warehouse
+  // on Robinhood Chain itself, refunds to the treasury on NEAR, and what arrives at worst worth at least 97 % of what
+  // we send, at `usdPrice` (not 1Click's own price).
+  function check(answer: unknown, to: Listed, amount: bigint, warehouse: Address, usdPrice: number) {
     const parsed = QuoteAnswer.safeParse(answer)
     if (!parsed.success) throw new FundError('bad_quote')
     const { quote, quoteRequest: req } = parsed.data
+    if (req.dry !== false || req.swapType !== 'EXACT_INPUT' || req.depositType !== 'ORIGIN_CHAIN')
+      throw new FundError('wrong_kind')
     if (!/^0x[0-9a-fA-F]{40}$/.test(req.recipient) || !isAddressEqual(req.recipient as Address, warehouse))
       throw new FundError('wrong_recipient')
+    // INTENTS would leave it in an intents.near balance instead of delivering it on Robinhood Chain.
+    if (req.recipientType !== 'DESTINATION_CHAIN') throw new FundError('wrong_recipient_type')
     if (req.originAsset !== usdcAsset || req.destinationAsset !== to.assetId) throw new FundError('wrong_asset')
-    if (req.refundTo !== treasury.accountId) throw new FundError('wrong_refund')
+    if (req.refundTo !== treasury.accountId || req.refundType !== 'ORIGIN_CHAIN') throw new FundError('wrong_refund')
     if (quote.amountIn !== amount.toString()) throw new FundError('wrong_amount')
     if (quote.depositMemo) throw new FundError('memo_not_supported')
     const deadline = Date.parse(quote.deadline)
     if (!Number.isFinite(deadline) || deadline <= now()) throw new FundError('bad_quote')
-    const price = Number(to.price)
-    if (!Number.isFinite(price) || price <= 0) throw new FundError('no_price')
-    const worth = (BigInt(quote.minAmountOut) * BigInt(Math.round(price * 1_000_000))) / 10n ** BigInt(to.decimals)
+    if (!Number.isFinite(usdPrice) || usdPrice <= 0) throw new FundError('no_price')
+    const worth = (BigInt(quote.minAmountOut) * BigInt(Math.round(usdPrice * 1_000_000))) / 10n ** BigInt(to.decimals)
     if (worth * BPS < amount * (BPS - limits.maxLossBps)) throw new FundError('too_costly')
     return { id: parsed.data.correlationId ?? quote.depositAddress, quote, deadline }
   }
 
+  const balanceOf = (asset: FundAsset, warehouse: Address) =>
+    asset === 'usdg' ? chain.usdgBalance(warehouse) : chain.ethBalance(warehouse)
+
+  // What the warehouse spent of `asset` since `at`: the USDG its swaps pulled (exactly their amountIn), or for ETH an
+  // upper bound on the gas of those swaps and their approves.
+  function spentSince(asset: FundAsset, at: number): bigint {
+    const swaps = all<{ usdg_in: number }>(
+      db,
+      "SELECT usdg_in FROM warehouse_swaps WHERE status IN ('sent', 'done', 'stuck') AND at >= ?",
+      at,
+    )
+    if (asset === 'usdg') return swaps.reduce((sum, r) => sum + BigInt(r.usdg_in), 0n)
+    return BigInt(swaps.length) * 2n * MAX_TX_WEI
+  }
+
   // One deposit: quote, check, record, send. Returns true when a transaction was (or may have been) sent.
-  async function refill(asset: FundAsset, warehouse: Address): Promise<boolean> {
+  async function refill(asset: FundAsset, warehouse: Address, before: bigint, beforeAt: number): Promise<boolean> {
     const to = await target(asset)
     const want = asset === 'usdg' ? limits.usdgRefill : limits.ethRefill
     const held = await treasury.usdcBalance()
@@ -221,21 +257,23 @@ export function warehouseFunder(deps: {
     } catch (e) {
       throw new FundError(`quote_failed: ${(e as Error).message}`.slice(0, 200))
     }
-    const q = check(answer, to, amount, warehouse)
+    const q = check(answer, to, amount, warehouse, asset === 'usdg' ? 1 : await deps.ethPrice())
     const address = q.quote.depositAddress
     // 1Click's deposit addresses are fresh implicit accounts USDC doesn't know: register in the same transaction.
     const register = !(await treasury.isRegistered(address))
     // Recorded before it is sent: from here on a crash or a lost answer stops for a person, never sends twice.
     run(
       db,
-      `INSERT INTO warehouse_funding (id, asset, amount_in, min_out, deposit_address, status, deadline, checked_at,
-         created_at) VALUES (?, ?, ?, ?, ?, 'quoted', ?, 0, ?)`,
+      `INSERT INTO warehouse_funding (id, asset, amount_in, min_out, deposit_address, status, deadline, balance_before,
+         balance_at, checked_at, created_at) VALUES (?, ?, ?, ?, ?, 'quoted', ?, ?, ?, 0, ?)`,
       q.id,
       asset,
       Number(amount),
       q.quote.minAmountOut,
       address,
       q.deadline,
+      before.toString(),
+      beforeAt,
       now(),
     )
     let sent: RelayResult
@@ -260,8 +298,9 @@ export function warehouseFunder(deps: {
     return true
   }
 
-  // A sent deposit: 1Click's status, at most every 10 s, until it delivered or refunded.
-  async function follow(row: FundRow) {
+  // A sent deposit: 1Click's status, at most every 10 s, until it delivered or refunded. SUCCESS is believed only once
+  // the warehouse's own balance shows it: now + what it spent since ≥ before + the quote's minimum out.
+  async function follow(row: FundRow, warehouse: Address) {
     if (now() - row.checked_at < STATUS_EVERY_MS) return
     let status: string
     try {
@@ -271,8 +310,12 @@ export function warehouseFunder(deps: {
     }
     set(row.id, { oneclick_status: status, checked_at: now() })
     if (status === 'SUCCESS') {
-      set(row.id, { status: 'done' })
-      log(`warehouse funding ${row.id} (${row.asset}) delivered`)
+      const have = await balanceOf(row.asset, warehouse)
+      if (have + spentSince(row.asset, row.balance_at) >= BigInt(row.balance_before) + BigInt(row.min_out)) {
+        set(row.id, { status: 'done' })
+        log(`warehouse funding ${row.id} (${row.asset}) delivered`)
+      } else if (now() > row.deadline + SUCCESS_GRACE_MS) stuck(row, 'success_not_on_chain')
+      else log(`warehouse funding ${row.id} (${row.asset}): 1Click says SUCCESS, the balance doesn't show it yet`)
     } else if (status === 'REFUNDED') {
       set(row.id, { status: 'refunded' })
       log(`warehouse funding ${row.id} (${row.asset}) refunded to the treasury`)
@@ -294,13 +337,14 @@ export function warehouseFunder(deps: {
         )
         // A row still 'quoted' at the start of a tick was being sent when the process stopped: did USDC leave?
         if (open?.status === 'quoted') stuck(open, 'deposit_unknown')
-        if (open?.status === 'sent') await follow(open)
+        if (open?.status === 'sent') await follow(open, warehouse)
         if (open && one(db, "SELECT 1 FROM warehouse_funding WHERE id = ? AND status IN ('sent', 'stuck')", open.id))
           continue
-        const have = asset === 'usdg' ? await chain.usdgBalance(warehouse) : await chain.ethBalance(warehouse)
+        const at = now()
+        const have = await balanceOf(asset, warehouse)
         if (have >= (asset === 'usdg' ? limits.usdgFloor : limits.ethFloor)) continue
         try {
-          if (await refill(asset, warehouse)) return
+          if (await refill(asset, warehouse, have, at)) return
         } catch (e) {
           log(`warehouse funding (${asset}) not sent: ${e instanceof FundError ? e.code : (e as Error).message}`)
         }
@@ -311,6 +355,32 @@ export function warehouseFunder(deps: {
   }
 
   return { tick, spentToday }
+}
+
+const DexPair = z.object({
+  chainId: z.string(),
+  baseToken: z.object({ address: z.string() }),
+  priceUsd: z.coerce.number(),
+  liquidity: z.object({ usd: z.number() }).optional(),
+})
+
+/** USD per ETH: WETH's deepest Robinhood Chain pool on DexScreener (the source quotes.ts prices the menu with). */
+export function dexEthPrice(opts: { fetch?: typeof fetch } = {}): () => Promise<number> {
+  const doFetch = opts.fetch ?? fetch
+  return async () => {
+    const res = await doFetch(`${DEXSCREENER}/${HOOD_WETH}`, { signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) throw new FundError(`eth_price_${res.status}`)
+    const raw = (await res.json()) as unknown
+    const best = (Array.isArray(raw) ? raw : [])
+      .flatMap((p) => {
+        const parsed = DexPair.safeParse(p)
+        return parsed.success ? [parsed.data] : []
+      })
+      .filter((p) => p.chainId === 'robinhood' && isAddressEqual(p.baseToken.address as Address, HOOD_WETH))
+      .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
+    if (!best || (best.liquidity?.usd ?? 0) < MIN_PRICE_LIQUIDITY_USD) throw new FundError('no_eth_price')
+    return best.priceUsd
+  }
 }
 
 // The treasury account, the same Account object the MPC requests use (chainsig.ts warehouseAccount), so they share one

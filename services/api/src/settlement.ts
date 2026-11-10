@@ -12,6 +12,9 @@ export const MAX_PROOF_LEN = 128
 export const MAX_ATTEMPTS = 5
 // Quotes stay valid 60 s after they're signed, and parties only sign while live: wait that out before closing a party.
 export const GRACE_MS = 90_000
+// A step being sent is leased this long: no other tick or process takes it before. After a crash it runs again (its
+// on-chain check comes first), so the lease only has to outlast one send: a mainnet buy is two MPC signatures + a swap.
+export const LEASE_MS = 10 * 60_000
 const BACKOFF_MS = 15_000
 const MAX_BACKOFF_MS = 10 * 60_000
 
@@ -54,10 +57,14 @@ export type BuyShares = (party: string, token: string, units: bigint) => Promise
 export class SettlementError extends Error {
   readonly code: string
   readonly permanent: boolean
-  constructor(code: string, permanent = false) {
+  // A wait, not a failure (the day's cap, the warehouse being topped up): try again at this time, and don't count it
+  // against MAX_ATTEMPTS.
+  readonly retryAt?: number
+  constructor(code: string, permanent = false, retryAt?: number) {
     super(code)
     this.code = code
     this.permanent = permanent
+    this.retryAt = retryAt
   }
 }
 
@@ -207,7 +214,14 @@ export function settlement(deps: {
 
   async function execute(op: OpRow) {
     const attempts = op.attempts + 1
-    run(db, "UPDATE chain_ops SET status = 'sent', attempts = ?, updated_at = ? WHERE id = ?", attempts, now(), op.id)
+    run(
+      db,
+      "UPDATE chain_ops SET status = 'sent', attempts = ?, next_at = ?, updated_at = ? WHERE id = ?",
+      attempts,
+      now() + LEASE_MS,
+      now(),
+      op.id,
+    )
     try {
       const hash = (await landed(op)) ? op.tx_hash || 'on-chain' : await send(op)
       run(
@@ -220,13 +234,15 @@ export function settlement(deps: {
       log(`settlement: ${op.id} done ${hash}`)
     } catch (e) {
       const code = e instanceof SettlementError ? e.code : String((e as Error)?.message ?? e).slice(0, 300)
-      const final = (e instanceof SettlementError && e.permanent) || attempts >= MAX_ATTEMPTS
+      const wait = e instanceof SettlementError && !e.permanent ? e.retryAt : undefined
+      const final = wait === undefined && ((e instanceof SettlementError && e.permanent) || attempts >= MAX_ATTEMPTS)
       run(
         db,
-        'UPDATE chain_ops SET status = ?, error = ?, next_at = ?, updated_at = ? WHERE id = ?',
+        'UPDATE chain_ops SET status = ?, attempts = ?, error = ?, next_at = ?, updated_at = ? WHERE id = ?',
         final ? 'failed' : 'pending',
+        wait === undefined ? attempts : op.attempts,
         code,
-        now() + backoff(attempts),
+        wait ?? now() + backoff(attempts),
         now(),
         op.id,
       )

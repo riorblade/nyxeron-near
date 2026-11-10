@@ -49,8 +49,17 @@ export function venueFor(reputation: number) {
   return [...R.VENUES].reverse().find((v) => reputation >= v.reputation) ?? R.VENUES[0]
 }
 
-/** A new night. Every stock with a market price is on the menu at 1.5× wholesale until the CEO says otherwise. */
-export function startNight(opts: { seed: number; reputation: number; market: Market; dj?: R.Genre }): Night {
+/** A new night. Every stock with a market price is on the menu at 1.5× wholesale until the CEO says otherwise.
+ * `level` is the venue the CEO picked; a level the reputation hasn't unlocked falls back to the best one it has. */
+export function startNight(opts: {
+  seed: number
+  reputation: number
+  market: Market
+  dj?: R.Genre
+  level?: number
+}): Night {
+  const unlocked = venueFor(opts.reputation)
+  const venue = R.VENUES.find((v) => v.level === Math.min(opts.level ?? unlocked.level, unlocked.level)) ?? unlocked
   const menu: Night['menu'] = {}
   for (const id of tokenIds) {
     const m = opts.market[id]
@@ -63,7 +72,7 @@ export function startNight(opts: { seed: number; reputation: number; market: Mar
     rng: rng(opts.seed),
     minute: 0,
     reputation: clamp(opts.reputation, 0, 100),
-    capacity: venueFor(opts.reputation).capacity,
+    capacity: venue.capacity,
     menu,
     market: opts.market,
     dj,

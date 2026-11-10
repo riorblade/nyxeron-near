@@ -30,6 +30,38 @@ cp services/api/.env.example services/api/.env   # fill in the Privy app id and 
 pnpm dev:api                                     # http://localhost:8788/api/health
 ```
 
+## Deploy
+
+Testnet (`NEAR_NETWORK=testnet`, `DEMO_MODE=true`). Mainnet only after the proof run and the team's yes.
+
+**api** (one host with Docker, behind a reverse proxy that already holds 80/443 and terminates TLS):
+
+```sh
+git archive HEAD | ssh <host> 'mkdir -p /opt/nyxeron-near && tar -x -C /opt/nyxeron-near'
+# once: put the secrets on the host, never in the repo
+scp services/api/.env <host>:/opt/nyxeron-near/services/api/.env
+ssh <host> 'cd /opt/nyxeron-near && docker compose -f services/api/compose.yml up -d --build'
+```
+
+- `Dockerfile`: Node 24 runs the `.ts` sources, no build step; health check on `/api/health`.
+- `compose.yml`: SQLite on the `api_data` volume (`/data`), so party ids survive a redeploy. The container joins the
+  proxy's Docker network (`PROXY_NETWORK`, default `deploy_default`) as `nyxeron-near-api`. Proxy block (Caddy):
+
+  ```
+  api.<domain> {
+  	handle /api/* {
+  		reverse_proxy nyxeron-near-api:8788
+  	}
+  	handle {
+  		respond 404
+  	}
+  }
+  ```
+
+**web** (Vercel, `vercel.json` at the repo root): builds `apps/web`, serves the SPA, and rewrites `/api/*` to the
+api host, so the browser stays on one origin (no CORS). Set `VITE_PRIVY_APP_ID` in the Vercel project; the Privy app
+must list the web's domain as an allowed origin.
+
 ## Endpoints
 
 Player and admin routes need `Authorization: Bearer <Privy access token>`. Errors are `{ "error": "<code>" }`. In the
@@ -53,7 +85,7 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 | `POST /api/onboard`                    | player        | makes the player's NEAR account usable (0 NEAR transfer + USDC registration, paid by us) → `{ nearAccount, createdTx, registeredTx }`                                                                                                                                                                                                                                                                                    |
 | `POST /api/relay`                      | player        | body `{ signedDelegate }` (NEP-366, borsh, base64); relayed only if it is a USDC `ft_transfer_call` to our contract (1 yocto), a USDC `ft_transfer` (1 yocto) of a cash-out's exact amount to its 1Click deposit address (this player's, unexpired, once), or `claim_margin` → `{ hash, ok }`; 422 when it failed on chain or the contract refunded the drink (`error: "refund:<reason>"`)                               |
 | `GET /api/config`                      | anyone        | `{ network, contractId, usdcId, quoteKey, menu, testDollars }`; `testDollars` is `{ amount, faucetBalance }` on testnet with `DEMO_MODE`, else `null`                                                                                                                                                                                                                                                                    |
-| `GET /api/parties`                     | player        | live parties `{ parties: [{ id, title, host, endsAt }] }`                                                                                                                                                                                                                                                                                                                                                                |
+| `GET /api/parties`                     | player        | live parties `{ parties: [{ id, title, host, endsAt, demo }] }`; on testnet with `DEMO_MODE` a House Party (`demo: true`, 10 min, hosted by the relayer) is always live and listed first                                                                                                                                                                                                                                 |
 | `POST /api/parties`                    | player (host) | body `{ title, minutes? }` (5–60, default 10) → the party; every priced stock at 1.5× wholesale                                                                                                                                                                                                                                                                                                                          |
 | `GET /api/parties/:id`                 | player        | `{ id, chainParty, title, host, seed, startsAt, endsAt, live, menu: [{ token, ticker, name, price, wholesale, maxPrice }] }` (micro-USDC); `chainParty` (`<install>-<id>`) is the id the contract knows the party by: pass it to `owed` / `party_pot`                                                                                                                                                                    |
 | `PUT /api/parties/:id/prices`          | host          | body `{ prices: { tsla: 800000 } }`, each within wholesale … 3× wholesale                                                                                                                                                                                                                                                                                                                                                |
@@ -66,7 +98,7 @@ Error codes so far: `unauthorized` (401); `banned`, `not_admin`, `not_host`, `wr
 `bad_signature`, `receiver_not_allowed`, `method_not_allowed`, `deposit_not_allowed`, `gas_too_high`, `one_call_only`,
 `bad_args`, `not_testnet`, `demo_off`, `read_only`, `amount_not_allowed`, `cash_out_paid`, `cash_out_expired` (403); `bad_request`, `bad_delegate`, `unknown_token`, `below_wholesale`, `above_cap`, `unknown_asset`, `bad_amount` (400); `not_found`,
 `no_party`, `no_failed_op`, `no_intent` (404); `no_near_account`, `insufficient_credits`, `party_over`, `party_not_live`, `reprice_needed`,
-`host_has_no_near_account`, `not_onboarded` (409); `faucet_failed`, `quote_failed` (502); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
+`host_has_no_near_account`, `not_onboarded`, `not_enough_usdc` (409); `faucet_failed`, `quote_failed` (502); `too_soon`, `too_many` (429); `identity_unavailable`, `quotes_unavailable`,
 `relayer_off`, `quotes_off`, `faucet_off`, `faucet_empty`, `intents_off`, `intents_unavailable` (503).
 
 ## Add money and Cash out (`intents.ts`)
@@ -78,7 +110,10 @@ min); the player's USDC is `nep141:<USDC_CONTRACT_ID>`.
   1Click registers USDC storage on delivery. A refund goes back to `refundTo` on the source chain.
 - **Cash out:** a quote from the player's USDC to their address on another chain, refunds to their NEAR account. The
   player signs the USDC `ft_transfer` to the deposit address; the relay accepts it only for that player's open quote,
-  its exact amount, once (`deposit_tx`), then tells 1Click (`/v0/deposit/submit`, best effort).
+  its exact amount, once (`deposit_tx`), then tells 1Click (`/v0/deposit/submit`, best effort). The deposit address
+  is a fresh implicit account USDC doesn't know, and a transfer to it would panic (`not registered`), so the relayer
+  first registers it on USDC (`storage_deposit`, 0.00125 NEAR), only for a player who holds the amount
+  (`not_enough_usdc`, 409, otherwise).
 - **Testnet:** 1Click has no testnet (SPEC §10), so every quote is a dry run against mainnet ids: real numbers, no
   deposit address, nothing stored and nothing to sign (`dry: true`).
 - Without `ONECLICK_JWT`, 1Click adds 0.25 % to every quote.
@@ -96,27 +131,41 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
 (`party_pot`, `is_used_proof`, `is_settled`), so a crash or a lost answer never doubles a step. A failed step retries
-after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`.
+after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`. A wait is not a try: an
+error with a `retryAt` (the day's swap cap, the warehouse being topped up, another buy of the same swap) runs again at
+that time without counting.
 
 ## Buying the warehouse's shares (`swap.ts`)
 
 `warehouseBuyer({ db, hood, kyber, signer, price }).buyShares(party, token, units)` buys `units × 0.001` shares of the
-pinned token for the warehouse and returns the swap's tx hash, the proof for `mint_warehouse`:
+pinned token for the warehouse and returns the proof for `mint_warehouse`:
 
-1. A KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
+1. What a party owes of one token is split into swaps of at most **\$50** (each sized at 90 % of the cap at the market
+   price), rows `<party>:<token>`, then `<party>:<token>:1`, … The proof is the first swap's hash, plus `+<n>` when n
+   more swaps were needed (≤ 128 chars, unique per party and token).
+2. Per swap, a KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
    (`balanceOfUI = balanceOf × uiMultiplier / 1e18`, so the raw amount is rounded up).
-2. Refused before anything is signed: over **\$50** in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC
-   day (`daily_limit`), worth more than **2 %** under the market price (`under_market`), another router
-   (`wrong_router`).
-3. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
-   and the approve (`warehouse_low_eth`) are retried while `fund.ts` tops it up.
-   `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
-4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
+3. The row is reserved first (`building`, with a lease, in one synchronous step), so a second call for the same row gets
+   `swap_in_flight`. A crash leaves a lease that another call may take over after 5 minutes; a failure before sending
+   frees the row (`failed`).
+4. Refused before anything is signed: over \$50 in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC day
+   (`daily_limit`, counted together with swaps being built), another router (`wrong_router`), and a router call that
+   doesn't do what was asked. Kyber's `/route/build` data is decoded as MetaAggregationRouterV2 `swap` and must have
+   srcToken = USDG, dstToken = the pinned token, dstReceiver = the warehouse, `amount` = amountIn (and `srcAmounts`
+   no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent). That
+   router-enforced minimum must be worth at least 98 % of the USDG in at the market price (`under_market`).
+5. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
+   and the approve (`warehouse_low_eth`) wait 2 minutes while `fund.ts` tops it up (a wait, not a failed attempt).
+   `approve(router, amountIn)` whenever the allowance isn't exactly this swap (`chainsig.ts` refuses an approve above
+   \$50); the swap is signed by the warehouse (`chainsig.ts`).
+6. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
    receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
-   with `swap_dropped`: a person checks, it is never bought again automatically.
-5. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
+   with `swap_dropped`; after 3 retries with no receipt and a free nonce, `swap_unconfirmed`. A person checks; it is
+   never bought again automatically.
+7. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
    units, rounded up from `units × 0.001` shares through `uiMultiplier`). Checking this transaction's own logs, not the
-   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`.
+   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`, and
+   **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 
@@ -129,15 +178,20 @@ USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinho
 1. ETH first, then USDG; at most one deposit per tick and one in flight per asset. Less than **\$5** in the treasury
    (`treasury_low`) or over **\$600** of deposits in a UTC day (`daily_limit`, refunds count) sends nothing.
 2. A 1Click quote from the treasury's USDC. Its answer must name the warehouse as recipient, USDG by its contract
-   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, and
-   a minimum out worth at least **97 %** of what we send (1Click's own price); otherwise nothing is sent.
+   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, a
+   real (not dry) `EXACT_INPUT` swap with `depositType` / `refundType` `ORIGIN_CHAIN` and `recipientType`
+   `DESTINATION_CHAIN` (not an intents.near balance), and a minimum out worth at least **97 %** of what we send;
+   otherwise nothing is sent. That price is not 1Click's: USDG is \$1, ETH is WETH's deepest Robinhood Chain pool on
+   DexScreener (`dexEthPrice`).
 3. The deposit is written to `warehouse_funding` as `quoted`, then sent in one transaction: `storage_deposit` for the
    deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. The receipt that ran those two actions decides:
    failed → both reverted, nothing moved (`failed`; three in a UTC day stop the funder until the next,
    `too_many_failures`); succeeded → the USDC left, whatever a later refund receipt did. A lost answer, no outcome
    for that receipt, or a `quoted` row found after a restart is `stuck` with `deposit_unknown`.
-4. 1Click's status, at most every 10 s: `SUCCESS` → `done`, `REFUNDED` → `refunded` (the USDC is back in the
-   treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
+4. 1Click's status, at most every 10 s. `SUCCESS` → `done` only once the warehouse's own balance shows it (now + what
+   its swaps spent since ≥ the balance when the refill was decided + the quote's minimum out; for ETH the swaps' gas
+   is an upper bound), else `stuck` as `success_not_on_chain` 10 minutes past the deadline. `REFUNDED` → `refunded`
+   (the USDC is back in the treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
 
 A `stuck` row is listed in `GET /api/admin/settlement`; it blocks that asset's refills and counts toward its day until a
 person checks the deposit (nearblocks, the 1Click explorer) and sets its `status` to `done` or `failed` in the database.
@@ -147,8 +201,7 @@ the key's nonce. near-api-js refreshes a nonce only on `InvalidNonceError`, whic
 `NonceRetryProvider` (`near.ts`, behind every signing account: relayer, owner, warehouse) unwraps it when every RPC
 refused the nonce (nothing ran), so a key also used elsewhere (the relayer and owner as one account, the CLI) costs one
 re-sign, not every transaction after it. Run one api process per warehouse account: the one-in-flight rule is per
-process. While the warehouse waits for funds, a party's mint retries with settlement's backoff (5 tries, ≈ 4 min);
-if funding takes longer, retry the step from the back office. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
+process. While the warehouse waits for funds, a party's mint waits too (every 2 minutes, not counted as a try). Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
 one swap's gas ≈ 0.00003 ETH.
 
 ## Rules

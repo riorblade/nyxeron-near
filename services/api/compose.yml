@@ -1,0 +1,28 @@
+# The api on one host, behind a reverse proxy that already owns 80/443 and terminates TLS.
+#   docker compose -f services/api/compose.yml up -d --build
+# Secrets: services/api/.env on the host (from .env.example), never in the repo.
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: services/api/Dockerfile
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      PORT: '8788'
+    volumes:
+      - api_data:/data
+    restart: unless-stopped
+    mem_limit: 512m
+    networks:
+      default: {}
+      proxy:
+        aliases: [nyxeron-near-api]
+
+volumes:
+  api_data:
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-deploy_default}

@@ -4,24 +4,29 @@ import {
   decodeFunctionData,
   encodeAbiParameters,
   encodeEventTopics,
+  encodeFunctionData,
   erc20Abi,
   type Hex,
   keccak256,
   type Log,
+  parseAbi,
   parseTransaction,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
-import { KYBER_ROUTER } from './chainsig.ts'
+import { KYBER_ROUTER, USDG } from './chainsig.ts'
 import { type Db, one, openDb, run } from './db.ts'
-import { SettlementError } from './settlement.ts'
+import { GRACE_MS, SettlementError, settlement } from './settlement.ts'
+import { fakeChain } from './testing.ts'
 import {
+  BUILD_LEASE_MS,
   type Built,
   type Hood,
   type Kyber,
   type Receipt,
   type Route,
   type Signer,
+  MAX_RESUMES,
   sharesNeeded,
   warehouseBuyer,
 } from './swap.ts'
@@ -44,8 +49,19 @@ const transfer = (token: Address, from: Address, to: Address, value: bigint) =>
 // another token to the warehouse.
 type Fill = 'full' | 'none' | 'elsewhere' | 'other_token'
 
+// KyberSwap's MetaAggregationRouterV2 `swap`, written out here from its verified ABI rather than imported from swap.ts.
+const ROUTER = parseAbi([
+  'struct Desc { address srcToken; address dstToken; address[] srcReceivers; uint256[] srcAmounts; address[] feeReceivers; uint256[] feeAmounts; address dstReceiver; uint256 amount; uint256 minReturnAmount; uint256 flags; bytes permit; }',
+  'struct Exec { address callTarget; address approveTarget; bytes targetData; Desc desc; bytes clientData; }',
+  'function swap(Exec execution) payable returns (uint256, uint256)',
+])
+const EXECUTOR: Address = `0x${'8f'.repeat(20)}`
+// A built call that does something other than what was asked for.
+type Tamper =
+  'not_swap' | 'src_token' | 'dst_token' | 'receiver' | 'amount' | 'src_amounts' | 'fee' | 'permit' | 'min_return'
+
 // TSLA at $400 and a market where $1 of USDG buys `rate` × its worth (1 = fair).
-function fakeKyber(opts: { rate?: number; router?: Address } = {}) {
+function fakeKyber(opts: { rate?: number; router?: Address; tamper?: Tamper } = {}) {
   const routes: bigint[] = []
   let built: Built | undefined
   const out = (amountIn: bigint) =>
@@ -55,12 +71,36 @@ function fakeKyber(opts: { rate?: number; router?: Address } = {}) {
       routes.push(amountIn)
       return { amountIn: amountIn.toString(), amountOut: out(amountIn).toString(), summary: { amountIn } }
     },
-    async build(route: Route) {
+    async build(route: Route, from: Address, slippageBps: bigint) {
+      const t = opts.tamper
+      const amountIn = BigInt(route.amountIn)
+      const minOut = (BigInt(route.amountOut) * (10_000n - slippageBps)) / 10_000n
+      const desc = {
+        srcToken: t === 'src_token' ? (TSLA as Address) : USDG,
+        dstToken: t === 'dst_token' ? (tokens.nvda.address as Address) : TSLA,
+        srcReceivers: [EXECUTOR],
+        srcAmounts: [t === 'src_amounts' ? amountIn + 1n : amountIn],
+        feeReceivers: t === 'fee' ? [SOMEONE] : [],
+        feeAmounts: t === 'fee' ? [1n] : [],
+        dstReceiver: t === 'receiver' ? SOMEONE : from,
+        amount: t === 'amount' ? amountIn * 2n : amountIn,
+        minReturnAmount: t === 'min_return' ? 0n : minOut,
+        flags: 0n,
+        permit: (t === 'permit' ? '0x01' : '0x') as Hex,
+      }
+      const data =
+        t === 'not_swap'
+          ? encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [SOMEONE, amountIn] })
+          : encodeFunctionData({
+              abi: ROUTER,
+              functionName: 'swap',
+              args: [{ callTarget: EXECUTOR, approveTarget: EXECUTOR, targetData: '0x', desc, clientData: '0x' }],
+            })
       built = {
         amountIn: route.amountIn,
         amountOut: route.amountOut,
         gas: '800000',
-        data: '0xe21fd0e9',
+        data,
         routerAddress: opts.router ?? KYBER_ROUTER,
       }
       return built
@@ -156,14 +196,16 @@ function fakeSigner(state: ReturnType<typeof fakeHood>['state']) {
   return { signer, signed }
 }
 
-function setup(o: { rate?: number; router?: Address; fill?: Fill; status?: 'success' | 'reverted' } = {}) {
+function setup(
+  o: { rate?: number; router?: Address; tamper?: Tamper; fill?: Fill; status?: 'success' | 'reverted' } = {},
+) {
   const db = openDb(':memory:')
   const k = fakeKyber(o)
   const h = fakeHood(o)
   const s = fakeSigner(h.state)
   // What the swap delivers is what the built route says.
   const kyber: Kyber = {
-    route: k.kyber.route,
+    route: (...a) => k.kyber.route(...a),
     async build(route, from, slip) {
       const b = await k.kyber.build(route, from, slip)
       h.state.lastOut = BigInt(b.amountOut)
@@ -182,7 +224,7 @@ function setup(o: { rate?: number; router?: Address; fill?: Fill; status?: 'succ
 }
 
 const swapRow = (db: Db, id = 'p1:tsla') =>
-  one<{ status: string; tx_hash: string; usdg_in: number; attempts: number; error: string }>(
+  one<{ status: string; tx_hash: string; usdg_in: number; units: number; attempts: number; error: string }>(
     db,
     'SELECT * FROM warehouse_swaps WHERE id = ?',
     id,
@@ -218,11 +260,19 @@ describe('buying for a party', () => {
     expect(swapRow(t.db)).toMatchObject({ status: 'done', tx_hash: proof })
   })
 
-  it('skips the approve when the allowance already covers the swap', async () => {
+  it('skips the approve when the allowance is exactly the swap', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    // the fake doesn't spend the allowance, so it is still exactly what the same swap costs
+    await t.buyer.buyShares('p2', 'tsla', 10n)
+    expect(t.state.approvals.length).toBe(1)
+  })
+
+  it('re-approves exactly the swap when a larger allowance was left over', async () => {
     const t = setup()
     t.state.allowance = 10n ** 12n
     await t.buyer.buyShares('p1', 'tsla', 10n)
-    expect(t.state.approvals).toEqual([])
+    expect(t.state.approvals).toEqual([BigInt(swapRow(t.db)!.usdg_in)])
   })
 
   it('re-quotes a bigger amount when the first guess comes up short', async () => {
@@ -251,7 +301,7 @@ describe('what the warehouse holds', () => {
       permanent: false,
     })
     expect(t.signed).toEqual([])
-    expect(swapRow(t.db)).toBeUndefined()
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'warehouse_low_eth' })
     t.state.eth = SWAP_WEI + APPROVE_WEI
     await t.buyer.buyShares('p1', 'tsla', 10n)
     expect(swapRow(t.db)).toMatchObject({ status: 'done' })
@@ -259,10 +309,10 @@ describe('what the warehouse holds', () => {
 
   it('needs no gas for an approve it will not send', async () => {
     const t = setup()
-    t.state.allowance = 10n ** 12n
+    await t.buyer.buyShares('p1', 'tsla', 10n) // leaves (in the fake) an allowance of exactly the same swap
     t.state.eth = SWAP_WEI
-    await t.buyer.buyShares('p1', 'tsla', 10n)
-    expect(t.state.approvals).toEqual([])
+    await t.buyer.buyShares('p2', 'tsla', 10n)
+    expect(t.state.approvals.length).toBe(1)
   })
 
   it('signs nothing when the warehouse holds less USDG than the swap costs', async () => {
@@ -280,14 +330,56 @@ describe('what the warehouse holds', () => {
 })
 
 describe('limits (SPEC §5.3)', () => {
-  it('refuses more than $50 in one swap, for good, without signing', async () => {
+  it('splits a party owing more than $50 of one token into swaps of at most $50', async () => {
     const t = setup()
-    // 130 units = 0.13 TSLA ≈ $52.5
-    await expect(t.buyer.buyShares('p1', 'tsla', 130n)).rejects.toMatchObject({
+    // 300 units = 0.3 TSLA ≈ $120: 112 + 112 + 76 units
+    const proof = await t.buyer.buyShares('p1', 'tsla', 300n)
+    expect(t.state.sent.length).toBe(3)
+    const rows = ['p1:tsla', 'p1:tsla:1', 'p1:tsla:2'].map((id) => swapRow(t.db, id)!)
+    expect(rows.map((r) => r.status)).toEqual(['done', 'done', 'done'])
+    for (const r of rows) expect(r.usdg_in).toBeLessThanOrEqual(50_000_000)
+    expect(rows.reduce((sum, r) => sum + r.units, 0)).toBe(300)
+    expect(proof).toBe(`${rows[0]!.tx_hash}+2`)
+    expect(proof.length).toBeLessThanOrEqual(128)
+    // asked again: the same proof, nothing new on chain
+    expect(await t.buyer.buyShares('p1', 'tsla', 300n)).toBe(proof)
+    expect(t.state.sent.length).toBe(3)
+  })
+
+  it('a split buy that stopped part way goes on from the swap it reached', async () => {
+    const t = setup()
+    const send = t.hood.sendRawTransaction
+    let sends = 0
+    t.hood.sendRawTransaction = async (raw) => {
+      if (++sends === 2) throw new Error('connection reset')
+      return send(raw)
+    }
+    await expect(t.buyer.buyShares('p1', 'tsla', 300n)).rejects.toThrow('connection reset')
+    expect(swapRow(t.db, 'p1:tsla')!.status).toBe('done')
+    expect(swapRow(t.db, 'p1:tsla:1')!.status).toBe('sent')
+    const routes = t.routes.length
+    const proof = await t.buyer.buyShares('p1', 'tsla', 300n)
+    expect(proof).toBe(`${swapRow(t.db, 'p1:tsla')!.tx_hash}+2`)
+    expect(t.routes.length).toBe(routes + 1) // only the third swap was quoted
+  })
+
+  it('refuses one swap of more than $50, for good, without signing', async () => {
+    const t = setup()
+    // our price says $100 while the market is at $400: sized as ≤ $50, it would cost four times that
+    const buyer = warehouseBuyer({
+      db: t.db,
+      hood: t.hood,
+      kyber: t.kyber,
+      signer: t.signer,
+      price: async () => 100,
+      now: () => NOW,
+    })
+    await expect(buyer.buyShares('p1', 'tsla', 400n)).rejects.toMatchObject({
       code: 'over_swap_limit',
       permanent: true,
     })
     expect(t.signed).toEqual([])
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'over_swap_limit' })
   })
 
   it('stops at $500 a UTC day across swaps; yesterday does not count', async () => {
@@ -332,12 +424,38 @@ describe('proof only when the shares arrived', () => {
       const t = setup({ fill })
       await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill', permanent: true })
       expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'short_fill' })
-      // and stays stopped: no second purchase, no proof from a later look
-      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill', permanent: true })
+      // and stays stopped: no second purchase, no proof from a later look, and no other party buys either
+      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ permanent: true })
+      await expect(t.buyer.buyShares('p2', 'nvda', 10n)).rejects.toMatchObject({
+        code: 'halted_short_fill',
+        permanent: true,
+      })
       expect(t.routes.length).toBe(1)
       expect(t.state.sent.length).toBe(1)
     })
   }
+
+  it('a party whose swap already finished still gets its proof while buys are halted', async () => {
+    const t = setup()
+    const proof = await t.buyer.buyShares('p1', 'tsla', 10n)
+    run(
+      t.db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, error, at)
+       VALUES ('p9:nvda', 'nvda', 1, 1, '0', '0', 0, '0x', '0x', 'stuck', 'short_fill', ?)`,
+      NOW,
+    )
+    expect(await t.buyer.buyShares('p1', 'tsla', 10n)).toBe(proof)
+    await expect(t.buyer.buyShares('p2', 'tsla', 10n)).rejects.toMatchObject({ code: 'halted_short_fill' })
+  })
+
+  it('buys again once a person has moved the short fill out of stuck', async () => {
+    const t = setup({ fill: 'none' })
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill' })
+    run(t.db, "UPDATE warehouse_swaps SET status = 'done', error = 'resolved by hand'")
+    t.state.lastOut = 0n
+    await expect(t.buyer.buyShares('p2', 'tsla', 10n)).rejects.toMatchObject({ code: 'short_fill' })
+    expect(t.state.sent.length).toBe(2)
+  })
 
   it('a reverted swap is not a proof, and the next try buys again', async () => {
     const t = setup({ status: 'reverted' })
@@ -434,5 +552,145 @@ describe('never buying twice', () => {
     const err = await t.buyer.buyShares('p1', 'tsla', 10n).catch((e: unknown) => e)
     expect(err).toBeInstanceOf(SettlementError)
     expect(err).toMatchObject({ code: 'chainsig_gas_too_high', permanent: true })
+  })
+})
+
+describe('the router call Kyber built', () => {
+  const cases: [Tamper, string][] = [
+    ['not_swap', 'bad_swap_call_not_swap'],
+    ['src_token', 'bad_swap_call_src_token'],
+    ['dst_token', 'bad_swap_call_dst_token'],
+    ['receiver', 'bad_swap_call_receiver'],
+    ['amount', 'bad_swap_call_amount'],
+    ['src_amounts', 'bad_swap_call_src_amounts'],
+    ['fee', 'bad_swap_call_fee'],
+    ['permit', 'bad_swap_call_permit'],
+    ['min_return', 'bad_swap_call_min_return'],
+  ]
+  for (const [tamper, code] of cases) {
+    it(`refuses a call with a tampered ${tamper}, before approving or signing anything`, async () => {
+      const t = setup({ tamper })
+      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code, permanent: true })
+      expect(t.signed).toEqual([])
+      expect(t.state.approvals).toEqual([])
+    })
+  }
+
+  it('takes the honest call (the same encoding the live /route/build answers with)', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(t.built()!.data.slice(0, 10)).toBe('0xe21fd0e9')
+  })
+})
+
+describe('one buy at a time', () => {
+  it('two calls for the same party and token at once: one swap, the other is told to wait', async () => {
+    const t = setup()
+    const [a, b] = await Promise.allSettled([
+      t.buyer.buyShares('p1', 'tsla', 10n),
+      t.buyer.buyShares('p1', 'tsla', 10n),
+    ])
+    const results = [a, b].map((r) => (r.status === 'fulfilled' ? 'ok' : (r.reason as SettlementError).code)).sort()
+    expect(results).toEqual(['ok', 'swap_in_flight'])
+    expect(t.state.sent.length).toBe(1)
+    expect(t.routes.length).toBe(1)
+  })
+
+  it('two parties at once cannot both fit in the last room of the day', async () => {
+    const t = setup()
+    run(
+      t.db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
+       VALUES ('a', 'tsla', 1, 495000000, '0', '0', 0, '0x', '0x', 'done', ?)`,
+      NOW - 1000,
+    )
+    // each ≈ $4.04, and $5 is left
+    const [a, b] = await Promise.allSettled([
+      t.buyer.buyShares('p1', 'tsla', 10n),
+      t.buyer.buyShares('p2', 'tsla', 10n),
+    ])
+    const codes = [a, b].map((r) => (r.status === 'fulfilled' ? 'ok' : (r.reason as SettlementError).code)).sort()
+    expect(codes).toEqual(['daily_limit', 'ok'])
+    expect(t.state.sent.length).toBe(1)
+  })
+
+  it('a building row a crash left is taken over once its lease is old', async () => {
+    const t = setup()
+    const leave = (at: number) =>
+      run(
+        t.db,
+        `INSERT OR REPLACE INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash,
+           status, lease, at) VALUES ('p1:tsla', 'tsla', 10, 4000000, '', '', -1, '', '', 'building', 'dead', ?)`,
+        at,
+      )
+    leave(NOW - 1000)
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'swap_in_flight' })
+    expect(t.routes.length).toBe(0)
+    leave(NOW - BUILD_LEASE_MS)
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(swapRow(t.db)).toMatchObject({ status: 'done' })
+  })
+
+  it('a buy that fails before sending frees its row for the next try', async () => {
+    const t = setup()
+    const route = t.kyber.route
+    let calls = 0
+    t.kyber.route = async (...a) => {
+      if (++calls === 1) throw new SettlementError('kyber_route_503')
+      return route(...a)
+    }
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'kyber_route_503' })
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'kyber_route_503' })
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(swapRow(t.db)).toMatchObject({ status: 'done' })
+  })
+})
+
+describe('a broadcast that never lands', () => {
+  it(`stops for a person after ${MAX_RESUMES} retries find no receipt, instead of waiting on every retry`, async () => {
+    const t = setup()
+    t.state.sendFails = true // refused every time, and its nonce stays free
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toThrow('connection reset')
+    for (let i = 1; i < MAX_RESUMES; i++) await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toThrow('timeout')
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'swap_unconfirmed',
+      permanent: true,
+    })
+    expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'swap_unconfirmed' })
+    expect(t.routes.length).toBe(1)
+  })
+})
+
+describe('with the settlement job', () => {
+  it('two jobs ticking at once, with this buyer and a slow MPC: one swap, one mint', async () => {
+    const t = setup()
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (7, 'host', 'P', 1, 0, 0, 0)",
+    )
+    run(t.db, "UPDATE meta SET value = 't' WHERE key = 'install'")
+    const chain = fakeChain({ 't-7': [{ account_id: 'ab'.repeat(32), token_id: 'tsla', qty: '10' }] })
+    // The swap's MPC signature takes a while (≈ 6 s on mainnet): both jobs tick while it is pending.
+    const sign = t.signer.sign
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    t.signer.sign = async (tx) => {
+      if (tx.to?.toLowerCase() === KYBER_ROUTER.toLowerCase()) await gate
+      return sign(tx)
+    }
+    const now = () => GRACE_MS + 1
+    const a = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    const b = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    await a.tick() // release
+    const buying = a.tick() // the mint: buys first
+    await new Promise((r) => setTimeout(r, 0))
+    await Promise.all([a.tick(), b.tick(), b.tick()])
+    release()
+    await buying
+    for (let i = 0; i < 5; i++) await Promise.all([a.tick(), b.tick()])
+    expect(t.state.sent.length).toBe(1)
+    expect(chain.minted.get('tsla')).toBe(10n)
+    expect(chain.calls.filter((c) => c.startsWith('mint:'))).toHaveLength(1)
   })
 })

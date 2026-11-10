@@ -83,10 +83,10 @@ const swap = (over: Partial<TransactionSerializableEIP1559> = {}): TransactionSe
   ...over,
 })
 
-const approve = (spender: Hex) =>
+const approve = (spender: Hex, amount = 5_000_000n) =>
   swap({
     to: USDG,
-    data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [spender, 5_000_000n] }),
+    data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [spender, amount] }),
     gas: 60_000n,
   })
 
@@ -107,6 +107,7 @@ describe('checks before paying for a sign request', () => {
     ['too high a fee', swap({ maxFeePerGas: limits.maxFeePerGas + 1n }), 'fee_too_high'],
     ['a tip above the fee', swap({ maxPriorityFeePerGas: 200_000_000n }), 'fee_too_high'],
     ['an approve for someone else', approve(`0x${'99'.repeat(20)}`), 'wrong_target'],
+    ['an approve above one $50 swap', approve(KYBER_ROUTER, 50_000_001n), 'approve_too_high'],
     ['another call on the token', swap({ to: USDG, data: '0xa9059cbb' }), 'wrong_target'],
   ]
   for (const [what, tx, code] of refused) {

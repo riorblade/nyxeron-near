@@ -1,6 +1,6 @@
 // Back office, lazy-loaded. The UI only hides what a role can't use; the api repeats every check.
 import type { InferResponseType } from 'hono/client'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAccount } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { Link } from '../router.tsx'
@@ -93,9 +93,79 @@ export default function Admin() {
             </div>
             {users?.length === 0 && <p className="mt-2 text-sm text-muted">No players match.</p>}
           </section>
+          <SettlementProblems account={account} canRetry={role !== 'viewer'} />
           <p className="mt-3 text-xs text-muted">Sales, stock and audit appear here as the api adds them.</p>
         </>
       )}
     </main>
+  )
+}
+
+type Failed = InferResponseType<ReturnType<typeof useAccount>['api']['admin']['settlement']['$get'], 200>['failed']
+
+// Settlement steps that stopped after their retries (services/api settlement.ts): the party's guests are waiting on
+// these. Retry runs the step again; the contract's ids make a repeat harmless.
+function SettlementProblems({ account, canRetry }: { account: ReturnType<typeof useAccount>; canRetry: boolean }) {
+  const [failed, setFailed] = useState<Failed>()
+  const [note, setNote] = useState<string>()
+
+  const load = useCallback(async () => {
+    const r = await account.api.admin.settlement.$get()
+    if (r.ok) setFailed((await r.json()).failed)
+  }, [account.api])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const retry = async (op: string) => {
+    const r = await account.api.admin.settlement[':op'].retry.$post({ param: { op } })
+    setNote(r.ok ? `Retrying ${op}.` : `Couldn't retry ${op}.`)
+    void load()
+  }
+
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-panel p-4">
+      <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Settlement problems</h2>
+      {failed?.length === 0 && <p className="text-sm text-muted">None. Every party's shares went out.</p>}
+      {failed && failed.length > 0 && (
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs text-muted">
+            <tr>
+              <th className="py-1 font-normal">Party</th>
+              <th className="py-1 font-normal">Step</th>
+              <th className="py-1 font-normal">Tries</th>
+              <th className="py-1 font-normal">Error</th>
+              <th className="py-1 font-normal">When</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {failed.map((f) => (
+              <tr key={f.id} className="border-t border-line">
+                <td className="py-1">#{f.party}</td>
+                <td className="py-1">{f.kind}</td>
+                <td className="py-1 tabular-nums">{f.attempts}</td>
+                <td className="max-w-64 truncate py-1 text-down" title={f.error}>
+                  {f.error}
+                </td>
+                <td className="py-1 text-muted">{new Date(f.updatedAt).toLocaleString()}</td>
+                <td className="py-1 text-right">
+                  {canRetry && (
+                    <button
+                      onClick={() => void retry(f.id)}
+                      className="rounded-lg border border-line px-2 py-0.5 text-xs"
+                    >
+                      Retry
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {note && <p className="mt-2 text-xs text-muted">{note}</p>}
+    </section>
   )
 }

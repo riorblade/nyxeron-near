@@ -7,6 +7,7 @@ import { openDb, run } from './db.ts'
 import type { OneClick } from './intents.ts'
 import type { Relayer } from './near.ts'
 import type { Quotes } from './quotes.ts'
+import type { Owed, SettleChain } from './settlement.ts'
 
 // Token "tok-alice" signs in as did:privy:alice with alice@test.io and a NEAR account derived from the id.
 export function fakeIdentity(overrides: Partial<Record<string, Profile | 'down'>> = {}): Identity {
@@ -36,7 +37,8 @@ export const fakeQuotes: Quotes = {
 }
 
 // Records what the api asked the relayer to do; `failRelay` makes the next relay land with a failure, `failTransfer`
-// the next ft_transfer. `balances` holds NEP-141 balances as `${token}:${account}`.
+// the next ft_transfer. `balances` holds NEP-141 balances as `${token}:${account}`, `registered` storage registrations
+// as `${token}:${account}`. Like a real NEP-141 token, a relayed ft_transfer to an unregistered account fails.
 export function fakeRelayer() {
   const accounts = new Set<string>()
   const registered = new Set<string>()
@@ -46,10 +48,16 @@ export function fakeRelayer() {
   let failTransferNext = false
   const relayer: Relayer = {
     async relay(d) {
-      calls.push(`relay:${d.delegateAction.receiverId}:${d.delegateAction.actions[0]?.functionCall?.methodName}`)
+      const call = d.delegateAction.actions[0]?.functionCall
+      calls.push(`relay:${d.delegateAction.receiverId}:${call?.methodName}`)
       if (failNext) {
         failNext = false
         return { hash: 'tx-failed', ok: false, error: 'ActionError' }
+      }
+      if (call?.methodName === 'ft_transfer') {
+        const to = (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
+        if (!registered.has(`${d.delegateAction.receiverId}:${to}`))
+          return { hash: 'tx-unregistered', ok: false, error: `The account ${to} is not registered` }
       }
       return { hash: 'tx-ok', ok: true }
     },
@@ -85,6 +93,7 @@ export function fakeRelayer() {
     relayer,
     calls,
     balances,
+    registered,
     failRelay: () => (failNext = true),
     failTransfer: () => (failTransferNext = true),
   }
@@ -111,4 +120,79 @@ export function testApp(
     })
   const ban = (name: string) => run(db, "UPDATE users SET banned = 1 WHERE id = 'did:privy:' || ?", name)
   return { app, db, cfg, call, ban }
+}
+
+// The contract's settlement side in memory: pots, owed, used proofs, settled op ids. `fail(method)` makes the next call
+// to it throw; `landThenThrow(method)` applies it on chain but loses the answer (a timeout).
+export function fakeChain(owedByParty: Record<string, Owed[]>) {
+  const pots = new Map<string, { held: string; released: boolean }>(
+    Object.entries(owedByParty)
+      .filter(([, o]) => o.length)
+      .map(([p]) => [p, { held: '410000', released: false }]),
+  )
+  const owed = new Map(Object.entries(owedByParty).map(([p, o]) => [p, o.map((x) => ({ ...x }))]))
+  const proofs = new Set<string>()
+  const settled = new Set<string>()
+  const minted = new Map<string, bigint>()
+  const calls: string[] = []
+  const failing = new Map<string, 'throw' | 'land'>()
+  const guard = (method: string, apply: () => void) => {
+    const f = failing.get(method)
+    failing.delete(method)
+    if (f === 'throw') throw new Error(`${method} rpc timeout`)
+    apply()
+    if (f === 'land') throw new Error(`${method} answer lost`)
+    return `tx-${method}-${calls.length}`
+  }
+  const chain: SettleChain = {
+    async release(party) {
+      calls.push(`release:${party}`)
+      return guard('release', () => {
+        const pot = pots.get(party) ?? { held: '0', released: false }
+        if (pot.released && pot.held === '0') throw new Error('already released')
+        pots.set(party, { held: '0', released: true })
+      })
+    },
+    async mint(token, units, proof) {
+      calls.push(`mint:${token}:${units}:${proof}`)
+      return guard('mint', () => {
+        if (proofs.has(proof)) throw new Error('proof already used')
+        proofs.add(proof)
+        minted.set(token, (minted.get(token) ?? 0n) + units)
+      })
+    },
+    async settle(party, opId, transfers) {
+      calls.push(`settle:${opId}:${transfers.length}`)
+      return guard('settle', () => {
+        if (settled.has(opId)) throw new Error('op_id already settled')
+        settled.add(opId)
+        const rows = owed.get(party) ?? []
+        for (const t of transfers) {
+          const i = rows.findIndex((r) => r.account_id === t.account_id && r.token_id === t.token_id)
+          if (i < 0 || BigInt(rows[i]!.qty) < BigInt(t.amount)) throw new Error('more than owed')
+          rows.splice(i, 1)
+        }
+      })
+    },
+    async owed(party) {
+      return owed.get(party) ?? []
+    },
+    async pot(party) {
+      return pots.get(party) ?? { held: '0', released: false }
+    },
+    async isUsedProof(proof) {
+      return proofs.has(proof)
+    },
+    async isSettled(opId) {
+      return settled.has(opId)
+    },
+  }
+  return {
+    chain,
+    calls,
+    minted,
+    sends: () => calls.filter((c) => !c.startsWith('view')),
+    fail: (m: string) => failing.set(m, 'throw'),
+    landThenThrow: (m: string) => failing.set(m, 'land'),
+  }
 }

@@ -35,7 +35,7 @@ export function HostPrices(props: { account: Account; partyId: number; menu: Row
   }
 
   return (
-    <section className="rounded-2xl border border-gold/40 bg-panel p-4">
+    <section className="rounded-2xl border border-gold/40 bg-panel/80 p-4 backdrop-blur">
       <h3 className="mb-1 text-sm font-semibold tracking-wide text-gold uppercase">You're the host · your prices</h3>
       <ul className="divide-y divide-line">
         {props.menu.map((row) => {

@@ -8,7 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { nearProvider, type Network, tokenBalance } from '../near/chain.ts'
 import type { SignHash } from '../near/delegate.ts'
 
-export type ApiConfig = { network: Network; contractId: string; usdcId: string }
+// testDollars: testnet with DEMO_MODE only (Get test dollars); faucetBalance is null when the api couldn't read it.
+export type ApiConfig = {
+  network: Network
+  contractId: string
+  usdcId: string
+  testDollars: { amount: number; faucetBalance: number | null } | null
+}
 export type Profile = { id: string; email: string; nearAccount: string; name: string; banned: boolean }
 
 export function useAccount() {
@@ -37,13 +43,21 @@ export function useAccount() {
     [authenticated, getAccessToken],
   )
 
+  const reloadConfig = useCallback(
+    () =>
+      api.config
+        .$get()
+        .then((r) => r.json())
+        .then((c) =>
+          setConfig({ network: c.network, contractId: c.contractId, usdcId: c.usdcId, testDollars: c.testDollars }),
+        )
+        .catch(() => setSetupError("Can't reach the game server.")),
+    [api],
+  )
+
   useEffect(() => {
-    void api.config
-      .$get()
-      .then((r) => r.json())
-      .then((c) => setConfig({ network: c.network, contractId: c.contractId, usdcId: c.usdcId }))
-      .catch(() => setSetupError("Can't reach the game server."))
-  }, [api])
+    void reloadConfig()
+  }, [reloadConfig])
 
   // First sign-in: Privy has no NEAR wallet yet, make one.
   useEffect(() => {
@@ -91,6 +105,7 @@ export function useAccount() {
     logout,
     api,
     config,
+    reloadConfig,
     address,
     profile,
     balance,
