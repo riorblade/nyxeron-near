@@ -10,6 +10,7 @@ import { Link } from '../router.tsx'
 import { buyDrink } from './buy.ts'
 import { ClubBackdrop } from './ClubBackdrop.tsx'
 import { PlayerError, playerMessage } from './errors.ts'
+import { HostMoves } from './HostMoves.tsx'
 import { HostPrices } from './HostPrices.tsx'
 import { type Settlement, settleHash, settlementNote, stepLabel } from './settlement.ts'
 import { rememberParty } from './visited.ts'
@@ -51,7 +52,8 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
 
   useEffect(() => {
     void load()
-    const id = setInterval(load, 15_000)
+    // Often enough that every guest sees the host's moves (happy hour, pyro) within a few seconds.
+    const id = setInterval(load, 5_000)
     return () => clearInterval(id)
   }, [load])
 
@@ -103,11 +105,29 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
     <div className="grid gap-4 md:grid-cols-[1fr_18rem]">
       <ClubBackdrop
         level={CLUB_LEVEL}
+        moves={party.live ? party.moves.map((m) => m.kind) : []}
+        pyroAt={party.pyroAt}
         walk={walking ? { name: account.profile?.name || 'Guest', onExit: () => setWalking(false) } : undefined}
       />
       {isHost && party.live && !walking && (
         <div className="md:col-span-2">
-          <HostPrices account={account} partyId={partyId} menu={party.menu} onSaved={() => void load()} />
+          <HostPrices
+            account={account}
+            partyId={partyId}
+            menu={party.menu.map((m) => ({ ...m, price: m.listPrice }))}
+            onSaved={() => void load()}
+          />
+        </div>
+      )}
+      {isHost && party.live && !walking && (
+        <div className="md:col-span-2">
+          <HostMoves
+            account={account}
+            partyId={partyId}
+            active={party.moves.map((m) => m.kind)}
+            happyHourUsed={party.happyHourUsed}
+            onDone={() => void load()}
+          />
         </div>
       )}
       <section className={`rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur ${walking ? 'hidden' : ''}`}>
@@ -127,6 +147,14 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
           {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
           {party.live ? `until ${new Date(party.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}` : 'not open'}
         </p>
+        {party.live && party.moves.some((m) => m.kind === 'happyHour') && (
+          <p className="mt-2 rounded-lg bg-gold/15 px-3 py-1.5 text-sm font-semibold text-gold">
+            Happy hour: 20 % off every drink until{' '}
+            {new Date(party.moves.find((m) => m.kind === 'happyHour')!.until).toLocaleTimeString([], {
+              timeStyle: 'short',
+            })}
+          </p>
+        )}
         <ul className="mt-3 divide-y divide-line">
           {party.menu.map((row) => (
             <li key={row.token} className="flex items-center justify-between gap-3 py-2">
@@ -137,6 +165,9 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {row.price < row.listPrice && (
+                  <span className="text-xs text-muted tabular-nums line-through">{usd(row.listPrice)}</span>
+                )}
                 <span className="font-semibold tabular-nums">{usd(row.price)}</span>
                 {[1, 3].map((qty) => (
                   <button
