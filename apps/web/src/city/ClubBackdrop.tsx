@@ -3,6 +3,9 @@
 import type { Market } from '@nyxeron/game'
 import { Component, lazy, type ReactNode, Suspense, useEffect, useState } from 'react'
 import { loadMarket } from '../practice/market.ts'
+import type { CamMode } from '../venue/camera.ts'
+import type { Emote } from '../venue/moves.ts'
+import { WalkControls } from '../venue/WalkControls.tsx'
 
 const Venue = lazy(() => import('../venue/Venue.tsx').then((m) => ({ default: m.Venue })))
 
@@ -17,18 +20,35 @@ class NoVenue extends Component<{ children: ReactNode }, { failed: boolean }> {
 }
 
 /** A live City party has no simulated night, so the club shows its lively preview crowd, priced from today's market. */
-export function ClubBackdrop({ level }: { level: number }) {
+/** `walk`: the guest walks the club as their own avatar (the same scene, so nothing reloads). */
+export function ClubBackdrop(props: { level: number; walk?: { name: string; onExit: () => void } }) {
   const [market, setMarket] = useState<Market>()
+  const [cam, setCam] = useState<CamMode>('behind')
+  const [emote, setEmote] = useState<Emote | null>(null)
   useEffect(() => {
     void loadMarket().then((m) => setMarket(m.market))
   }, [])
+  const walk = props.walk
+  const me = walk ? { name: walk.name, avatar: avatarFor(walk.name) } : undefined
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10" aria-hidden>
+    <div
+      className={walk ? 'fixed inset-0 z-40 bg-night' : 'pointer-events-none fixed inset-0 -z-10'}
+      aria-hidden={!walk}
+    >
       <NoVenue>
-        <Suspense fallback={null}>{market && <Venue level={level} market={market} />}</Suspense>
+        <Suspense fallback={null}>
+          {market && <Venue level={props.level} market={market} me={me} cam={cam} emote={emote} />}
+        </Suspense>
       </NoVenue>
-      {/* Keeps the menu readable over the lights. */}
-      <div className="absolute inset-0 bg-gradient-to-b from-night/80 via-night/35 to-night/85" />
+      {walk ? (
+        <WalkControls cam={cam} onCam={setCam} emote={emote} onEmote={setEmote} onExit={walk.onExit} />
+      ) : (
+        // Keeps the menu readable over the lights.
+        <div className="absolute inset-0 bg-gradient-to-b from-night/80 via-night/35 to-night/85" />
+      )}
     </div>
   )
 }
+
+/** One of the venue's ten guest looks, the same one every time for a name. */
+const avatarFor = (name: string) => (Array.from(name).reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 10) + 1
