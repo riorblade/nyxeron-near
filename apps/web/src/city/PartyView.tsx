@@ -8,10 +8,14 @@ import { usd } from '../format.ts'
 import { explorer, nearProvider } from '../near/chain.ts'
 import { Link } from '../router.tsx'
 import { buyDrink } from './buy.ts'
+import { ClubBackdrop } from './ClubBackdrop.tsx'
 import { PlayerError, playerMessage } from './errors.ts'
 import { HostPrices } from './HostPrices.tsx'
 import { type Settlement, settleHash, settlementNote, stepLabel } from './settlement.ts'
 import { rememberParty } from './visited.ts'
+
+// The club level behind the party. The api doesn't carry the host's venue level yet, so every party is The Basement.
+const CLUB_LEVEL = 1
 
 type Party = InferResponseType<Account['api']['parties'][':id']['$get'], 200>
 type MenuRow = Party['menu'][number]
@@ -84,7 +88,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
 
   if (error)
     return (
-      <section className="rounded-2xl border border-line bg-panel p-4">
+      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
         <p className="text-down">{error}</p>
         <Link href="/city" className="mt-2 inline-block text-sm text-muted hover:text-ink">
           ← All parties
@@ -96,12 +100,13 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const isHost = Boolean(account.address && party.host.nearAccount === account.address)
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_18rem]">
+      <ClubBackdrop level={CLUB_LEVEL} />
       {isHost && party.live && (
         <div className="md:col-span-2">
           <HostPrices account={account} partyId={partyId} menu={party.menu} onSaved={() => void load()} />
         </div>
       )}
-      <section className="rounded-2xl border border-line bg-panel p-4">
+      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
         <Link href="/city" className="text-xs text-muted hover:text-ink">
           ← All parties
         </Link>
@@ -174,7 +179,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
           </ol>
         )}
       </section>
-      <section className="rounded-2xl border border-line bg-panel p-4">
+      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
         <h3 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Your drinks</h3>
         {drinks.length === 0 && <p className="text-sm text-muted">Nothing yet. Every drink is a slice of a share.</p>}
         <ul className="space-y-2 text-sm">
