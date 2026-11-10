@@ -28,6 +28,12 @@ export function quoteSigner(secret: string) {
 
 const live = (p: Party, now: number) => p.starts_at <= now && now < p.ends_at
 
+// Testnet + DEMO_MODE: one House Party is always on, so a guest never waits for a host. Its CEO is the relayer (it
+// already holds test USDC), so the margin goes back to the faucet's pocket.
+export const HOUSE_ID = 'house'
+export const HOUSE_MINUTES = 10
+const houseOn = (cfg: Config) => cfg.NEAR_NETWORK === 'testnet' && cfg.DEMO_MODE && Boolean(cfg.RELAYER_ACCOUNT_ID)
+
 export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quotes: Quotes; now?: () => number }) {
   const { cfg, db, quotes } = deps
   const now = deps.now ?? Date.now
@@ -63,6 +69,7 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
       chainParty: chainParty(db, p.id),
       title: p.title,
       host: { name: host?.name ?? '', nearAccount: host?.near_account ?? '' },
+      demo: p.host_id === HOUSE_ID,
       seed: p.seed,
       startsAt: p.starts_at,
       endsAt: p.ends_at,
@@ -80,6 +87,46 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
         })),
     }
   }
+  // Inserts a party and its opening prices (every priced stock at 1.5× wholesale). Call inside tx().
+  const openParty = (hostId: string, title: string, minutes: number, wholesale: Partial<Record<TokenId, number>>) => {
+    const t = now()
+    const p = one<{ id: number }>(
+      db,
+      'INSERT INTO parties (host_id, title, seed, starts_at, ends_at, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+      hostId,
+      title,
+      randomInt(2 ** 31),
+      t,
+      t + minutes * 60_000,
+      t,
+    )!
+    for (const [token, w] of Object.entries(wholesale))
+      run(db, 'INSERT INTO party_prices (party_id, token, price) VALUES (?, ?, ?)', p.id, token, roundCent(w * 1.5))
+    return p.id
+  }
+  // Opens the next House Party when none is live. Checked and inserted in one tx, so two requests can't open two.
+  const ensureHouseParty = async () => {
+    if (!houseOn(cfg)) return
+    const isLive = () =>
+      one(db, 'SELECT 1 AS x FROM parties WHERE host_id = ? AND starts_at <= ? AND ends_at > ?', HOUSE_ID, now(), now())
+    if (isLive()) return
+    const wholesale = await wholesaleNow().catch(() => ({}))
+    if (!Object.keys(wholesale).length) return // no market right now: try again on the next list
+    tx(db, () => {
+      const t = now()
+      run(
+        db,
+        `INSERT INTO users (id, name, near_account, created_at, last_seen) VALUES (?, 'NYXERON House', ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET near_account = excluded.near_account`,
+        HOUSE_ID,
+        cfg.RELAYER_ACCOUNT_ID!,
+        t,
+        t,
+      )
+      if (!isLive()) openParty(HOUSE_ID, 'House Party', HOUSE_MINUTES, wholesale)
+    })
+  }
+
   const needNear = (u: User) => {
     if (!u.near_account) throw new AppError(409, 'no_near_account')
     return u.near_account
@@ -88,17 +135,25 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
   return (
     new Hono<AppEnv>()
       .use(requireUser(deps))
-      .get('/', (c) => {
+      .get('/', async (c) => {
+        await ensureHouseParty()
         const t = now()
         const rows = all<Party & { host_name: string }>(
           db,
           `SELECT p.*, u.name AS host_name FROM parties p JOIN users u ON u.id = p.host_id
-         WHERE p.starts_at <= ? AND p.ends_at > ? ORDER BY p.ends_at LIMIT 50`,
+         WHERE p.starts_at <= ? AND p.ends_at > ? ORDER BY p.host_id = ? DESC, p.ends_at LIMIT 50`,
           t,
           t,
+          HOUSE_ID,
         )
         return c.json({
-          parties: rows.map((p) => ({ id: p.id, title: p.title, host: p.host_name, endsAt: p.ends_at })),
+          parties: rows.map((p) => ({
+            id: p.id,
+            title: p.title,
+            host: p.host_name,
+            endsAt: p.ends_at,
+            demo: p.host_id === HOUSE_ID,
+          })),
         })
       })
       .post(
@@ -112,29 +167,8 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
           needNear(c.var.user)
           const { title, minutes } = c.req.valid('json')
           const wholesale = await wholesaleNow()
-          const t = now()
-          const id = tx(db, () => {
-            const p = one<{ id: number }>(
-              db,
-              'INSERT INTO parties (host_id, title, seed, starts_at, ends_at, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
-              c.var.user.id,
-              title,
-              randomInt(2 ** 31),
-              t,
-              t + minutes * 60_000,
-              t,
-            )!
-            // Every priced stock starts at 1.5× wholesale; the host changes it with PUT /prices.
-            for (const [token, w] of Object.entries(wholesale))
-              run(
-                db,
-                'INSERT INTO party_prices (party_id, token, price) VALUES (?, ?, ?)',
-                p.id,
-                token,
-                roundCent(w * 1.5),
-              )
-            return p.id
-          })
+          // The host changes the opening prices with PUT /prices.
+          const id = tx(db, () => openParty(c.var.user.id, title, minutes, wholesale))
           return c.json(await view(getParty(id)), 201)
         },
       )

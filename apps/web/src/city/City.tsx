@@ -109,7 +109,7 @@ function SignIn({ signedIn, onPick }: { signedIn: boolean; onPick: (r: Role) => 
   )
 }
 
-type PartyRow = { id: number; title: string; host: string; endsAt: number }
+type PartyRow = { id: number; title: string; host: string; endsAt: number; demo: boolean }
 
 function Parties({ account }: { account: Account }) {
   const [parties, setParties] = useState<PartyRow[]>()
@@ -135,6 +135,11 @@ function Parties({ account }: { account: Account }) {
             <Link href={`/city/party/${p.id}`} className="flex items-center justify-between py-3 hover:text-neon">
               <span>
                 <span className="font-semibold">{p.title}</span>
+                {p.demo && (
+                  <span className="ml-2 rounded-full bg-neon/15 px-2 py-0.5 text-xs font-semibold text-neon">
+                    always on
+                  </span>
+                )}
                 <span className="ml-2 text-sm text-muted">by {p.host || 'a host'}</span>
               </span>
               <span className="text-sm text-muted">
