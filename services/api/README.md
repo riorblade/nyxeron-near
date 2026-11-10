@@ -30,6 +30,38 @@ cp services/api/.env.example services/api/.env   # fill in the Privy app id and 
 pnpm dev:api                                     # http://localhost:8788/api/health
 ```
 
+## Deploy
+
+Testnet (`NEAR_NETWORK=testnet`, `DEMO_MODE=true`). Mainnet only after the proof run and the team's yes.
+
+**api** (one host with Docker, behind a reverse proxy that already holds 80/443 and terminates TLS):
+
+```sh
+git archive HEAD | ssh <host> 'mkdir -p /opt/nyxeron-near && tar -x -C /opt/nyxeron-near'
+# once: put the secrets on the host, never in the repo
+scp services/api/.env <host>:/opt/nyxeron-near/services/api/.env
+ssh <host> 'cd /opt/nyxeron-near && docker compose -f services/api/compose.yml up -d --build'
+```
+
+- `Dockerfile`: Node 24 runs the `.ts` sources, no build step; health check on `/api/health`.
+- `compose.yml`: SQLite on the `api_data` volume (`/data`), so party ids survive a redeploy. The container joins the
+  proxy's Docker network (`PROXY_NETWORK`, default `deploy_default`) as `nyxeron-near-api`. Proxy block (Caddy):
+
+  ```
+  api.<domain> {
+  	handle /api/* {
+  		reverse_proxy nyxeron-near-api:8788
+  	}
+  	handle {
+  		respond 404
+  	}
+  }
+  ```
+
+**web** (Vercel, `vercel.json` at the repo root): builds `apps/web`, serves the SPA, and rewrites `/api/*` to the
+api host, so the browser stays on one origin (no CORS). Set `VITE_PRIVY_APP_ID` in the Vercel project; the Privy app
+must list the web's domain as an allowed origin.
+
 ## Endpoints
 
 Player and admin routes need `Authorization: Bearer <Privy access token>`. Errors are `{ "error": "<code>" }`. In the
@@ -53,7 +85,7 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 | `POST /api/onboard`                    | player        | makes the player's NEAR account usable (0 NEAR transfer + USDC registration, paid by us) → `{ nearAccount, createdTx, registeredTx }`                                                                                                                                                                                                                                                                                    |
 | `POST /api/relay`                      | player        | body `{ signedDelegate }` (NEP-366, borsh, base64); relayed only if it is a USDC `ft_transfer_call` to our contract (1 yocto), a USDC `ft_transfer` (1 yocto) of a cash-out's exact amount to its 1Click deposit address (this player's, unexpired, once), or `claim_margin` → `{ hash, ok }`; 422 when it failed on chain or the contract refunded the drink (`error: "refund:<reason>"`)                               |
 | `GET /api/config`                      | anyone        | `{ network, contractId, usdcId, quoteKey, menu, testDollars }`; `testDollars` is `{ amount, faucetBalance }` on testnet with `DEMO_MODE`, else `null`                                                                                                                                                                                                                                                                    |
-| `GET /api/parties`                     | player        | live parties `{ parties: [{ id, title, host, endsAt }] }`                                                                                                                                                                                                                                                                                                                                                                |
+| `GET /api/parties`                     | player        | live parties `{ parties: [{ id, title, host, endsAt, demo }] }`; on testnet with `DEMO_MODE` a House Party (`demo: true`, 10 min, hosted by the relayer) is always live and listed first                                                                                                                                                                                                                                 |
 | `POST /api/parties`                    | player (host) | body `{ title, minutes? }` (5–60, default 10) → the party; every priced stock at 1.5× wholesale                                                                                                                                                                                                                                                                                                                          |
 | `GET /api/parties/:id`                 | player        | `{ id, chainParty, title, host, seed, startsAt, endsAt, live, menu: [{ token, ticker, name, price, wholesale, maxPrice }] }` (micro-USDC); `chainParty` (`<install>-<id>`) is the id the contract knows the party by: pass it to `owed` / `party_pot`                                                                                                                                                                    |
 | `PUT /api/parties/:id/prices`          | host          | body `{ prices: { tsla: 800000 } }`, each within wholesale … 3× wholesale                                                                                                                                                                                                                                                                                                                                                |
