@@ -33,6 +33,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const [error, setError] = useState<string>()
   const [drinks, setDrinks] = useState<Drink[]>([])
   const [busy, setBusy] = useState<string>()
+  const [walking, setWalking] = useState(false)
   const [settlement, setSettlement] = useState<Settlement>()
 
   const load = useCallback(async () => {
@@ -100,16 +101,27 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const isHost = Boolean(account.address && party.host.nearAccount === account.address)
   return (
     <div className="grid gap-4 md:grid-cols-[1fr_18rem]">
-      <ClubBackdrop level={CLUB_LEVEL} />
-      {isHost && party.live && (
+      <ClubBackdrop
+        level={CLUB_LEVEL}
+        walk={walking ? { name: account.profile?.name || 'Guest', onExit: () => setWalking(false) } : undefined}
+      />
+      {isHost && party.live && !walking && (
         <div className="md:col-span-2">
           <HostPrices account={account} partyId={partyId} menu={party.menu} onSaved={() => void load()} />
         </div>
       )}
-      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
-        <Link href="/city" className="text-xs text-muted hover:text-ink">
-          ← All parties
-        </Link>
+      <section className={`rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur ${walking ? 'hidden' : ''}`}>
+        <div className="flex items-center justify-between gap-2">
+          <Link href="/city" className="text-xs text-muted hover:text-ink">
+            ← All parties
+          </Link>
+          <button
+            onClick={() => setWalking(true)}
+            className="rounded-full border border-neon/50 px-3 py-1 text-xs font-semibold text-neon hover:bg-neon/10"
+          >
+            Walk in the club
+          </button>
+        </div>
         <h2 className="text-xl font-bold">{party.title}</h2>
         <p className="text-sm text-muted">
           {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
@@ -179,7 +191,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
           </ol>
         )}
       </section>
-      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
+      <section className={`rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur ${walking ? 'hidden' : ''}`}>
         <h3 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Your drinks</h3>
         {drinks.length === 0 && <p className="text-sm text-muted">Nothing yet. Every drink is a slice of a share.</p>}
         <ul className="space-y-2 text-sm">
