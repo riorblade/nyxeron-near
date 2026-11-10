@@ -16,11 +16,11 @@ import {
   type Owed,
   planOps,
   retryOp,
-  type SettleChain,
+  SettlementError,
   settlement,
   settlementView,
 } from './settlement.ts'
-import { fakeIdentity, fakeQuotes, testApp } from './testing.ts'
+import { fakeChain, fakeIdentity, fakeQuotes, testApp } from './testing.ts'
 
 const guest = (n: number) => `${String(n).padStart(2, '0')}`.repeat(32)
 const owedRow = (n: number, token: string, qty: number): Owed => ({
@@ -28,81 +28,6 @@ const owedRow = (n: number, token: string, qty: number): Owed => ({
   token_id: token,
   qty: String(qty),
 })
-
-// The contract's settlement side in memory: pots, owed, used proofs, settled op ids. `fail(method)` makes the next call
-// to it throw; `landThenThrow(method)` applies it on chain but loses the answer (a timeout).
-function fakeChain(owedByParty: Record<string, Owed[]>) {
-  const pots = new Map<string, { held: string; released: boolean }>(
-    Object.entries(owedByParty)
-      .filter(([, o]) => o.length)
-      .map(([p]) => [p, { held: '410000', released: false }]),
-  )
-  const owed = new Map(Object.entries(owedByParty).map(([p, o]) => [p, o.map((x) => ({ ...x }))]))
-  const proofs = new Set<string>()
-  const settled = new Set<string>()
-  const minted = new Map<string, bigint>()
-  const calls: string[] = []
-  const failing = new Map<string, 'throw' | 'land'>()
-  const guard = (method: string, apply: () => void) => {
-    const f = failing.get(method)
-    failing.delete(method)
-    if (f === 'throw') throw new Error(`${method} rpc timeout`)
-    apply()
-    if (f === 'land') throw new Error(`${method} answer lost`)
-    return `tx-${method}-${calls.length}`
-  }
-  const chain: SettleChain = {
-    async release(party) {
-      calls.push(`release:${party}`)
-      return guard('release', () => {
-        const pot = pots.get(party) ?? { held: '0', released: false }
-        if (pot.released && pot.held === '0') throw new Error('already released')
-        pots.set(party, { held: '0', released: true })
-      })
-    },
-    async mint(token, units, proof) {
-      calls.push(`mint:${token}:${units}:${proof}`)
-      return guard('mint', () => {
-        if (proofs.has(proof)) throw new Error('proof already used')
-        proofs.add(proof)
-        minted.set(token, (minted.get(token) ?? 0n) + units)
-      })
-    },
-    async settle(party, opId, transfers) {
-      calls.push(`settle:${opId}:${transfers.length}`)
-      return guard('settle', () => {
-        if (settled.has(opId)) throw new Error('op_id already settled')
-        settled.add(opId)
-        const rows = owed.get(party) ?? []
-        for (const t of transfers) {
-          const i = rows.findIndex((r) => r.account_id === t.account_id && r.token_id === t.token_id)
-          if (i < 0 || BigInt(rows[i]!.qty) < BigInt(t.amount)) throw new Error('more than owed')
-          rows.splice(i, 1)
-        }
-      })
-    },
-    async owed(party) {
-      return owed.get(party) ?? []
-    },
-    async pot(party) {
-      return pots.get(party) ?? { held: '0', released: false }
-    },
-    async isUsedProof(proof) {
-      return proofs.has(proof)
-    },
-    async isSettled(opId) {
-      return settled.has(opId)
-    },
-  }
-  return {
-    chain,
-    calls,
-    minted,
-    sends: () => calls.filter((c) => !c.startsWith('view')),
-    fail: (m: string) => failing.set(m, 'throw'),
-    landThenThrow: (m: string) => failing.set(m, 'land'),
-  }
-}
 
 function world(owedByParty: Record<string, Owed[]>, endsAt = 1_000) {
   const db = openDb(':memory:')
@@ -275,6 +200,44 @@ describe('the settlement job', () => {
     await w.runAll()
     expect(w.status(6)).toBe('done')
     expect(w.fake.minted.get('tsla')).toBe(1n)
+  })
+
+  it("a wait (the day's cap, the warehouse being topped up) runs again at its time and never uses up attempts", async () => {
+    const w = world({ 14: [owedRow(1, 'tsla', 1)] })
+    const waits = MAX_ATTEMPTS + 3
+    let calls = 0
+    const waiting: BuyShares = async (party, token) => {
+      if (calls++ < waits) throw new SettlementError('warehouse_low_usdg', false, w.at() + 120_000)
+      return `swap:${party}:${token}`
+    }
+    const job = settlement({ db: w.db, chain: w.fake.chain, buyShares: waiting, now: w.at })
+    await job.tick() // release
+    for (let i = 0; i < waits; i++) {
+      await job.tick()
+      expect(w.ops(14)[1]).toMatchObject({
+        status: 'pending',
+        attempts: 0,
+        error: 'warehouse_low_usdg',
+        next_at: w.at() + 120_000,
+      })
+      await job.tick() // not before its time
+      expect(calls).toBe(i + 1)
+      w.advance(120_000)
+    }
+    for (let i = 0; i < 5; i++) await job.tick()
+    expect(w.status(14)).toBe('done')
+    expect(w.fake.minted.get('tsla')).toBe(1n)
+  })
+
+  it('a permanent error is final even when it names a time', async () => {
+    const w = world({ 15: [owedRow(1, 'tsla', 1)] })
+    const refused: BuyShares = async () => {
+      throw new SettlementError('bad_swap_call_receiver', true, w.at() + 1000)
+    }
+    const job = settlement({ db: w.db, chain: w.fake.chain, buyShares: refused, now: w.at })
+    await job.tick()
+    await job.tick()
+    expect(w.status(15)).toBe('failed')
   })
 
   it('two ticks at once, or two jobs on one database, never run a step twice (a slow buy)', async () => {

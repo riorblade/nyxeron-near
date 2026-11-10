@@ -16,7 +16,8 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
 import { KYBER_ROUTER, USDG } from './chainsig.ts'
 import { type Db, one, openDb, run } from './db.ts'
-import { SettlementError } from './settlement.ts'
+import { GRACE_MS, SettlementError, settlement } from './settlement.ts'
+import { fakeChain } from './testing.ts'
 import {
   BUILD_LEASE_MS,
   type Built,
@@ -657,5 +658,39 @@ describe('a broadcast that never lands', () => {
     })
     expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'swap_unconfirmed' })
     expect(t.routes.length).toBe(1)
+  })
+})
+
+describe('with the settlement job', () => {
+  it('two jobs ticking at once, with this buyer and a slow MPC: one swap, one mint', async () => {
+    const t = setup()
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (7, 'host', 'P', 1, 0, 0, 0)",
+    )
+    run(t.db, "UPDATE meta SET value = 't' WHERE key = 'install'")
+    const chain = fakeChain({ 't-7': [{ account_id: 'ab'.repeat(32), token_id: 'tsla', qty: '10' }] })
+    // The swap's MPC signature takes a while (≈ 6 s on mainnet): both jobs tick while it is pending.
+    const sign = t.signer.sign
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    t.signer.sign = async (tx) => {
+      if (tx.to?.toLowerCase() === KYBER_ROUTER.toLowerCase()) await gate
+      return sign(tx)
+    }
+    const now = () => GRACE_MS + 1
+    const a = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    const b = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    await a.tick() // release
+    const buying = a.tick() // the mint: buys first
+    await new Promise((r) => setTimeout(r, 0))
+    await Promise.all([a.tick(), b.tick(), b.tick()])
+    release()
+    await buying
+    for (let i = 0; i < 5; i++) await Promise.all([a.tick(), b.tick()])
+    expect(t.state.sent.length).toBe(1)
+    expect(chain.minted.get('tsla')).toBe(10n)
+    expect(chain.calls.filter((c) => c.startsWith('mint:'))).toHaveLength(1)
   })
 })
