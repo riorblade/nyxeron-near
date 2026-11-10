@@ -131,27 +131,41 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
 (`party_pot`, `is_used_proof`, `is_settled`), so a crash or a lost answer never doubles a step. A failed step retries
-after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`.
+after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`. A wait is not a try: an
+error with a `retryAt` (the day's swap cap, the warehouse being topped up, another buy of the same swap) runs again at
+that time without counting.
 
 ## Buying the warehouse's shares (`swap.ts`)
 
 `warehouseBuyer({ db, hood, kyber, signer, price }).buyShares(party, token, units)` buys `units × 0.001` shares of the
-pinned token for the warehouse and returns the swap's tx hash, the proof for `mint_warehouse`:
+pinned token for the warehouse and returns the proof for `mint_warehouse`:
 
-1. A KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
+1. What a party owes of one token is split into swaps of at most **\$50** (each sized at 90 % of the cap at the market
+   price), rows `<party>:<token>`, then `<party>:<token>:1`, … The proof is the first swap's hash, plus `+<n>` when n
+   more swaps were needed (≤ 128 chars, unique per party and token).
+2. Per swap, a KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
    (`balanceOfUI = balanceOf × uiMultiplier / 1e18`, so the raw amount is rounded up).
-2. Refused before anything is signed: over **\$50** in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC
-   day (`daily_limit`), worth more than **2 %** under the market price (`under_market`), another router
-   (`wrong_router`).
-3. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
-   and the approve (`warehouse_low_eth`) are retried while `fund.ts` tops it up.
-   `approve(router, amountIn)` only when the allowance is short; the swap is signed by the warehouse (`chainsig.ts`).
-4. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
+3. The row is reserved first (`building`, with a lease, in one synchronous step), so a second call for the same row gets
+   `swap_in_flight`. A crash leaves a lease that another call may take over after 5 minutes; a failure before sending
+   frees the row (`failed`).
+4. Refused before anything is signed: over \$50 in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC day
+   (`daily_limit`, counted together with swaps being built), another router (`wrong_router`), and a router call that
+   doesn't do what was asked. Kyber's `/route/build` data is decoded as MetaAggregationRouterV2 `swap` and must have
+   srcToken = USDG, dstToken = the pinned token, dstReceiver = the warehouse, `amount` = amountIn (and `srcAmounts`
+   no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent). That
+   router-enforced minimum must be worth at least 98 % of the USDG in at the market price (`under_market`).
+5. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
+   and the approve (`warehouse_low_eth`) wait 2 minutes while `fund.ts` tops it up (a wait, not a failed attempt).
+   `approve(router, amountIn)` whenever the allowance isn't exactly this swap (`chainsig.ts` refuses an approve above
+   \$50); the swap is signed by the warehouse (`chainsig.ts`).
+6. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
    receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
-   with `swap_dropped`: a person checks, it is never bought again automatically.
-5. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
+   with `swap_dropped`; after 3 retries with no receipt and a free nonce, `swap_unconfirmed`. A person checks; it is
+   never bought again automatically.
+7. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
    units, rounded up from `units × 0.001` shares through `uiMultiplier`). Checking this transaction's own logs, not the
-   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`.
+   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`, and
+   **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 
@@ -164,15 +178,20 @@ USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinho
 1. ETH first, then USDG; at most one deposit per tick and one in flight per asset. Less than **\$5** in the treasury
    (`treasury_low`) or over **\$600** of deposits in a UTC day (`daily_limit`, refunds count) sends nothing.
 2. A 1Click quote from the treasury's USDC. Its answer must name the warehouse as recipient, USDG by its contract
-   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, and
-   a minimum out worth at least **97 %** of what we send (1Click's own price); otherwise nothing is sent.
+   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, a
+   real (not dry) `EXACT_INPUT` swap with `depositType` / `refundType` `ORIGIN_CHAIN` and `recipientType`
+   `DESTINATION_CHAIN` (not an intents.near balance), and a minimum out worth at least **97 %** of what we send;
+   otherwise nothing is sent. That price is not 1Click's: USDG is \$1, ETH is WETH's deepest Robinhood Chain pool on
+   DexScreener (`dexEthPrice`).
 3. The deposit is written to `warehouse_funding` as `quoted`, then sent in one transaction: `storage_deposit` for the
    deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. The receipt that ran those two actions decides:
    failed → both reverted, nothing moved (`failed`; three in a UTC day stop the funder until the next,
    `too_many_failures`); succeeded → the USDC left, whatever a later refund receipt did. A lost answer, no outcome
    for that receipt, or a `quoted` row found after a restart is `stuck` with `deposit_unknown`.
-4. 1Click's status, at most every 10 s: `SUCCESS` → `done`, `REFUNDED` → `refunded` (the USDC is back in the
-   treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
+4. 1Click's status, at most every 10 s. `SUCCESS` → `done` only once the warehouse's own balance shows it (now + what
+   its swaps spent since ≥ the balance when the refill was decided + the quote's minimum out; for ETH the swaps' gas
+   is an upper bound), else `stuck` as `success_not_on_chain` 10 minutes past the deadline. `REFUNDED` → `refunded`
+   (the USDC is back in the treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
 
 A `stuck` row is listed in `GET /api/admin/settlement`; it blocks that asset's refills and counts toward its day until a
 person checks the deposit (nearblocks, the 1Click explorer) and sets its `status` to `done` or `failed` in the database.
@@ -181,8 +200,7 @@ The MPC requests and the deposits sign with one `Account` object (`warehouseAcco
 the key's nonce. near-api-js refreshes a nonce only on `InvalidNonceError`, which its failover provider wraps;
 `NonceRetryProvider` unwraps it when every RPC refused the nonce (nothing ran), so a key also used elsewhere costs one
 re-sign, not every transaction after it. Run one api process per warehouse account: the one-in-flight rule is per
-process. While the warehouse waits for funds, a party's mint retries with settlement's backoff (5 tries, ≈ 4 min);
-if funding takes longer, retry the step from the back office. Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
+process. While the warehouse waits for funds, a party's mint waits too (every 2 minutes, not counted as a try). Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
 one swap's gas ≈ 0.00003 ETH.
 
 ## Rules
