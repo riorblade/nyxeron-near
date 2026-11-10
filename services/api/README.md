@@ -30,6 +30,38 @@ cp services/api/.env.example services/api/.env   # fill in the Privy app id and 
 pnpm dev:api                                     # http://localhost:8788/api/health
 ```
 
+## Deploy
+
+Testnet (`NEAR_NETWORK=testnet`, `DEMO_MODE=true`). Mainnet only after the proof run and the team's yes.
+
+**api** (one host with Docker, behind a reverse proxy that already holds 80/443 and terminates TLS):
+
+```sh
+git archive HEAD | ssh <host> 'mkdir -p /opt/nyxeron-near && tar -x -C /opt/nyxeron-near'
+# once: put the secrets on the host, never in the repo
+scp services/api/.env <host>:/opt/nyxeron-near/services/api/.env
+ssh <host> 'cd /opt/nyxeron-near && docker compose -f services/api/compose.yml up -d --build'
+```
+
+- `Dockerfile`: Node 24 runs the `.ts` sources, no build step; health check on `/api/health`.
+- `compose.yml`: SQLite on the `api_data` volume (`/data`), so party ids survive a redeploy. The container joins the
+  proxy's Docker network (`PROXY_NETWORK`, default `deploy_default`) as `nyxeron-near-api`. Proxy block (Caddy):
+
+  ```
+  api.<domain> {
+  	handle /api/* {
+  		reverse_proxy nyxeron-near-api:8788
+  	}
+  	handle {
+  		respond 404
+  	}
+  }
+  ```
+
+**web** (Vercel, `vercel.json` at the repo root): builds `apps/web`, serves the SPA, and rewrites `/api/*` to the
+api host, so the browser stays on one origin (no CORS). Set `VITE_PRIVY_APP_ID` in the Vercel project; the Privy app
+must list the web's domain as an allowed origin.
+
 ## Endpoints
 
 Player and admin routes need `Authorization: Bearer <Privy access token>`. Errors are `{ "error": "<code>" }`. In the
