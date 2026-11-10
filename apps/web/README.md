@@ -14,15 +14,15 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 
 ## Screens so far
 
-| Path              | What                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------- |
-| `/`               | Landing                                                                                                 |
-| `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage |
-| `/city`           | Sign in (Privy) as CEO (host, prices) or guest (parties, portfolio); wallet, dollars, Get test dollars  |
-| `/city/party/:id` | Over the 3D club: menu, one-tap buy (quote → delegate → relay), host prices; after it ends, settlement  |
-| `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                   |
-| `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                 |
-| `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                          |
+| Path              | What                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`               | Landing                                                                                                                                                |
+| `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage                                                |
+| `/city`           | Sign in (Privy) as CEO (host, prices) or guest (parties, portfolio); wallet, dollars, Get test dollars                                                 |
+| `/city/party/:id` | Over the 3D club: menu, one-tap buy (quote → delegate → relay), host prices, Walk in the club (own avatar, cameras, dances); after it ends, settlement |
+| `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                                                                  |
+| `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                                                                |
+| `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                                                                         |
 
 Add money / Cash out (`city/MoneyPanel.tsx`, `city/money.ts`) quote through the api's 1Click endpoints; on testnet every
 quote is a dry run (nothing to send), on mainnet Add money shows the deposit address and Cash out signs the USDC transfer
@@ -36,6 +36,9 @@ on rooms the reputation hasn't opened, menu and DJ windows) → the night (HUD o
 level (L1 30 guests → L4 150). `<Venue level night />` only reads the `Night`; `legacy.ts` dresses it up as the state the
 old scene draws. Assets live in `public/venue/` (sprites, textures, DJ loops). Both screens are adapted from our earlier
 work: the judges' README must say so (HACKATHON Q-002).
+
+Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left; on a phone the Practice dock sits
+above it.
 
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.
