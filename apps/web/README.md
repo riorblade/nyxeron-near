@@ -37,8 +37,7 @@ level (L1 30 guests → L4 150). `<Venue level night />` only reads the `Night`;
 old scene draws. Assets live in `public/venue/` (sprites, textures, DJ loops). Both screens are adapted from our earlier
 work: the judges' README must say so (HACKATHON Q-002).
 
-Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left; on a phone the Practice dock sits
-above it.
+Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left.
 
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.
