@@ -420,8 +420,7 @@ function Day(props: {
 
       {/* The venue carousel: ← → over the club, a padlock on rooms the reputation hasn't opened. */}
       <button
-        className="btn dark round"
-        style={{ position: 'fixed', left: 336, top: '50%' }}
+        className="btn dark round venuenav prev"
         aria-label="Previous venue"
         disabled={level === 1}
         onClick={() => go(-1)}
@@ -429,8 +428,7 @@ function Day(props: {
         ←
       </button>
       <button
-        className="btn dark round"
-        style={{ position: 'fixed', right: 316, top: '50%' }}
+        className="btn dark round venuenav next"
         aria-label="Next venue"
         disabled={level === VENUES.length}
         onClick={() => go(1)}
