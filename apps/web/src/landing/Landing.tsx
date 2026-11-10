@@ -1,9 +1,13 @@
+import { Mark } from '../Mark.tsx'
 import { Link } from '../router.tsx'
 
 export function Landing() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center px-4 py-12">
-      <p className="text-sm font-semibold tracking-[0.3em] text-neon uppercase">Nyxeron</p>
+      <p className="flex items-center gap-3 text-sm font-semibold tracking-[0.3em] text-neon uppercase">
+        <Mark className="size-10 text-ink" />
+        Nyxeron
+      </p>
       <h1 className="mt-3 text-4xl leading-tight font-bold sm:text-5xl">
         Run a nightclub where every drink is a <span className="text-gold">real share</span>.
       </h1>

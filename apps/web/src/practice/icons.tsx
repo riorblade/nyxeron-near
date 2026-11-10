@@ -1,3 +1,4 @@
+import { Mark as BrandMark } from '../Mark.tsx'
 // Icons and the logo mark from the course prototype (inline SVG, stroke = currentColor).
 import type { ReactNode } from 'react'
 
@@ -50,17 +51,7 @@ export const Icon = ({ k, className }: { k: string; className?: string }): React
   />
 )
 
-const MARK =
-  '<path d="M45.5 45.5 C 39 27, 25 13, 3 11 C 13 19, 20 31, 23 46.5 C 30.5 45, 38 44.6, 45.5 45.5 Z"/><path d="M54.5 45.5 C 61 27, 75 13, 97 11 C 87 19, 80 31, 77 46.5 C 69.5 45, 62 44.6, 54.5 45.5 Z"/><path d="M45.5 54.5 C 41 66, 31 79, 15 89 C 21 78, 24 66, 24.5 53.5 C 31.5 55, 38.5 55.4, 45.5 54.5 Z"/><path d="M54.5 54.5 C 59 66, 69 79, 85 89 C 79 78, 76 66, 75.5 53.5 C 68.5 55, 61.5 55.4, 54.5 54.5 Z"/><path d="M54 18 C 55.6 36, 53.4 60, 46 82 C 44.4 64, 46.6 40, 54 18 Z"/>'
-export const Mark = () => (
-  <svg
-    className="mark"
-    viewBox="0 0 100 100"
-    fill="currentColor"
-    aria-hidden
-    dangerouslySetInnerHTML={{ __html: MARK }}
-  />
-)
+export const Mark = () => <BrandMark className="mark" />
 
 export const Star = ({ on }: { on: boolean }) => (
   <svg viewBox="0 0 24 24" aria-hidden>

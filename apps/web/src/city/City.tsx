@@ -2,6 +2,7 @@
 // popup and sent through our relayer, so the player never needs NEAR for fees.
 import { useEffect, useState } from 'react'
 import { type Account, useAccount } from '../auth/useAccount.ts'
+import { Mark } from '../Mark.tsx'
 import { Link, usePath } from '../router.tsx'
 import { AccountBar } from './AccountBar.tsx'
 import { HostParty } from './HostParty.tsx'
@@ -20,8 +21,8 @@ export default function City() {
     <main className="mx-auto max-w-4xl px-4 py-6">
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <Link href="/" className="text-xs text-muted hover:text-ink">
-            ← NYXERON
+          <Link href="/" className="flex items-center gap-1.5 text-xs text-muted hover:text-ink">
+            <Mark className="size-4" /> NYXERON
           </Link>
           <h1 className="text-2xl font-bold">City{role && <span className="text-muted"> · {ROLE[role].name}</span>}</h1>
         </div>
