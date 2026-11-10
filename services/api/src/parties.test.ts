@@ -2,7 +2,7 @@ import { createPublicKey, verify } from 'node:crypto'
 import { KeyPair, PublicKey } from 'near-api-js'
 import { describe, expect, it, vi } from 'vitest'
 import { all } from './db.ts'
-import { PAYMENT_GAS, QUOTE_TTL_MS } from './parties.ts'
+import { HOUSE_MINUTES, PAYMENT_GAS, QUOTE_TTL_MS } from './parties.ts'
 import type { Quotes } from './quotes.ts'
 import { fakeIdentity, fakeQuotes, testApp } from './testing.ts'
 
@@ -74,6 +74,52 @@ describe('parties', () => {
     await call('GET', '/api/me', 'tok-host')
     ban('host')
     expect((await party()).status).toBe(403)
+  })
+})
+
+describe('House Party (testnet + DEMO_MODE)', () => {
+  const demo = { ...env, DEMO_MODE: 'true', RELAYER_ACCOUNT_ID: 'relayer.testnet', RELAYER_KEY: quoteKey.toString() }
+  type List = { parties: { id: number; title: string; demo: boolean; endsAt: number }[] }
+  const list = async (t: ReturnType<typeof setup>) =>
+    (await (await t.call('GET', '/api/parties', 'tok-guest')).json()) as List
+
+  it('is always live, listed first, and a guest can buy there', async () => {
+    const t = setup({ env: demo })
+    await t.party()
+    const { parties } = await list(t)
+    expect(parties.map((p) => [p.title, p.demo])).toEqual([
+      ['House Party', true],
+      ['Friday Night', false],
+    ])
+    expect((await list(t)).parties.filter((p) => p.demo)).toHaveLength(1) // a second list opens no second one
+    const house = await json(await t.call('GET', `/api/parties/${parties[0]!.id}`, 'tok-guest'))
+    expect(house).toMatchObject({
+      demo: true,
+      live: true,
+      host: { name: 'NYXERON House', nearAccount: 'relayer.testnet' },
+    })
+    const q = await t.call('POST', `/api/parties/${parties[0]!.id}/quote`, 'tok-guest', { token: 'tsla', qty: 3 })
+    expect(q.status).toBe(200)
+  })
+
+  it('opens the next one when it ends', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const t = setup({ env: demo })
+      const first = (await list(t)).parties[0]!
+      vi.setSystemTime(first.endsAt)
+      const next = (await list(t)).parties[0]!
+      expect(next).toMatchObject({ demo: true })
+      expect(next.id).not.toBe(first.id)
+      expect(next.endsAt - first.endsAt).toBe(HOUSE_MINUTES * 60_000)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('never opens without DEMO_MODE (so never on mainnet)', async () => {
+    const t = setup({ env: { ...demo, DEMO_MODE: 'false' } })
+    expect((await list(t)).parties).toEqual([])
   })
 })
 

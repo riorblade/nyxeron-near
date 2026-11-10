@@ -32,9 +32,10 @@ export const USDG: Address = '0x5fc5360d0400a0fd4f2af552add042d716f1d168'
 
 export const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
 
-export type Limits = { maxGas: bigint; maxFeePerGas: bigint }
+// maxApprove: the most USDG (6 decimals) the router may be allowed to pull, one swap's worth (SPEC §5.3: $50).
+export type Limits = { maxGas: bigint; maxFeePerGas: bigint; maxApprove?: bigint }
 // Gas price was ≈ 0.02 gwei on 2026-11-05; 0.2 gwei × 1.5M gas caps one transaction at 0.0003 ETH.
-export const DEFAULT_LIMITS: Limits = { maxGas: 1_500_000n, maxFeePerGas: 200_000_000n }
+export const DEFAULT_LIMITS: Limits = { maxGas: 1_500_000n, maxFeePerGas: 200_000_000n, maxApprove: 50_000_000n }
 
 export class ChainsigError extends Error {
   readonly code: string
@@ -113,7 +114,11 @@ function check(tx: TransactionSerializableEIP1559, limits: Limits, routers: read
     } catch {
       // not an ERC-20 call
     }
-    if (call?.functionName === 'approve' && isRouter(call.args[0])) return
+    if (call?.functionName === 'approve' && isRouter(call.args[0])) {
+      const max = limits.maxApprove ?? DEFAULT_LIMITS.maxApprove!
+      if (call.args[1] > max) fail('approve_too_high', `approve ${call.args[1]} > ${max}`)
+      return
+    }
     fail('wrong_target', `USDG call other than approve(router): ${call?.functionName ?? 'unknown'}`)
   }
   fail('wrong_target', `to ${to}`)

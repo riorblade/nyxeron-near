@@ -118,13 +118,19 @@ grosir; top-up minimal $1, cap $20/hari dan $100 total per pemain selama hackath
 - **Akhir pesta (job di api):**
   1. Kontrak melepas grosir pesta ke treasury.
   2. Treasury → 1Click → USDG (dan sedikit ETH untuk gas) ke alamat gudang.
-  3. Per token: route KyberSwap USDG → token, tanda tangan MPC (≈ 6 detik), broadcast, tunggu receipt.
-  4. Verifikasi lewat RPC publik bahwa saldo token **yang alamatnya dipin** naik sesuai jumlah.
-  5. `mint_warehouse(token, units, proof = tx hash)`, lalu `settle(op_id, transfers)` ke tamu (maks 32 per panggilan).
+  3. Per token: route KyberSwap USDG → token, dipecah jadi swap ≤ $50. Calldata router di-decode dulu: srcToken = USDG,
+     dstToken = token yang dipin, penerima = gudang, jumlah = amountIn, tanpa fee, dan minReturn (yang ditegakkan
+     router) ≥ yang terutang. Lalu tanda tangan MPC (≈ 6 detik), broadcast, tunggu receipt.
+  4. Verifikasi di receipt swap itu sendiri: event `Transfer` dari token **yang alamatnya dipin** ke gudang, minimal
+     sejumlah yang terutang. Ini lebih ketat daripada "saldo naik", yang bisa juga disebabkan swap pesta lain. Kalau
+     swap sukses tapi saham tidak datang (`short_fill`), semua pembelian berhenti sampai dicek orang.
+  5. `mint_warehouse(token, units, proof)`, dengan proof = tx hash swap pertama (ditambah `+n` kalau ada n swap lagi),
+     lalu `settle(op_id, transfers)` ke tamu (maks 32 per panggilan).
 - **Menu:** hanya token dari daftar terverifikasi spike 18 (codehash beacon + beacon Robinhood), dipin per alamat.
   Awal: TSLA, NVDA, AAPL, GOOGL, META, MSFT, SPY, QQQ, CRCL, MSTR.
 - **Saldo berskala:** token Robinhood memakai `uiMultiplier`; jumlah saham dibaca dengan `balanceOfUI`.
-- **Batas:** maks $50 per swap dan $500 per hari; tolak kalau quote lebih dari 2 % di bawah harga pasar.
+- **Batas:** maks $50 per swap (approve juga maks $50) dan $500 per hari; tolak kalau minReturn swap bernilai lebih
+  dari 2 % di bawah harga pasar.
 
 ### 5.4 Harga
 
