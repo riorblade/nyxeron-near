@@ -59,7 +59,14 @@ export type Hood = {
   sendRawTransaction(raw: Hex): Promise<Hex>
   waitForReceipt(hash: Hex): Promise<Receipt>
 }
-export type Receipt = { transactionHash: Hex; status: 'success' | 'reverted'; logs: Log[] }
+// gasUsed × effectiveGasPrice is what the transaction cost the warehouse in ETH (viem's receipts carry both).
+export type Receipt = {
+  transactionHash: Hex
+  status: 'success' | 'reverted'
+  logs: Log[]
+  gasUsed?: bigint
+  effectiveGasPrice?: bigint
+}
 
 export type Route = { amountIn: string; amountOut: string; summary: unknown }
 export type Built = { amountIn: string; amountOut: string; gas: string; data: Hex; routerAddress: Address }
@@ -211,7 +218,14 @@ export function warehouseBuyer(deps: {
     // The swap succeeded but the shares didn't come (blocked, burned, wrong token): a person has to look, and no swap
     // is sent for any party until then.
     if (got < BigInt(row.need_raw)) stuck(row.id, 'short_fill')
-    run(db, "UPDATE warehouse_swaps SET status = 'done', error = '' WHERE id = ?", row.id)
+    // What it cost in gas, so fund.ts can tell a delivery from the swaps' spending (none recorded counts as none).
+    const gasWei = (receipt.gasUsed ?? 0n) * (receipt.effectiveGasPrice ?? 0n)
+    run(
+      db,
+      "UPDATE warehouse_swaps SET status = 'done', error = '', gas_wei = ? WHERE id = ?",
+      gasWei.toString(),
+      row.id,
+    )
     log(`warehouse bought ${row.need_ui} ${row.token} (ui, 18 dp) for ${row.usdg_in} µUSDG: ${row.tx_hash}`)
     return row.tx_hash
   }
