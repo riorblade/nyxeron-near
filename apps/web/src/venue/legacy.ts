@@ -151,7 +151,7 @@ export const decodeAvatar = (_text: unknown, fallback: Avatar) => fallback
 // ---------- app hooks the venue expected (no-ops here) ----------
 
 export type ClipMode = 'off' | 'peak' | 'always'
-export const audio = { live: false, intensity: 1, dropAt: -1, pulse: () => 0, cash: () => {} }
+export { audio } from '../audio/music.ts'
 export const layoutKey = (name: string) => `nyxeron.venue.layout.${name}`
 export const syncHooks: { layout?: (name: string, json: string | null) => void } = {}
 export const getShoutouts = (): string[] => []
