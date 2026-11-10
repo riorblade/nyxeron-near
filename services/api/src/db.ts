@@ -140,10 +140,11 @@ const migrations = [
      created_at        INTEGER NOT NULL
    );
    CREATE INDEX intents_user ON intents(user_id, created_at);`,
-  // 8. the warehouse's share purchases on Robinhood Chain (swap.ts), one per party and token. The signed transaction is
-  // kept before it is broadcast, so a crash or a retry checks that transaction instead of buying again.
+  // 8. the warehouse's share purchases on Robinhood Chain (swap.ts), one or more swaps of ≤ $50 per party and token.
+  // The signed transaction is kept before it is broadcast, so a crash or a retry checks that transaction instead of
+  // buying again.
   `CREATE TABLE warehouse_swaps (
-     id         TEXT    PRIMARY KEY,              -- <party>:<token>
+     id         TEXT    PRIMARY KEY,              -- <party>:<token>, then <party>:<token>:<n> for the n-th extra swap
      token      TEXT    NOT NULL,
      units      INTEGER NOT NULL,
      usdg_in    INTEGER NOT NULL,                 -- micro-USDG
@@ -152,9 +153,12 @@ const migrations = [
      nonce      INTEGER NOT NULL,
      raw_tx     TEXT    NOT NULL,
      tx_hash    TEXT    NOT NULL,
-     status     TEXT    NOT NULL CHECK (status IN ('sent', 'done', 'failed', 'stuck')), -- stuck: a person looks
+     -- building: quoting and signing under a lease, nothing sent yet; stuck: a person looks
+     status     TEXT    NOT NULL CHECK (status IN ('building', 'sent', 'done', 'failed', 'stuck')),
      error      TEXT    NOT NULL DEFAULT '',
      attempts   INTEGER NOT NULL DEFAULT 1,
+     resumes    INTEGER NOT NULL DEFAULT 0,       -- retries that waited for this transaction's receipt
+     lease      TEXT    NOT NULL DEFAULT '',      -- which buy() holds a building row
      at         INTEGER NOT NULL                  -- ms of the latest attempt; the daily cap counts by it
    );
    CREATE INDEX warehouse_swaps_at ON warehouse_swaps(at);`,
@@ -201,6 +205,7 @@ export function all<T>(db: Db, sql: string, ...params: SQLInputValue[]): T[] {
   return db.prepare(sql).all(...params) as T[]
 }
 
-export function run(db: Db, sql: string, ...params: SQLInputValue[]): void {
-  db.prepare(sql).run(...params)
+/** Runs one statement; returns how many rows it changed. */
+export function run(db: Db, sql: string, ...params: SQLInputValue[]): number {
+  return Number(db.prepare(sql).run(...params).changes)
 }

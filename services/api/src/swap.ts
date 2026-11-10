@@ -5,6 +5,7 @@ import { isTokenId, SHARES_PER_UNIT, tokens } from '@nyxeron/game'
 import {
   type Address,
   createPublicClient,
+  decodeFunctionData,
   encodeFunctionData,
   erc20Abi,
   fallback,
@@ -21,7 +22,7 @@ import {
 } from 'viem'
 import { z } from 'zod'
 import { ChainsigError, DEFAULT_LIMITS, KYBER_ROUTER, type Limits, USDG } from './chainsig.ts'
-import { all, type Db, one, run } from './db.ts'
+import { all, type Db, one, run, tx } from './db.ts'
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
 import { type BuyShares, SettlementError } from './settlement.ts'
 
@@ -83,10 +84,55 @@ type SwapRow = {
   nonce: number
   raw_tx: Hex
   tx_hash: Hex
-  status: 'sent' | 'done' | 'failed' | 'stuck'
+  status: 'building' | 'sent' | 'done' | 'failed' | 'stuck'
   error: string
   attempts: number
+  resumes: number
+  lease: string
   at: number
+}
+
+// A building row older than this was left by a crash (nothing of it was broadcast), so another buy() may take it over.
+export const BUILD_LEASE_MS = 5 * 60_000
+// Retries that found no receipt for a recorded swap before it stops for a person (each waits up to 2 min).
+export const MAX_RESUMES = 3
+// Units per swap are sized to this share of the $50 cap, so the sizing buffer and a re-quote stay under it.
+const CHUNK_SHARE_BPS = 9_000n
+
+// KyberSwap's MetaAggregationRouterV2 `swap` (selector 0xe21fd0e9, as its /route/build answers on Robinhood Chain).
+const ROUTER_ABI = parseAbi([
+  'struct SwapDescriptionV2 { address srcToken; address dstToken; address[] srcReceivers; uint256[] srcAmounts; address[] feeReceivers; uint256[] feeAmounts; address dstReceiver; uint256 amount; uint256 minReturnAmount; uint256 flags; bytes permit; }',
+  'struct SwapExecutionParams { address callTarget; address approveTarget; bytes targetData; SwapDescriptionV2 desc; bytes clientData; }',
+  'function swap(SwapExecutionParams execution) payable returns (uint256 returnAmount, uint256 gasUsed)',
+])
+
+/**
+ * Decodes the router call Kyber built and checks it does what we asked: USDG in, exactly `amountIn` of it, the pinned
+ * token out, to the warehouse, no fee taken, and a minimum out (which the router enforces) that covers what is owed.
+ * Returns that minimum. Kyber's own amountOut is only its estimate; this is what the transaction itself promises.
+ */
+export function checkSwapCall(
+  data: Hex,
+  want: { from: Address; token: Address; amountIn: bigint; needRaw: bigint },
+): bigint {
+  const bad = (what: string): never => {
+    throw new SettlementError(`bad_swap_call_${what}`, true)
+  }
+  let desc
+  try {
+    const call = decodeFunctionData({ abi: ROUTER_ABI, data })
+    desc = call.args[0].desc
+  } catch {
+    return bad('not_swap')
+  }
+  if (!isAddressEqual(desc.srcToken, USDG)) bad('src_token')
+  if (!isAddressEqual(desc.dstToken, want.token)) bad('dst_token')
+  if (!isAddressEqual(desc.dstReceiver, want.from)) bad('receiver')
+  if (desc.amount !== want.amountIn) bad('amount')
+  if (desc.srcAmounts.reduce((sum, a) => sum + a, 0n) > want.amountIn) bad('src_amounts')
+  if (desc.feeReceivers.length > 0 || desc.feeAmounts.some((f) => f > 0n)) bad('fee')
+  if (desc.minReturnAmount < want.needRaw) bad('min_return')
+  return desc.minReturnAmount
 }
 
 /** units × 0.001 share, in balanceOfUI's 18 decimals, and the raw balanceOf amount that shows as at least that. */
@@ -100,6 +146,7 @@ export function sharesNeeded(units: bigint, uiMultiplier: bigint): { needUi: big
 }
 
 const utcDay = (ms: number) => Math.floor(ms / 86_400_000)
+const codeOf = (e: unknown) => (e instanceof SettlementError ? e.code : (e as Error)?.message || 'error')
 
 export function warehouseBuyer(deps: {
   db: Db
@@ -118,14 +165,17 @@ export function warehouseBuyer(deps: {
   const gasLimits = deps.gasLimits ?? DEFAULT_LIMITS
   const now = deps.now ?? Date.now
   const log = deps.log ?? (() => {})
+  let leases = 0
 
-  const spentToday = () => {
+  const spentToday = (except = '') => {
     const today = utcDay(now())
-    return all<{ usdg_in: number; at: number }>(
+    return all<{ usdg_in: number }>(
       db,
-      // A stuck swap may have spent its USDG: it counts until a person resolves it.
-      "SELECT usdg_in, at FROM warehouse_swaps WHERE status IN ('sent', 'done', 'stuck') AND at >= ?",
+      // A stuck swap may have spent its USDG: it counts until a person resolves it. A building one is about to.
+      `SELECT usdg_in FROM warehouse_swaps
+        WHERE status IN ('building', 'sent', 'done', 'stuck') AND at >= ? AND id != ?`,
       today * 86_400_000,
+      except,
     ).reduce((sum, r) => sum + BigInt(r.usdg_in), 0n)
   }
 
@@ -134,6 +184,8 @@ export function warehouseBuyer(deps: {
     const fee = price * 2n < gasLimits.maxFeePerGas ? price * 2n : gasLimits.maxFeePerGas
     return { maxFeePerGas: fee, maxPriorityFeePerGas: 0n }
   }
+
+  const rowOf = (id: string) => one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)
 
   // A state only a person can resolve (did USDG leave or not?). Every later call stops here, it never buys again.
   const stuck = (id: string, code: string): never => {
@@ -149,7 +201,8 @@ export function warehouseBuyer(deps: {
     const got = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs })
       .filter((l) => isAddressEqual(l.address, tokenAddr) && isAddressEqual(l.args.to, from))
       .reduce((sum, l) => sum + l.args.value, 0n)
-    // The swap succeeded but the shares didn't come (blocked, burned, wrong token): a person has to look.
+    // The swap succeeded but the shares didn't come (blocked, burned, wrong token): a person has to look, and no swap
+    // is sent for any party until then.
     if (got < BigInt(row.need_raw)) stuck(row.id, 'short_fill')
     run(db, "UPDATE warehouse_swaps SET status = 'done', error = '' WHERE id = ?", row.id)
     log(`warehouse bought ${row.need_ui} ${row.token} (ui, 18 dp) for ${row.usdg_in} µUSDG: ${row.tx_hash}`)
@@ -158,6 +211,7 @@ export function warehouseBuyer(deps: {
 
   // A swap we signed and recorded earlier: wait for it or rebroadcast it. Undefined = it reverted (no USDG left).
   async function resume(row: SwapRow, tokenAddr: Address, from: Address): Promise<string | undefined> {
+    run(db, 'UPDATE warehouse_swaps SET resumes = resumes + 1 WHERE id = ?', row.id)
     let receipt = await hood.receipt(row.tx_hash)
     if (!receipt) {
       try {
@@ -171,7 +225,15 @@ export function warehouseBuyer(deps: {
       // guessing wrong buys twice: stop for a person instead of buying again.
       if (!receipt && (await hood.minedNonce(from)) > row.nonce && !(await hood.receipt(row.tx_hash)))
         stuck(row.id, 'swap_dropped')
-      receipt ??= await hood.waitForReceipt(row.tx_hash)
+      if (!receipt) {
+        try {
+          receipt = await hood.waitForReceipt(row.tx_hash)
+        } catch (e) {
+          // Refused or dropped with its nonce still free: every retry would wait here again. Stop for a person.
+          if (row.resumes + 1 >= MAX_RESUMES) stuck(row.id, 'swap_unconfirmed')
+          throw e
+        }
+      }
     }
     if (receipt.transactionHash.toLowerCase() !== row.tx_hash.toLowerCase()) stuck(row.id, 'receipt_mismatch')
     if (receipt.status !== 'success') {
@@ -181,13 +243,33 @@ export function warehouseBuyer(deps: {
     return finish(row, receipt, tokenAddr, from)
   }
 
-  async function buy(party: string, token: string, units: bigint): Promise<string> {
-    if (!isTokenId(token)) throw new SettlementError('unknown_token', true)
-    const tokenAddr = tokens[token].address as Address
-    const id = `${party}:${token}`
-    const from = await signer.address()
+  // Takes the row for this buy() (synchronously, so two calls can't both get it): new, failed, or a building row a
+  // crash left. Anything else is another buy() at work.
+  function reserve(id: string, token: string, units: bigint): string {
+    return tx(db, () => {
+      const row = rowOf(id)
+      const free = !row || row.status === 'failed' || (row.status === 'building' && now() - row.at >= BUILD_LEASE_MS)
+      if (!free) throw new SettlementError('swap_in_flight')
+      const lease = `${process.pid}-${now()}-${++leases}`
+      run(
+        db,
+        `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, lease, at)
+         VALUES (?, ?, ?, 0, '', '', -1, '', '', 'building', ?, ?)
+         ON CONFLICT (id) DO UPDATE SET units = excluded.units, usdg_in = 0, status = 'building', error = '',
+           resumes = 0, lease = excluded.lease, at = excluded.at, attempts = attempts + 1`,
+        id,
+        token,
+        Number(units),
+        lease,
+        now(),
+      )
+      return lease
+    })
+  }
 
-    const prior = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)
+  // One swap of `units`, under row `id`.
+  async function buyOne(id: string, token: string, tokenAddr: Address, units: bigint, from: Address): Promise<string> {
+    const prior = rowOf(id)
     if (prior?.status === 'done') return prior.tx_hash
     if (prior?.status === 'stuck') throw new SettlementError(prior.error, true)
     if (prior?.status === 'sent') {
@@ -195,88 +277,143 @@ export function warehouseBuyer(deps: {
       if (proof) return proof
     }
 
-    const { needUi, needRaw } = sharesNeeded(units, await hood.uiMultiplier(tokenAddr))
-    const spot = await deps.price(token)
-    if (!Number.isFinite(spot) || spot <= 0) throw new SettlementError('no_price')
-    // The market price in micro-USDG per whole token; from here on everything is integers.
-    const priceMicro = BigInt(Math.round(spot * 1_000_000))
-    const worthMicro = (raw: bigint) => (raw * priceMicro) / E18
+    // A swap that succeeded without delivering the shares: something is wrong with the route or the token, so no new
+    // swap is sent for any party until a person has looked (and moved that row out of 'stuck'). Finished and
+    // already-sent swaps above still answer.
+    if (one(db, "SELECT 1 FROM warehouse_swaps WHERE status = 'stuck' AND error = 'short_fill' LIMIT 1"))
+      throw new SettlementError('halted_short_fill', true)
+    const lease = reserve(id, token, units)
+    const mine = `id = ? AND status = 'building' AND lease = ?`
+    let raw: Hex, hash: Hex
+    try {
+      const { needUi, needRaw } = sharesNeeded(units, await hood.uiMultiplier(tokenAddr))
+      const spot = await deps.price(token)
+      if (!Number.isFinite(spot) || spot <= 0) throw new SettlementError('no_price')
+      // The market price in micro-USDG per whole token; from here on everything is integers.
+      const priceMicro = BigInt(Math.round(spot * 1_000_000))
+      const worthMicro = (raw: bigint) => (raw * priceMicro) / E18
 
-    // Size USDG in so the minimum out (after slippage) covers what is owed.
-    const keep = (out: bigint) => (out * (BPS - limits.slippageBps)) / BPS
-    let amountIn = (worthMicro(needRaw) * (BPS + limits.sizingBufferBps)) / BPS + 1n
-    let route = await kyber.route(USDG, tokenAddr, amountIn)
-    if (keep(BigInt(route.amountOut)) < needRaw) {
-      const out = keep(BigInt(route.amountOut))
-      if (out <= 0n) throw new SettlementError('short_quote')
-      amountIn = (amountIn * needRaw * 1002n) / (out * 1000n) + 1n
-      route = await kyber.route(USDG, tokenAddr, amountIn)
-    }
-    if (keep(BigInt(route.amountOut)) < needRaw) throw new SettlementError('short_quote')
+      // Size USDG in so the minimum out (after slippage) covers what is owed.
+      const keep = (out: bigint) => (out * (BPS - limits.slippageBps)) / BPS
+      let amountIn = (worthMicro(needRaw) * (BPS + limits.sizingBufferBps)) / BPS + 1n
+      let route = await kyber.route(USDG, tokenAddr, amountIn)
+      if (keep(BigInt(route.amountOut)) < needRaw) {
+        const out = keep(BigInt(route.amountOut))
+        if (out <= 0n) throw new SettlementError('short_quote')
+        amountIn = (amountIn * needRaw * 1002n) / (out * 1000n) + 1n
+        route = await kyber.route(USDG, tokenAddr, amountIn)
+      }
+      if (keep(BigInt(route.amountOut)) < needRaw) throw new SettlementError('short_quote')
 
-    if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit', true)
-    if (spentToday() + amountIn > limits.maxDayMicro) throw new SettlementError('daily_limit')
+      if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit', true)
+      // The day's cap and this row's share of it in one step, so two buys can't both fit in the same room.
+      tx(db, () => {
+        if (spentToday(id) + amountIn > limits.maxDayMicro) throw new SettlementError('daily_limit')
+        if (run(db, `UPDATE warehouse_swaps SET usdg_in = ? WHERE ${mine}`, Number(amountIn), id, lease) !== 1)
+          throw new SettlementError('swap_in_flight')
+      })
 
-    const built = await kyber.build(route, from, limits.slippageBps)
-    if (!isAddressEqual(built.routerAddress, KYBER_ROUTER)) throw new SettlementError('wrong_router', true)
-    if (BigInt(built.amountIn) !== amountIn || keep(BigInt(built.amountOut)) < needRaw)
-      throw new SettlementError('short_quote')
-    // What the swap is worth at the market price, against the USDG it costs.
-    if (worthMicro(BigInt(built.amountOut)) * BPS < amountIn * (BPS - limits.maxUnderMarketBps))
-      throw new SettlementError('under_market')
+      const built = await kyber.build(route, from, limits.slippageBps)
+      if (!isAddressEqual(built.routerAddress, KYBER_ROUTER)) throw new SettlementError('wrong_router', true)
+      // What the router will enforce, not Kyber's estimate, against what is owed and the 2 % rule.
+      const minOut = checkSwapCall(built.data, { from, token: tokenAddr, amountIn, needRaw })
+      if (worthMicro(minOut) * BPS < amountIn * (BPS - limits.maxUnderMarketBps))
+        throw new SettlementError('under_market')
 
-    const fee = await fees()
-    if ((await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn) {
-      await signer.signAndSend({
+      const fee = await fees()
+      if ((await hood.usdgAllowance(from, KYBER_ROUTER)) < amountIn) {
+        await signer.signAndSend({
+          type: 'eip1559',
+          chainId: ROBINHOOD_CHAIN_ID,
+          to: USDG,
+          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [KYBER_ROUTER, amountIn] }),
+          value: 0n,
+          gas: APPROVE_GAS,
+          ...fee,
+        })
+      }
+
+      raw = await signer.sign({
         type: 'eip1559',
         chainId: ROBINHOOD_CHAIN_ID,
-        to: USDG,
-        data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [KYBER_ROUTER, amountIn] }),
+        to: built.routerAddress,
+        data: built.data,
         value: 0n,
-        gas: APPROVE_GAS,
+        gas: (BigInt(built.gas) * 3n) / 2n,
         ...fee,
       })
+      hash = keccak256(raw)
+      const nonce = parseTransaction(raw).nonce ?? 0
+      // Recorded before it is broadcast: from here on, a retry checks this transaction instead of buying again. Only
+      // while this call still holds the row; otherwise it was taken over and this transaction is never sent.
+      const recorded = run(
+        db,
+        `UPDATE warehouse_swaps SET usdg_in = ?, need_ui = ?, need_raw = ?, nonce = ?, raw_tx = ?, tx_hash = ?,
+           status = 'sent', at = ? WHERE ${mine}`,
+        Number(amountIn),
+        needUi.toString(),
+        needRaw.toString(),
+        nonce,
+        raw,
+        hash,
+        now(),
+        id,
+        lease,
+      )
+      if (recorded !== 1) throw new SettlementError('swap_in_flight')
+    } catch (e) {
+      // Nothing was sent: free the row for the next try.
+      run(db, `UPDATE warehouse_swaps SET status = 'failed', error = ? WHERE ${mine}`, codeOf(e), id, lease)
+      throw e
     }
 
-    const raw = await signer.sign({
-      type: 'eip1559',
-      chainId: ROBINHOOD_CHAIN_ID,
-      to: built.routerAddress,
-      data: built.data,
-      value: 0n,
-      gas: (BigInt(built.gas) * 3n) / 2n,
-      ...fee,
-    })
-    const hash = keccak256(raw)
-    const nonce = parseTransaction(raw).nonce ?? 0
-    // Recorded before it is broadcast: from here on, a retry checks this transaction instead of buying again.
-    run(
-      db,
-      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', ?)
-       ON CONFLICT (id) DO UPDATE SET units = excluded.units, usdg_in = excluded.usdg_in, need_ui = excluded.need_ui,
-         need_raw = excluded.need_raw, nonce = excluded.nonce, raw_tx = excluded.raw_tx, tx_hash = excluded.tx_hash,
-         status = 'sent', error = '', attempts = attempts + 1, at = excluded.at`,
-      id,
-      token,
-      Number(units),
-      Number(amountIn),
-      needUi.toString(),
-      needRaw.toString(),
-      nonce,
-      raw,
-      hash,
-      now(),
-    )
     await hood.sendRawTransaction(raw)
     const receipt = await hood.waitForReceipt(hash)
-    const row = one<SwapRow>(db, 'SELECT * FROM warehouse_swaps WHERE id = ?', id)!
+    const row = rowOf(id)!
     if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) stuck(id, 'receipt_mismatch')
     if (receipt.status !== 'success') {
       run(db, "UPDATE warehouse_swaps SET status = 'failed', error = 'reverted' WHERE id = ?", id)
       throw new SettlementError('swap_reverted')
     }
     return finish(row, receipt, tokenAddr, from)
+  }
+
+  // How many units one swap may cover: what fits in CHUNK_SHARE_BPS of the $50 cap at the market price.
+  async function unitsPerSwap(token: string, tokenAddr: Address): Promise<bigint> {
+    const spot = await deps.price(token)
+    if (!Number.isFinite(spot) || spot <= 0) throw new SettlementError('no_price')
+    const { needRaw } = sharesNeeded(1n, await hood.uiMultiplier(tokenAddr))
+    const unitMicro = (needRaw * BigInt(Math.round(spot * 1_000_000)) + E18 - 1n) / E18
+    const n = (limits.maxSwapMicro * CHUNK_SHARE_BPS) / BPS / unitMicro
+    if (n < 1n) throw new SettlementError('over_swap_limit', true)
+    return n
+  }
+
+  /**
+   * Buys what a party owes of one token, in as many swaps of ≤ $50 as it takes (rows `<party>:<token>`, then
+   * `<party>:<token>:1`, …). The proof is the first swap's hash, plus `+<n>` when n more swaps were needed.
+   */
+  async function buy(party: string, token: string, units: bigint): Promise<string> {
+    if (!isTokenId(token)) throw new SettlementError('unknown_token', true)
+    if (units <= 0n) throw new SettlementError('bad_units', true)
+    const tokenAddr = tokens[token].address as Address
+    const from = await signer.address()
+
+    const hashes: string[] = []
+    let left = units
+    for (let n = 0; left > 0n; n++) {
+      const id = n === 0 ? `${party}:${token}` : `${party}:${token}:${n}`
+      const prior = rowOf(id)
+      // A swap already under way keeps its size; a new (or failed) one is sized now.
+      let size = prior && prior.status !== 'failed' ? BigInt(prior.units) : 0n
+      if (size <= 0n) {
+        const most = await unitsPerSwap(token, tokenAddr)
+        size = most < left ? most : left
+      }
+      hashes.push(await buyOne(id, token, tokenAddr, size, from))
+      left -= size
+    }
+    return hashes.length === 1 ? hashes[0]! : `${hashes[0]}+${hashes.length - 1}`
   }
 
   // settlement.ts's BuyShares; signer errors (a check refused, the MPC answer) are not worth retrying blindly.
