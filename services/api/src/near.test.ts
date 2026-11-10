@@ -17,7 +17,8 @@ import {
 } from 'near-api-js'
 import { InvalidNonceError, UnknownTransactionError } from 'near-api-js/rpc-errors'
 import { describe, expect, it, vi } from 'vitest'
-import { nearProvider, NonceRetryProvider, relayerOn, summarise, unwrapNonce } from './near.ts'
+import { freshDepositsOnly, nearTreasury } from './fund.ts'
+import { type MayResign, nearProvider, NonceRetryProvider, relayerOn, summarise, unwrapNonce } from './near.ts'
 import { decodeDelegate } from './relay.ts'
 
 const ok = { SuccessValue: '' }
@@ -119,16 +120,24 @@ describe('the relayer’s transactions', () => {
 
 // near-api-js's own Account against fake RPCs: what a nonce taken by another signer of the same key does.
 describe('a key’s nonce taken by another signer', () => {
-  type Chain = { nonce: bigint; sent: bigint[]; landed: Map<string, bigint>; down?: boolean; lostAnswer?: boolean }
-  const newChain = (): Chain => ({ nonce: 100n, sent: [], landed: new Map() })
+  type Chain = {
+    nonce: bigint
+    sent: bigint[]
+    landed: Map<string, bigint>
+    usdc: Map<string, bigint> // ft_transfer'd USDC per receiver
+    down?: boolean
+    lostAnswer?: boolean
+    unindexed?: boolean // landed, but no RPC knows its hash yet
+  }
+  const newChain = (): Chain => ({ nonce: 100n, sent: [], landed: new Map(), usdc: new Map() })
   const hashOf = (tx: SignedTransaction) =>
     baseEncode(createHash('sha256').update(encodeTransaction(tx.transaction)).digest())
   const outcome = (hash: string) =>
     ({
       status: { SuccessValue: '' },
       transaction: { hash },
-      transaction_outcome: { id: hash },
-      receipts_outcome: [],
+      transaction_outcome: { id: hash, outcome: { receipt_ids: [`r-${hash}`] } },
+      receipts_outcome: [{ id: `r-${hash}`, outcome: { status: { SuccessValue: '' }, logs: [] } }],
     }) as never
   class FakeRpc extends JsonRpcProvider {
     chain: Chain
@@ -149,14 +158,25 @@ describe('a key’s nonce taken by another signer', () => {
       this.chain.nonce = n
       this.chain.sent.push(n)
       this.chain.landed.set(hashOf(tx), n)
+      for (const a of tx.transaction.actions) {
+        if (a.functionCall?.methodName !== 'ft_transfer') continue
+        const { receiver_id, amount } = JSON.parse(Buffer.from(a.functionCall.args).toString())
+        this.chain.usdc.set(receiver_id, (this.chain.usdc.get(receiver_id) ?? 0n) + BigInt(amount))
+      }
       // It ran, but the answer was lost and the resend was refused for its nonce (an RPC that doesn't look it up).
       if (this.chain.lostAnswer) throw new InvalidNonceError(Number(n), Number(n), 'h', 'b')
       return outcome(hashOf(tx))
     }
+    override async callFunction(q: Parameters<JsonRpcProvider['callFunction']>[0]) {
+      const { method, args } = q as { method: string; args: Record<string, unknown> }
+      if (method === 'ft_balance_of') return String(this.chain.usdc.get(args.account_id as string) ?? 0n) as never
+      if (method === 'storage_balance_of') return null as never
+      throw new Error(`no view ${method}`)
+    }
     // Like the real RPCs: an unknown hash is UNKNOWN_TRANSACTION only with wait_until NONE; any other wait times out.
     override async viewTransactionStatus({ txHash, waitUntil }: { txHash: string | Uint8Array; waitUntil?: string }) {
       if (this.chain.down) throw new Error('timeout')
-      if (this.chain.landed.has(txHash as string)) return outcome(txHash as string)
+      if (this.chain.landed.has(txHash as string) && !this.chain.unindexed) return outcome(txHash as string)
       if (waitUntil === 'NONE') throw new UnknownTransactionError(txHash as string)
       throw new Error('timeout')
     }
@@ -165,8 +185,15 @@ describe('a key’s nonce taken by another signer', () => {
   // A different amount per signer: two signers' transactions with the same nonce would otherwise be the same bytes.
   const send = (a: Account, amount = 1n) =>
     a.signAndSendTransaction({ receiverId: 'usdc.near', actions: [actions.transfer(amount)] })
-  const accounts = (chain: Chain, Provider: typeof FailoverRpcProvider = NonceRetryProvider) => {
-    const rpcs = () => new Provider([new FakeRpc(chain), new FakeRpc(chain), new FakeRpc(chain)])
+  const accounts = (
+    chain: Chain,
+    Provider: typeof FailoverRpcProvider = NonceRetryProvider,
+    opts: { mayResign?: MayResign } = {},
+  ) => {
+    const rpcs = () =>
+      Provider === NonceRetryProvider
+        ? new NonceRetryProvider([new FakeRpc(chain), new FakeRpc(chain), new FakeRpc(chain)], opts)
+        : new Provider([new FakeRpc(chain), new FakeRpc(chain), new FakeRpc(chain)])
     return [new Account('w.near', rpcs(), key as KeyPairString), new Account('w.near', rpcs(), key as KeyPairString)]
   }
 
@@ -213,6 +240,59 @@ describe('a key’s nonce taken by another signer', () => {
       expect(chain.sent).toEqual([101n, 102n, 103n])
     })
   }
+
+  it('an answer for another transaction is not taken for this one', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const chain = newChain()
+    chain.lostAnswer = true
+    const [ours] = accounts(chain)
+    const rpcs = ours!.provider as NonceRetryProvider
+    const view = rpcs.viewTransactionStatus.bind(rpcs)
+    vi.spyOn(rpcs, 'viewTransactionStatus').mockImplementation(async (q) => {
+      const o = (await view(q)) as { transaction: { hash: string } }
+      return { ...o, transaction: { hash: 'someone-else' } } as never
+    })
+    await expect(send(ours!)).rejects.toBeInstanceOf(FailoverRpcError)
+    expect(chain.sent).toEqual([101n])
+  })
+
+  describe('a treasury deposit (fund.ts)', () => {
+    const USDC = 'usdc.near'
+    const DEP = 'ab'.repeat(32) // a fresh 1Click deposit address
+    const treasuryOf = (chain: Chain, guarded: boolean) => {
+      const [account] = accounts(chain, NonceRetryProvider, guarded ? { mayResign: freshDepositsOnly(USDC) } : {})
+      return nearTreasury({ account: account!, usdcId: USDC })
+    }
+
+    it('that landed but no RPC has indexed yet is never sent again', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      for (const guarded of [false, true]) {
+        const chain = newChain()
+        chain.lostAnswer = true
+        chain.unindexed = true
+        const sent = treasuryOf(chain, guarded).deposit(DEP, 5_000_000n, false)
+        if (guarded) {
+          await expect(sent).rejects.toBeInstanceOf(FailoverRpcError) // fund.ts: stuck as deposit_unknown
+          expect(chain.usdc.get(DEP)).toBe(5_000_000n)
+        } else {
+          // without the guard: unknown everywhere looks like "never ran", so it is signed again, and again
+          await sent.catch(() => {})
+          expect(chain.usdc.get(DEP)).toBeGreaterThan(5_000_000n)
+        }
+      }
+    })
+
+    it('whose nonce another signer took (the address holds nothing) is signed again and lands once', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const chain = newChain()
+      const treasury = treasuryOf(chain, true)
+      const [other] = accounts(chain)
+      await treasury.deposit(DEP, 1n, false) // caches the next nonce
+      await send(other!, 2n) // takes it
+      expect(await treasury.deposit('cd'.repeat(32), 5_000_000n, false)).toMatchObject({ ok: true })
+      expect(chain.usdc.get('cd'.repeat(32))).toBe(5_000_000n)
+    })
+  })
 
   it('is what every signing account gets: relayer, owner (maybe the same account) and warehouse', () => {
     expect(nearProvider('mainnet')).toBeInstanceOf(NonceRetryProvider)

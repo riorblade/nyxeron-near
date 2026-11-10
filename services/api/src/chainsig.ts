@@ -18,7 +18,7 @@ import {
 } from 'viem'
 import { publicKeyToAddress } from 'viem/accounts'
 import type { Config } from './config.ts'
-import { nearProvider } from './near.ts'
+import { type MayResign, nearProvider } from './near.ts'
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
 
 export const WAREHOUSE_PATH = 'nyxeron-warehouse-hood'
@@ -168,8 +168,13 @@ export function warehouse(deps: {
 }
 
 /** The warehouse account, one object for everything it signs (MPC requests and the treasury's deposits). */
-export function warehouseAccount(network: Config['NEAR_NETWORK'], accountId: string, key: string): Account {
-  return new Account(accountId, nearProvider(network), key as KeyPairString)
+export function warehouseAccount(
+  network: Config['NEAR_NETWORK'],
+  accountId: string,
+  key: string,
+  opts: { mayResign?: MayResign } = {},
+): Account {
+  return new Account(accountId, nearProvider(network, opts), key as KeyPairString)
 }
 
 // The real MPC contract, called by `account`. `sign` needs 1 yocto, so its key must be a full-access key.

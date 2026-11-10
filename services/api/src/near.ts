@@ -9,6 +9,8 @@ import {
   JsonRpcProvider,
   type KeyPairString,
   nearToYocto,
+  type Provider,
+  type SignedTransaction,
   teraToGas,
 } from 'near-api-js'
 import { InvalidNonceError, UnknownTransactionError } from 'near-api-js/rpc-errors'
@@ -32,6 +34,10 @@ export function unwrapNonce(e: unknown): unknown {
   return e
 }
 
+// A last look before re-signing, for a key whose transactions leave a trace the caller can read (fund.ts: a deposit
+// address that already holds USDC). False, or a throw, keeps the failure "may have landed".
+export type MayResign = (signed: SignedTransaction, rpc: Provider) => Promise<boolean>
+
 // near-api-js keeps each Account's next nonce in memory and refreshes it only on an InvalidNonceError, but the failover
 // provider wraps every error, so a nonce taken by anything else signing with the key (another Account object, another
 // process, the CLI) failed every transaction after it. With the error unwrapped, near-api-js re-reads the nonce and
@@ -39,10 +45,17 @@ export function unwrapNonce(e: unknown): unknown {
 // Re-signing is safe only if this transaction never ran. A resend of one that did (its answer lost, then a retry) is
 // refused for the same nonce; nearcore answers that with the landed outcome instead (send_tx_internal → tx_exists),
 // but we don't rely on every RPC doing so: the transaction's own hash is looked up first, with wait_until NONE (any
-// other wait on an unknown hash only times out; checked on all three testnet RPCs 2026-11-08). Unknown on every RPC →
+// other wait on an unknown hash only times out; checked on all three testnet RPCs 2026-11-08, and on the three mainnet
+// ones 2026-11-10: UNKNOWN from each in ≈ 4 s, a landed transaction found by each). Unknown on every RPC →
 // re-sign, since one node alone can be wrong (intea answered UNKNOWN for testnet 2QVdMW…, which landed). Found → wait
 // for it as asked and return it. Anything else → the wrapped error, which stays "may have landed".
 export class NonceRetryProvider extends FailoverRpcProvider {
+  private readonly mayResign?: MayResign
+  constructor(providers: Provider[], opts: { mayResign?: MayResign } = {}) {
+    super(providers)
+    this.mayResign = opts.mayResign
+  }
+
   override async sendTransactionUntil(...args: Parameters<FailoverRpcProvider['sendTransactionUntil']>) {
     try {
       return await super.sendTransactionUntil(...args)
@@ -55,9 +68,15 @@ export class NonceRetryProvider extends FailoverRpcProvider {
       try {
         await this.viewTransactionStatus({ txHash, accountId, waitUntil: 'NONE' })
       } catch (lookup) {
-        throw unknownEverywhere(lookup) ? nonce : e
+        if (!unknownEverywhere(lookup)) throw e
+        // Unknown everywhere can still be "landed, not indexed yet": the caller may know better from its effects.
+        if (this.mayResign && !(await this.mayResign(signed, this).catch(() => false))) throw e
+        throw nonce
       }
-      return await this.viewTransactionStatus({ txHash, accountId, waitUntil })
+      const found = await this.viewTransactionStatus({ txHash, accountId, waitUntil })
+      // An answer for another transaction says nothing about this one.
+      if ((found as { transaction?: { hash?: string } }).transaction?.hash !== txHash) throw e
+      return found
     }
   }
 }
@@ -70,8 +89,11 @@ function unknownEverywhere(e: unknown): boolean {
 
 // Every signing account uses it: the relayer and the owner may be one account (config.ts), each with its own Account
 // object, and the warehouse's MPC requests and deposits share a key too.
-export function nearProvider(network: Config['NEAR_NETWORK']) {
-  return new NonceRetryProvider(RPCS[network].map((url) => new JsonRpcProvider({ url })))
+export function nearProvider(network: Config['NEAR_NETWORK'], opts: { mayResign?: MayResign } = {}) {
+  return new NonceRetryProvider(
+    RPCS[network].map((url) => new JsonRpcProvider({ url })),
+    opts,
+  )
 }
 
 export type RelayResult = { hash: string; ok: boolean; error?: string }
