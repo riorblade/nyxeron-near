@@ -5,7 +5,7 @@
 import { type Account, actions, nearToYocto, teraToGas } from 'near-api-js'
 import { type Address, isAddressEqual } from 'viem'
 import { z } from 'zod'
-import { DEFAULT_LIMITS, USDG } from './chainsig.ts'
+import { USDG } from './chainsig.ts'
 import { all, type Db, one, run } from './db.ts'
 import { type OneClick, type OneClickToken, QUOTE_VALID_MS } from './intents.ts'
 import type { RelayResult } from './near.ts'
@@ -15,8 +15,6 @@ const TOKENS_TTL_MS = 10 * 60_000
 const STATUS_EVERY_MS = 10_000
 // After 1Click says SUCCESS, how long the warehouse's balance may lag behind before a person looks.
 const SUCCESS_GRACE_MS = 10 * 60_000
-// What one warehouse transaction (a swap or its approve) can cost in gas at most: chainsig.ts's caps.
-const MAX_TX_WEI = DEFAULT_LIMITS.maxGas * DEFAULT_LIMITS.maxFeePerGas
 // Robinhood Chain's WETH (name and symbol read on chain 2026-11-10); its DexScreener price is the second source for ETH.
 export const HOOD_WETH: Address = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73'
 const DEXSCREENER = 'https://api.dexscreener.com/tokens/v1/robinhood'
@@ -209,16 +207,17 @@ export function warehouseFunder(deps: {
   const balanceOf = (asset: FundAsset, warehouse: Address) =>
     asset === 'usdg' ? chain.usdgBalance(warehouse) : chain.ethBalance(warehouse)
 
-  // What the warehouse spent of `asset` since `at`: the USDG its swaps pulled (exactly their amountIn), or for ETH an
-  // upper bound on the gas of those swaps and their approves.
+  // What the warehouse surely spent of `asset` since `at`, never more: the USDG of its finished swaps (the router pulled
+  // exactly their amountIn), or the ETH their receipts say they cost in gas. A swap still in flight, stuck or reverted
+  // counts nothing, and so do approves: an error here can only make a delivery look short (it waits, then a person
+  // looks), never make a missing one look delivered.
   function spentSince(asset: FundAsset, at: number): bigint {
-    const swaps = all<{ usdg_in: number }>(
+    const swaps = all<{ usdg_in: number; gas_wei: string }>(
       db,
-      "SELECT usdg_in FROM warehouse_swaps WHERE status IN ('sent', 'done', 'stuck') AND at >= ?",
+      "SELECT usdg_in, gas_wei FROM warehouse_swaps WHERE status = 'done' AND at >= ?",
       at,
     )
-    if (asset === 'usdg') return swaps.reduce((sum, r) => sum + BigInt(r.usdg_in), 0n)
-    return BigInt(swaps.length) * 2n * MAX_TX_WEI
+    return swaps.reduce((sum, r) => sum + BigInt(asset === 'usdg' ? r.usdg_in : r.gas_wei), 0n)
   }
 
   // One deposit: quote, check, record, send. Returns true when a transaction was (or may have been) sent.
@@ -299,7 +298,7 @@ export function warehouseFunder(deps: {
   }
 
   // A sent deposit: 1Click's status, at most every 10 s, until it delivered or refunded. SUCCESS is believed only once
-  // the warehouse's own balance shows it: now + what it spent since ≥ before + the quote's minimum out.
+  // the warehouse's own balance shows it: now + what it surely spent since ≥ before + the quote's minimum out.
   async function follow(row: FundRow, warehouse: Address) {
     if (now() - row.checked_at < STATUS_EVERY_MS) return
     let status: string

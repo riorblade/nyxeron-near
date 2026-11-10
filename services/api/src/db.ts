@@ -180,7 +180,9 @@ const migrations = [
      checked_at      INTEGER NOT NULL,
      created_at      INTEGER NOT NULL                  -- the daily cap counts by it
    );
-   CREATE INDEX warehouse_funding_created ON warehouse_funding(created_at);`,
+   CREATE INDEX warehouse_funding_created ON warehouse_funding(created_at);
+   -- what each finished swap cost in gas (wei), from its receipt
+   ALTER TABLE warehouse_swaps ADD COLUMN gas_wei TEXT NOT NULL DEFAULT '0';`,
 ]
 
 export function openDb(path: string): Db {

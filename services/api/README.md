@@ -189,8 +189,10 @@ USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinho
    `too_many_failures`); succeeded → the USDC left, whatever a later refund receipt did. A lost answer, no outcome
    for that receipt, or a `quoted` row found after a restart is `stuck` with `deposit_unknown`.
 4. 1Click's status, at most every 10 s. `SUCCESS` → `done` only once the warehouse's own balance shows it (now + what
-   its swaps spent since ≥ the balance when the refill was decided + the quote's minimum out; for ETH the swaps' gas
-   is an upper bound), else `stuck` as `success_not_on_chain` 10 minutes past the deadline. `REFUNDED` → `refunded`
+   its finished swaps surely spent since ≥ the balance when the refill was decided + the quote's minimum out: their
+   USDG, or the gas their receipts show; nothing for swaps in flight, stuck or reverted, or for approves), else `stuck`
+   as `success_not_on_chain` 10 minutes past the deadline. Any error there makes a delivery look short, never a
+   missing one look delivered. `REFUNDED` → `refunded`
    (the USDC is back in the treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
 
 A `stuck` row is listed in `GET /api/admin/settlement`; it blocks that asset's refills and counts toward its day until a

@@ -322,6 +322,57 @@ describe('prices and delivery checked outside 1Click', () => {
     expect(t.rows()).toMatchObject([{ status: 'done' }])
   })
 
+  it('a swap still in flight, stuck or reverted is not counted as spent: SUCCESS with nothing delivered is not done', async () => {
+    const t = setup()
+    t.held.usdg = 10_000_000n
+    await t.funder.tick()
+    for (const [id, status] of [
+      ['a', 'sent'],
+      ['b', 'stuck'],
+      ['c', 'failed'],
+    ] as const)
+      run(
+        t.db,
+        `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
+         VALUES (?, 'tsla', 1, 50000000, '0', '0', 0, '0x', '0x', ?, ?)`,
+        id,
+        status,
+        NOW + 1000,
+      )
+    t.status.set(createHash('sha256').update('dep-1').digest('hex'), 'SUCCESS')
+    t.later(10_000)
+    await t.funder.tick() // the balance is unchanged: nothing arrived
+    expect(t.rows()).toMatchObject([{ status: 'sent' }])
+  })
+
+  it("counts the gas the finished swaps' receipts show, not a cap: busy swaps can't cover an ETH delivery that never came", async () => {
+    const t = setup()
+    t.held.eth = 190_000_000_000_000n
+    await t.funder.tick()
+    const add = (id: string, gasWei: bigint) =>
+      run(
+        t.db,
+        `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, gas_wei,
+           at) VALUES (?, 'tsla', 1, 4000000, '0', '0', 0, '0x', '0x', 'done', ?, ?)`,
+        id,
+        gasWei.toString(),
+        NOW + 1000,
+      )
+    // five swaps at 0.000024 ETH each while 1Click says SUCCESS but sent nothing (their gas cap, 2 × 0.0003 ETH a
+    // swap, would have covered the whole 0.00197 ETH)
+    for (let i = 0; i < 5; i++) add(`s${i}`, 24_000_000_000_000n)
+    t.held.eth = 190_000_000_000_000n - 5n * 24_000_000_000_000n
+    t.status.set(createHash('sha256').update('dep-1').digest('hex'), 'SUCCESS')
+    t.later(10_000)
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'sent' }])
+    // and once it really arrives (the quote's minimum out, 0.00197 ETH), it is done
+    t.held.eth += 1_970_000_000_000_000n
+    t.later(10_000)
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'done' }])
+  })
+
   it('a SUCCESS that never shows on chain stops for a person', async () => {
     const t = setup()
     t.held.usdg = 10_000_000n

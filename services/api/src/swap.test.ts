@@ -157,7 +157,13 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
         elsewhere: [transfer(TSLA, POOL, SOMEONE, state.lastOut)],
         other_token: [transfer(tokens.nvda.address as Address, POOL, me.address, state.lastOut)],
       }[opts.fill ?? 'full']
-      state.receipts.set(hash, { transactionHash: hash, status, logs: status === 'success' ? logs : [] })
+      state.receipts.set(hash, {
+        transactionHash: hash,
+        status,
+        logs: status === 'success' ? logs : [],
+        gasUsed: 800_000n,
+        effectiveGasPrice: 20_000_000n,
+      })
       return hash
     },
     async waitForReceipt(hash) {
@@ -258,6 +264,14 @@ describe('buying for a party', () => {
     expect(min).toBeGreaterThanOrEqual(10n * 10n ** 15n)
     expect(t.state.approvals).toEqual([BigInt(swapRow(t.db)!.usdg_in)])
     expect(swapRow(t.db)).toMatchObject({ status: 'done', tx_hash: proof })
+  })
+
+  it('records what the swap cost in gas, from its receipt (fund.ts tells deliveries from spending by it)', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(one<{ gas_wei: string }>(t.db, "SELECT gas_wei FROM warehouse_swaps WHERE id = 'p1:tsla'")).toEqual({
+      gas_wei: (800_000n * 20_000_000n).toString(),
+    })
   })
 
   it('skips the approve when the allowance is exactly the swap', async () => {
