@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { USDG } from './chainsig.ts'
 import { USDC_BY_NETWORK } from './config.ts'
 import { all, one, openDb, run } from './db.ts'
-import { FUND_LIMITS, nearTreasury, type Treasury, warehouseFunder } from './fund.ts'
+import { dexEthPrice, FUND_LIMITS, HOOD_WETH, nearTreasury, type Treasury, warehouseFunder } from './fund.ts'
 import type { OneClick, OneClickToken, QuoteRequest } from './intents.ts'
 
 const USDC = USDC_BY_NETWORK.mainnet
@@ -111,7 +111,7 @@ function fakeTreasury(usdc = 1_000_000_000n) {
   return { treasury, state }
 }
 
-function setup(o: Parameters<typeof fakeOneClick>[0] & { usdc?: bigint } = {}) {
+function setup(o: Parameters<typeof fakeOneClick>[0] & { usdc?: bigint; ethPrice?: number } = {}) {
   const db = openDb(':memory:')
   let t = NOW
   const fc = fakeOneClick(o)
@@ -125,6 +125,8 @@ function setup(o: Parameters<typeof fakeOneClick>[0] & { usdc?: bigint } = {}) {
     treasury: tr.treasury,
     chain: { usdgBalance: async () => held.usdg, ethBalance: async () => held.eth },
     warehouse: async () => WAREHOUSE,
+    // The second price source; 1Click's own (LISTED) is not used for the 97 % check.
+    ethPrice: async () => o.ethPrice ?? 2500,
     usdcId: USDC,
     now: () => t,
     log: (m) => logs.push(m),
@@ -172,7 +174,7 @@ describe('keeping the warehouse funded', () => {
 
     t.status.set(dep, 'SUCCESS')
     t.later(10_000)
-    t.held.usdg = 150_000_000n
+    t.held.usdg = FUND_LIMITS.usdgFloor - 1n + 98_500_000n // what it held + the quote's minimum out
     await t.funder.tick()
     expect(t.rows()).toMatchObject([{ status: 'done' }])
     expect(t.quotes).toHaveLength(1)
@@ -228,6 +230,12 @@ describe('checking 1Click’s quote before any USDC moves', () => {
     ['a memo we would not send', (a: Answer) => (a.quote.depositMemo = '42'), 'memo_not_supported'],
     ['a named deposit account', (a: Answer) => (a.quote.depositAddress = 'evil.near'), 'bad_quote'],
     ['an expired deadline', (a: Answer) => (a.quote.deadline = new Date(NOW).toISOString()), 'bad_quote'],
+    ['a dry run', (a: Answer) => (a.quoteRequest.dry = true), 'wrong_kind'],
+    ['an exact-output swap', (a: Answer) => (a.quoteRequest.swapType = 'EXACT_OUTPUT'), 'wrong_kind'],
+    ['a deposit inside intents', (a: Answer) => (a.quoteRequest.depositType = 'INTENTS'), 'wrong_kind'],
+    ['delivery into intents.near', (a: Answer) => (a.quoteRequest.recipientType = 'INTENTS'), 'wrong_recipient_type'],
+    ['a refund into intents.near', (a: Answer) => (a.quoteRequest.refundType = 'INTENTS'), 'wrong_refund'],
+    ['an answer without the echoed request types', (a: Answer) => delete a.quoteRequest.recipientType, 'bad_quote'],
   ])('refuses %s', async (_, tamper, code) => {
     const t = setup({ tamper })
     t.held.usdg = 0n
@@ -250,6 +258,78 @@ describe('checking 1Click’s quote before any USDC moves', () => {
       await fine.funder.tick()
       expect(fine.state.deposits, asset).toHaveLength(1)
     }
+  })
+})
+
+describe('prices and delivery checked outside 1Click', () => {
+  it("prices ETH with the second source, not 1Click's own price", async () => {
+    // 1Click lists ETH at $2500 and quotes by it, but the market is at $2000: what arrives is worth 20 % less
+    const t = setup({ ethPrice: 2000 })
+    t.held.eth = 0n
+    await t.funder.tick()
+    expect(t.state.deposits).toEqual([])
+    expect(t.logs.join()).toContain('too_costly')
+  })
+
+  it('stops when there is no second price for ETH', async () => {
+    const t = setup({ ethPrice: Number.NaN })
+    t.held.eth = 0n
+    await t.funder.tick()
+    expect(t.state.deposits).toEqual([])
+    expect(t.logs.join()).toContain('no_price')
+  })
+
+  it('USDG is $1, whatever 1Click lists it at', async () => {
+    const list = LISTED.map((x) => (x.assetId === USDG_ASSET ? { ...x, price: 1.2 } : x))
+    const t = setup({ list, lossBps: 400n })
+    t.held.usdg = 0n
+    await t.funder.tick()
+    expect(t.state.deposits).toEqual([])
+    expect(t.logs.join()).toContain('too_costly')
+  })
+
+  it("believes 1Click's SUCCESS only once the warehouse's balance shows the delivery", async () => {
+    const t = setup()
+    t.held.usdg = 10_000_000n
+    await t.funder.tick()
+    const dep = createHash('sha256').update('dep-1').digest('hex')
+    t.status.set(dep, 'SUCCESS')
+    t.later(10_000)
+    await t.funder.tick() // nothing arrived yet
+    expect(t.rows()).toMatchObject([{ status: 'sent' }])
+    expect(t.logs.join()).toContain("balance doesn't show it yet")
+    t.later(10_000)
+    t.held.usdg = 10_000_000n + 98_500_000n
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'done' }])
+  })
+
+  it('counts what the swaps spent meanwhile', async () => {
+    const t = setup()
+    t.held.usdg = 10_000_000n
+    await t.funder.tick()
+    t.later(1000)
+    run(
+      t.db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, at)
+       VALUES ('p1:tsla', 'tsla', 10, 40000000, '0', '0', 0, '0x', '0x', 'done', ?)`,
+      NOW + 1000,
+    )
+    t.status.set(createHash('sha256').update('dep-1').digest('hex'), 'SUCCESS')
+    t.later(10_000)
+    t.held.usdg = 10_000_000n + 98_500_000n - 40_000_000n
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'done' }])
+  })
+
+  it('a SUCCESS that never shows on chain stops for a person', async () => {
+    const t = setup()
+    t.held.usdg = 10_000_000n
+    await t.funder.tick()
+    t.status.set(createHash('sha256').update('dep-1').digest('hex'), 'SUCCESS')
+    t.later(3 * 86_400_000 + 10 * 60_000 + 1)
+    await t.funder.tick()
+    expect(t.rows()).toMatchObject([{ status: 'stuck', error: 'success_not_on_chain' }])
   })
 })
 
@@ -470,5 +550,33 @@ describe('the treasury’s deposit transaction', () => {
     const t = setupReal()
     t.rpc.noReceipt = true
     await expect(t.treasury.deposit('ab'.repeat(32), 5_000_000n, true)).rejects.toThrow(/receipt/)
+  })
+})
+
+describe('the second price for ETH', () => {
+  const pair = (chainId: string, base: string, priceUsd: string, usd: number) => ({
+    chainId,
+    baseToken: { address: base },
+    priceUsd,
+    liquidity: { usd },
+  })
+  const answering = (body: unknown) =>
+    dexEthPrice({ fetch: (async () => new Response(JSON.stringify(body))) as unknown as typeof fetch })
+
+  it("is WETH's deepest Robinhood Chain pool", async () => {
+    const price = answering([
+      pair('robinhood', HOOD_WETH, '2000', 200_000),
+      pair('robinhood', HOOD_WETH, '2090.31', 13_620_679),
+      pair('ethereum', HOOD_WETH, '9999', 99_000_000),
+      pair('robinhood', `0x${'33'.repeat(20)}`, '1', 50_000_000),
+    ])
+    expect(await price()).toBe(2090.31)
+  })
+
+  it('refuses a price from a shallow pool, or none', async () => {
+    await expect(answering([pair('robinhood', HOOD_WETH, '2090', 99_999)])()).rejects.toMatchObject({
+      code: 'no_eth_price',
+    })
+    await expect(answering([])()).rejects.toMatchObject({ code: 'no_eth_price' })
   })
 })

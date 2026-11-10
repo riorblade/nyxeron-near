@@ -175,6 +175,8 @@ const migrations = [
      deposit_tx      TEXT    NOT NULL DEFAULT '',
      error           TEXT    NOT NULL DEFAULT '',
      deadline        INTEGER NOT NULL,                 -- ms; the end of 1Click's deposit window
+     balance_before  TEXT    NOT NULL DEFAULT '0',     -- the warehouse's balance of the asset when the refill was decided
+     balance_at      INTEGER NOT NULL DEFAULT 0,       -- ms of that reading
      checked_at      INTEGER NOT NULL,
      created_at      INTEGER NOT NULL                  -- the daily cap counts by it
    );

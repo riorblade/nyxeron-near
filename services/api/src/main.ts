@@ -7,7 +7,7 @@ import { privyIdentity } from './auth.ts'
 import { nearMpc, robinhoodChain, warehouse, warehouseAccount } from './chainsig.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
-import { nearTreasury, warehouseFunder } from './fund.ts'
+import { dexEthPrice, nearTreasury, warehouseFunder } from './fund.ts'
 import { oneClick } from './intents.ts'
 import { nearOwnerChain, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
@@ -56,6 +56,7 @@ if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_
     treasury: nearTreasury({ account, usdcId: cfg.USDC_CONTRACT_ID }),
     chain: hood,
     warehouse: signer.address,
+    ethPrice: dexEthPrice(),
     usdcId: cfg.USDC_CONTRACT_ID,
     log: console.log,
   })
