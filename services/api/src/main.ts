@@ -27,11 +27,11 @@ const app = createApp({ cfg, db, identity, quotes: marketQuotes({ allowed: new S
 
 // After each party: release its wholesale, back the owed units, settle them to the guests (one tx at a time).
 const owner = nearOwnerChain(cfg)
-const settleTimer = owner
+// One job for the process: its guard keeps a slow tick (a mainnet buy takes seconds) from overlapping the next one.
+const job = owner ? settlement({ db, chain: owner, buyShares: buySharesFor(cfg), log: console.log }) : undefined
+const settleTimer = job
   ? setInterval(() => {
-      void settlement({ db, chain: owner, buyShares: buySharesFor(cfg), log: console.log })
-        .tick()
-        .catch((e: unknown) => console.error('settlement tick', e))
+      void job.tick().catch((e: unknown) => console.error('settlement tick', e))
     }, 10_000)
   : undefined
 if (!owner) console.warn('no owner key: settlement is off (parties end without units being settled)')

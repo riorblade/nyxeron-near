@@ -12,3 +12,4 @@ target/
 # NEAR agent skills: restore with `npx skills experimental_install` (from skills-lock.json)
 .claude/skills/
 .claude/settings.local.json
+.vercel

@@ -36,7 +36,8 @@ export const fakeQuotes: Quotes = {
 }
 
 // Records what the api asked the relayer to do; `failRelay` makes the next relay land with a failure, `failTransfer`
-// the next ft_transfer. `balances` holds NEP-141 balances as `${token}:${account}`.
+// the next ft_transfer. `balances` holds NEP-141 balances as `${token}:${account}`, `registered` storage registrations
+// as `${token}:${account}`. Like a real NEP-141 token, a relayed ft_transfer to an unregistered account fails.
 export function fakeRelayer() {
   const accounts = new Set<string>()
   const registered = new Set<string>()
@@ -46,10 +47,16 @@ export function fakeRelayer() {
   let failTransferNext = false
   const relayer: Relayer = {
     async relay(d) {
-      calls.push(`relay:${d.delegateAction.receiverId}:${d.delegateAction.actions[0]?.functionCall?.methodName}`)
+      const call = d.delegateAction.actions[0]?.functionCall
+      calls.push(`relay:${d.delegateAction.receiverId}:${call?.methodName}`)
       if (failNext) {
         failNext = false
         return { hash: 'tx-failed', ok: false, error: 'ActionError' }
+      }
+      if (call?.methodName === 'ft_transfer') {
+        const to = (JSON.parse(Buffer.from(call.args).toString('utf8')) as { receiver_id: string }).receiver_id
+        if (!registered.has(`${d.delegateAction.receiverId}:${to}`))
+          return { hash: 'tx-unregistered', ok: false, error: `The account ${to} is not registered` }
       }
       return { hash: 'tx-ok', ok: true }
     },
@@ -85,6 +92,7 @@ export function fakeRelayer() {
     relayer,
     calls,
     balances,
+    registered,
     failRelay: () => (failNext = true),
     failTransfer: () => (failTransferNext = true),
   }
