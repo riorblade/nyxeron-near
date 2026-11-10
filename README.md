@@ -9,7 +9,9 @@ Built at NEAR HACKATHON (1–14 Nov 2026).
 
 <!-- TODO(#39): tracks, open decision D1 in SPEC §12 (proposed: `games`, `defi`, `open`). -->
 
-<!-- TODO(#39): demo URL, X post link, and video once they exist (#40). -->
+**Live demo: https://nyxeron.xyz** (NEAR testnet). Repo: https://github.com/riorblade/nyxeron-near
+
+<!-- TODO(#40): X post link and demo video. -->
 
 ## The problem
 
@@ -19,29 +21,23 @@ piece of a real share, in their own account, without learning what a blockchain 
 
 ## Try it
 
-<!-- TODO(#39): hosted demo URL. Until then, run it locally (below). -->
+Open https://nyxeron.xyz. Every step says what to do and what you should see. Steps 1–4 need no account.
 
-Every step says what to do and what you should see.
+| #   | Do                                                                                                        | See                                                                                                                |
+| --- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | Tap **Play · no sign-in**, then **Play** on the title screen                                              | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices                         |
+| 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; then **Open club** (bottom right) | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                              |
+| 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                 | The night report: margin, reputation, goals, "Why it went this way" and a receipt of what sold                     |
+| 4   | Tap **Next night**, then **Week** in the dock                                                             | Seven nights simulated at once, with each night's guests, drinks, margin and reputation                            |
+| 5   | Go back to the start, tap **City · sign in**, pick **Go out as a guest**, sign in with Google or email    | A NEAR account is made for you (shown in the bar, linked to the explorer), balance in dollars                      |
+| 6   | Tap **Get test dollars**                                                                                  | "$3.00 on the way." and the balance goes to $3.00: test USDC in your own account (testnet only, once a day)        |
+| 7   | Open **House Party** (_always on_, top of the list) and tap **×3** next to TSLA                           | No pop-up and no gas: "3 × TSLA $1.71 · paid" with a receipt link to the transaction on the NEAR explorer          |
+| 8   | When the party ends (a House Party lasts 10 minutes), look at **Collect shares** in your portfolio        | The party's delivery status, then a delivery receipt; the units show under **Shares you hold**                     |
+| 9   | Tap **Add money**, keep USDC on Base, type any address for the refund field, tap **Get a quote**          | "You send 10.0 USDC on Base. You get about $9.99 here": a live NEAR Intents quote; on testnet nothing is sent      |
+| 10  | Tap **Switch to CEO**, then **Host a party**: give it a name and a length, tap **Open it**                | Your own party page; as the host you set each drink's price between wholesale and 3× wholesale and keep the margin |
+| 11  | Open https://nyxeron.xyz/proof                                                                            | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses          |
 
-| #   | Do                                                                                                        | See                                                                                                                 |
-| --- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 1   | Open the demo, tap **Play · no sign-in**, then **Play** on the title screen                               | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices, no account needed       |
-| 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; then **Open club** (bottom right) | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                               |
-| 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                 | The night report: stars, goals, "Why it went this way" and a receipt of what sold                                   |
-| 4   | Tap **Next night**, then **Week** in the dock                                                             | Seven nights simulated at once, with each night's guests, drinks, margin and reputation                             |
-| 5   | Go back to the start and tap **City · sign in**, sign in with Google                                      | A NEAR account is made for you (shown in the bar, linked to the explorer), balance in dollars                       |
-| 6   | Tap **Get test dollars**                                                                                  | Test USDC lands in your own account and the balance goes up (testnet only, once a day)                              |
-| 7   | **Host a party**: give it a name and a length, tap **Open it**                                            | Your party page with its menu; as the host you can set each price between wholesale and 3× wholesale                |
-| 8   | Buy a drink at the party                                                                                  | No pop-up and no gas: the payment is signed in the background, sent by our relayer, and a receipt link appears      |
-| 9   | After the party ends, look at **Collect shares** in your portfolio                                        | "Your shares are on their way", then "Delivered", with a delivery receipt; the units show under **Shares you hold** |
-| 10  | Tap **Add money**, pick USDC on Base, an amount and an address                                            | A live NEAR Intents quote ("You send … You get about …"); on testnet it is a dry run and nothing is sent            |
-| 11  | Open **/proof**                                                                                           | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses           |
-
-<!-- TODO(#39) before submission:
-  - steps 6, 9, 10 need #80 and #81 merged; steps 8–9 need the api's quote key on nyxeron.testnet (#77) and the
-    settlement job running with the owner key on the deployed api.
-  - per-party steps on /proof need a public read (Kiel's proof.ts); until then they show on the party page.
-  - Run every step from a clean browser (incognito, no extensions) and on a phone. -->
+<!-- TODO(#39): per-party steps on /proof once the public read lands (#83); until then they show on the party page. -->
 
 ## How it uses NEAR
 
@@ -86,6 +82,9 @@ Known risk: Robinhood's token issuer can block, pause or burn its tokens, and th
 transactions. Purchases are kept small and the warehouse can be paused.
 
 ## Run it locally
+
+The hosted demo runs the web on Vercel and the api in Docker with SQLite (see
+[services/api/README.md](services/api/README.md)). To run it yourself:
 
 Node 24 (`.nvmrc`) and pnpm 10 (`corepack enable`).
 
