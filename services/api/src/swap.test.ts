@@ -222,7 +222,7 @@ function setup(
 }
 
 const swapRow = (db: Db, id = 'p1:tsla') =>
-  one<{ status: string; tx_hash: string; usdg_in: number; attempts: number; error: string }>(
+  one<{ status: string; tx_hash: string; usdg_in: number; units: number; attempts: number; error: string }>(
     db,
     'SELECT * FROM warehouse_swaps WHERE id = ?',
     id,
