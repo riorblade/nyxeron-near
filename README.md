@@ -125,6 +125,8 @@ hackathon. Everything that touches NEAR was built during the hackathon: the cont
 gasless relayer, signed drink quotes, Chain Signatures for the warehouse and the settlement. We used AI coding tools
 (Claude Code).
 
-<!-- TODO(#39): confirm with the team before submission:
-  - other projects by team members at this hackathon (Q-015).
-  - LICENSE file (Q-014). -->
+## License
+
+MIT, see [LICENSE](LICENSE).
+
+<!-- TODO(#39): confirm with the team before submission: other projects by team members at this hackathon (Q-015). -->
