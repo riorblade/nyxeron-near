@@ -38,8 +38,6 @@ Open https://nyxeron.xyz and tap **Launch app** (or go straight to https://app.n
 | 11  | Tap **Switch to CEO**, then **Host a party**: give it a name and a length, tap **Open it**                                                   | Your party page with **Your prices**: move a slider and tap **Save prices** (wholesale up to 3× wholesale); you keep the margin     |
 | 12  | Open https://app.nyxeron.xyz/proof                                                                                                           | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses                           |
 
-<!-- TODO(#39): per-party steps on /proof once the public read lands (#83); until then they show on the party page. -->
-
 ## How it uses NEAR
 
 | Part              | NEAR feature                                                                                                                                                  | Where                                                       |
