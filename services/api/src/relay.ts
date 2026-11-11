@@ -157,6 +157,7 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
           result.error ?? '',
           Date.now(),
         )
+        if (result.ok && call.methodName === 'ft_transfer_call') markQuotePaid(db, user.id, call.args, result.hash)
         if (cashOutTo) {
           if (result.ok) await cashOutPaid(deps, user, cashOutTo, result.hash)
           else releaseCashOut(db, user.id, cashOutTo)
@@ -164,4 +165,17 @@ export function relayRoutes(deps: { cfg: Config; db: Db; identity: Identity; rel
         return c.json(result, result.ok ? 200 : 422)
       },
     )
+}
+
+// A drink paid and not refunded (the relay answers ok): its quote is this player's purchase. The quote id comes from
+// the signed quote inside the payment, which the contract checked; best effort, only a list depends on it.
+function markQuotePaid(db: Db, userId: string, args: Uint8Array, hash: string) {
+  try {
+    const { msg } = JSON.parse(Buffer.from(args).toString('utf8')) as { msg: string }
+    const { quote } = JSON.parse(msg) as { quote: string }
+    const { id } = JSON.parse(Buffer.from(quote, 'base64').toString('utf8')) as { id: string }
+    run(db, "UPDATE quotes SET paid_tx = ? WHERE id = ? AND buyer_id = ? AND paid_tx = ''", hash, id, userId)
+  } catch {
+    // A payment the checks let through always carries a quote; nothing to list if it somehow doesn't.
+  }
 }
