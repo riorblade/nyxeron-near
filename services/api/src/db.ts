@@ -194,6 +194,16 @@ const migrations = [
   // 11. A drink quote the relay paid (relay.ts): what GET /api/parties/:id/mine lists after a reload.
   `ALTER TABLE quotes ADD COLUMN paid_tx TEXT NOT NULL DEFAULT '';
    CREATE INDEX quotes_buyer ON quotes(buyer_id, party_id);`,
+  // 12. Every back-office action (admin.ts): who did what to whom, and why.
+  `CREATE TABLE audit (
+     id     INTEGER PRIMARY KEY,
+     actor  TEXT    NOT NULL,                       -- the staff member's email
+     action TEXT    NOT NULL,                       -- ban, unban, staff_add, staff_remove, retry
+     target TEXT    NOT NULL,                       -- a user id, a staff email, a settlement op id
+     reason TEXT    NOT NULL DEFAULT '',
+     at     INTEGER NOT NULL
+   );
+   CREATE INDEX audit_at ON audit(at);`,
 ]
 
 export function openDb(path: string): Db {
