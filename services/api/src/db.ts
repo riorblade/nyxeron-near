@@ -140,7 +140,15 @@ const migrations = [
      created_at        INTEGER NOT NULL
    );
    CREATE INDEX intents_user ON intents(user_id, created_at);`,
-  // 8. the warehouse's share purchases on Robinhood Chain (swap.ts), one or more swaps of ≤ $50 per party and token.
+  // 8. The CEO's moves at a party (parties.ts): happy hour prices every drink 20 % off until \`until_ms\`.
+  `CREATE TABLE party_moves (
+     party_id INTEGER NOT NULL REFERENCES parties(id),
+     kind     TEXT    NOT NULL CHECK (kind IN ('happyHour', 'anthem', 'mcHype', 'pyro')),
+     at_ms    INTEGER NOT NULL,
+     until_ms INTEGER NOT NULL
+   );
+   CREATE INDEX party_moves_party ON party_moves(party_id, at_ms);`,
+  // 9. the warehouse's share purchases on Robinhood Chain (swap.ts), one or more swaps of ≤ $50 per party and token.
   // The signed transaction is kept before it is broadcast, so a crash or a retry checks that transaction instead of
   // buying again.
   `CREATE TABLE warehouse_swaps (
