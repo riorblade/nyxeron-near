@@ -2,13 +2,13 @@
 // 1Click to the warehouse's address as USDG (what swap.ts spends) and a little ETH (its gas). The warehouse is kept above
 // a floor of each, one deposit in flight per asset; every deposit is recorded before it is sent, and a state where we
 // can't tell whether USDC left stops as `stuck` for a person instead of sending again.
-import { type Account, actions, nearToYocto, teraToGas } from 'near-api-js'
+import { type Account, actions, nearToYocto, type SignedTransaction, teraToGas } from 'near-api-js'
 import { type Address, isAddressEqual } from 'viem'
 import { z } from 'zod'
 import { USDG } from './chainsig.ts'
 import { all, type Db, one, run } from './db.ts'
 import { type OneClick, type OneClickToken, QUOTE_VALID_MS } from './intents.ts'
-import type { RelayResult } from './near.ts'
+import type { MayResign, RelayResult } from './near.ts'
 
 const BPS = 10_000n
 const TOKENS_TTL_MS = 10 * 60_000
@@ -379,6 +379,29 @@ export function dexEthPrice(opts: { fetch?: typeof fetch } = {}): () => Promise<
       .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]
     if (!best || (best.liquidity?.usd ?? 0) < MIN_PRICE_LIQUIDITY_USD) throw new FundError('no_eth_price')
     return best.priceUsd
+  }
+}
+
+/**
+ * For the treasury's key (NonceRetryProvider's last look before re-signing): a deposit goes to a fresh 1Click deposit
+ * address, so if that address already holds USDC, the deposit landed even though no RPC has its hash yet. Signing it
+ * again would send the USDC twice. Other transactions (the MPC requests) may be signed again.
+ */
+export function freshDepositsOnly(usdcId: string): MayResign {
+  return async (signed: SignedTransaction, rpc) => {
+    const tx = signed.transaction
+    if (tx.receiverId !== usdcId) return true
+    for (const a of tx.actions) {
+      if (a.functionCall?.methodName !== 'ft_transfer') continue
+      const { receiver_id } = JSON.parse(Buffer.from(a.functionCall.args).toString()) as { receiver_id: string }
+      const held = await rpc.callFunction<string>({
+        contractId: usdcId,
+        method: 'ft_balance_of',
+        args: { account_id: receiver_id },
+      })
+      if (BigInt(held ?? 0) > 0n) return false
+    }
+    return true
   }
 }
 

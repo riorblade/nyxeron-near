@@ -7,7 +7,7 @@ import { privyIdentity } from './auth.ts'
 import { nearMpc, robinhoodChain, warehouse, warehouseAccount } from './chainsig.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
-import { dexEthPrice, nearTreasury, warehouseFunder } from './fund.ts'
+import { dexEthPrice, freshDepositsOnly, nearTreasury, warehouseFunder } from './fund.ts'
 import { oneClick } from './intents.ts'
 import { nearOwnerChain, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
@@ -37,7 +37,9 @@ let fundTimer: ReturnType<typeof setInterval> | undefined
 if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_KEY) {
   const hood = robinhoodHood()
   // One Account object for the MPC requests and the deposits, so they never fight over the key's nonce.
-  const account = warehouseAccount(cfg.NEAR_NETWORK, cfg.WAREHOUSE_ACCOUNT_ID, cfg.WAREHOUSE_KEY)
+  const account = warehouseAccount(cfg.NEAR_NETWORK, cfg.WAREHOUSE_ACCOUNT_ID, cfg.WAREHOUSE_KEY, {
+    mayResign: freshDepositsOnly(cfg.USDC_CONTRACT_ID),
+  })
   const signer = warehouse({
     mpc: nearMpc({ network: cfg.NEAR_NETWORK, account }),
     chain: robinhoodChain(),
