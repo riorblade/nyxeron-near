@@ -3,14 +3,49 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @nyxeron/web build",
   "outputDirectory": "apps/web/dist",
+  "redirects": [
+    {
+      "source": "/(practice|city|proof|admin|spike)(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "nyxeron.xyz"
+        }
+      ],
+      "destination": "https://app.nyxeron.xyz/$1$2",
+      "permanent": false
+    },
+    {
+      "source": "/(practice|city|proof|admin|spike)(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.nyxeron.xyz"
+        }
+      ],
+      "destination": "https://app.nyxeron.xyz/$1$2",
+      "permanent": false
+    }
+  ],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://api.nyxeron.xyz/api/:path*" },
-    { "source": "/((?!assets/|venue/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://api.nyxeron.xyz/api/:path*"
+    },
+    {
+      "source": "/((?!assets/|venue/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { Mark } from '../Mark.tsx'
-import { Link } from '../router.tsx'
+import { appUrl } from '../site.ts'
 
 export function Landing() {
   return (
@@ -16,12 +16,15 @@ export function Landing() {
         buy it take the share home.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/practice" className="rounded-xl bg-gold px-6 py-3 font-bold text-night hover:brightness-110">
-          Play · no sign-in
-        </Link>
-        <Link href="/city" className="rounded-xl border border-line px-6 py-3 font-semibold hover:border-violet">
-          City · sign in
-        </Link>
+        <a href={appUrl('/')} className="rounded-xl bg-gold px-6 py-3 font-bold text-night hover:brightness-110">
+          Launch app
+        </a>
+        <a
+          href={appUrl('/practice')}
+          className="rounded-xl border border-line px-6 py-3 font-semibold hover:border-violet"
+        >
+          Play the demo · no sign-in
+        </a>
       </div>
       <ul className="mt-12 grid gap-4 text-sm text-muted sm:grid-cols-3">
         <li>
