@@ -170,7 +170,7 @@ const migrations = [
      at         INTEGER NOT NULL                  -- ms of the latest attempt; the daily cap counts by it
    );
    CREATE INDEX warehouse_swaps_at ON warehouse_swaps(at);`,
-  // 9. the treasury's deposits through 1Click that fund the warehouse with USDG and gas (fund.ts). A row is written
+  // 10. the treasury's deposits through 1Click that fund the warehouse with USDG and gas (fund.ts). A row is written
   // before the USDC is sent, so a crash or a lost answer is looked at by a person instead of sent again.
   `CREATE TABLE warehouse_funding (
      id              TEXT    PRIMARY KEY,              -- 1Click correlationId
