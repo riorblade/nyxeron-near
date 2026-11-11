@@ -109,6 +109,8 @@ export const MAX_RESUMES = 3
 // buy of the same row, before trying again. Waits don't use up the settlement job's attempts.
 export const FUNDING_WAIT_MS = 2 * 60_000
 export const IN_FLIGHT_WAIT_MS = 30_000
+// How often a party waiting on a short-fill halt looks again; it buys as soon as a person has cleared the halt.
+export const HALT_WAIT_MS = 5 * 60_000
 // Units per swap are sized to this share of the $50 cap, so the sizing buffer and a re-quote stay under it.
 const CHUNK_SHARE_BPS = 9_000n
 
@@ -128,8 +130,10 @@ export function checkSwapCall(
   data: Hex,
   want: { from: Address; token: Address; amountIn: bigint; needRaw: bigint },
 ): bigint {
+  // A wrong field in a swap call is refused for good. A call that isn't a swap at all may be a passing Kyber change,
+  // so that one is retried (it counts against the job's attempts).
   const bad = (what: string): never => {
-    throw new SettlementError(`bad_swap_call_${what}`, true)
+    throw new SettlementError(`bad_swap_call_${what}`, what !== 'not_swap')
   }
   let desc
   try {
@@ -302,7 +306,7 @@ export function warehouseBuyer(deps: {
     // swap is sent for any party until a person has looked (and moved that row out of 'stuck'). Finished and
     // already-sent swaps above still answer.
     if (one(db, "SELECT 1 FROM warehouse_swaps WHERE status = 'stuck' AND error = 'short_fill' LIMIT 1"))
-      throw new SettlementError('halted_short_fill', true)
+      throw new SettlementError('halted_short_fill', false, now() + HALT_WAIT_MS)
     const lease = reserve(id, token, units)
     const mine = `id = ? AND status = 'building' AND lease = ?`
     let raw: Hex, hash: Hex
@@ -326,7 +330,9 @@ export function warehouseBuyer(deps: {
       }
       if (keep(BigInt(route.amountOut)) < needRaw) throw new SettlementError('short_quote')
 
-      if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit', true)
+      // Units were sized to 90 % of the cap at our price, so this means Kyber's price is > 10 % off it: retried (and
+      // sized again), counted against the job's attempts. A unit too big for any swap is refused for good earlier.
+      if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit')
       // The day's cap and this row's share of it in one step, so two buys can't both fit in the same room.
       tx(db, () => {
         if (spentToday(id) + amountIn > limits.maxDayMicro)

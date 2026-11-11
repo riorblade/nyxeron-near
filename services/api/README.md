@@ -156,11 +156,14 @@ pinned token for the warehouse and returns the proof for `mint_warehouse`:
 3. The row is reserved first (`building`, with a lease, in one synchronous step), so a second call for the same row gets
    `swap_in_flight`. A crash leaves a lease that another call may take over after 5 minutes; a failure before sending
    frees the row (`failed`).
-4. Refused before anything is signed: over \$50 in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC day
+4. Refused before anything is signed: over \$50 in one swap (`over_swap_limit`: retried and sized again, since units are
+   sized to 90 % of the cap and only a Kyber price > 10 % off ours gets there; permanent only when one unit alone is too
+   big), over **\$500** in a UTC day
    (`daily_limit`, counted together with swaps being built), another router (`wrong_router`), and a router call that
    doesn't do what was asked. Kyber's `/route/build` data is decoded as MetaAggregationRouterV2 `swap` and must have
    srcToken = USDG, dstToken = the pinned token, dstReceiver = the warehouse, `amount` = amountIn (and `srcAmounts`
-   no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent). That
+   no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent; a call
+   that isn't a `swap` at all, `bad_swap_call_not_swap`, is retried in case a later route is normal). That
    router-enforced minimum must be worth at least 98 % of the USDG in at the market price (`under_market`).
 5. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
    and the approve (`warehouse_low_eth`) wait 2 minutes while `fund.ts` tops it up (a wait, not a failed attempt).
@@ -173,7 +176,8 @@ pinned token for the warehouse and returns the proof for `mint_warehouse`:
 7. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
    units, rounded up from `units × 0.001` shares through `uiMultiplier`). Checking this transaction's own logs, not the
    balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`, and
-   **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`.
+   **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`. Those
+   parties wait (looking again every 5 minutes, without using up attempts) and settle once the halt is cleared.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 
