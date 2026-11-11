@@ -40,14 +40,14 @@ Open https://nyxeron.xyz and tap **Launch app** (or go straight to https://app.n
 
 ## How it uses NEAR
 
-| Part              | NEAR feature                                                                                                                                                  | Where                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                                                        | `apps/web/src/auth`                                         |
-| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit                                                   | `apps/web/src/near`, `services/api/src/relay.ts`            |
-| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money                                         | `contracts/nyxeron`, `services/api/src/parties.ts`          |
-| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                                                                     | `contracts/nyxeron`                                         |
-| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures (mainnet, in progress; simulated on testnet) | `services/api/src/chainsig.ts`                              |
-| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                                                           | `services/api/src/intents.ts`, `apps/web/src/city/money.ts` |
+| Part              | NEAR feature                                                                                                                                     | Where                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                                           | `apps/web/src/auth`                                         |
+| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit                                      | `apps/web/src/near`, `services/api/src/relay.ts`            |
+| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money                            | `contracts/nyxeron`, `services/api/src/parties.ts`          |
+| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                                                        | `contracts/nyxeron`                                         |
+| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures (mainnet; simulated on testnet) | `services/api/src/chainsig.ts`, `swap.ts`                   |
+| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                                              | `services/api/src/intents.ts`, `apps/web/src/city/money.ts` |
 
 The server can never move a player's dollars: only the player signs a payment. The relayer accepts one action to our
 contract or to USDC, with at most 1 yocto attached, and nothing else.
@@ -66,7 +66,8 @@ contract or to USDC, with at most 1 yocto attached, and nothing else.
 
 Status: on testnet (the live demo) the share purchase after a party is simulated and labelled so
 (`buySharesFor` in `services/api/src/settlement.ts`); the release, mint and settle are real testnet transactions. The
-mainnet purchase through Chain Signatures is in progress.
+mainnet purchase (a Kyber swap the warehouse signs through Chain Signatures, `services/api/src/swap.ts`) is built and
+waits for its first mainnet run.
 
 Prices: wholesale = token price × 0.001 × 1.01 (swap fee buffer), rounded up to the cent. A host may charge up to 3×
 wholesale; the contract refuses anything above it and refunds the payment in full.
