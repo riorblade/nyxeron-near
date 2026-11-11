@@ -20,7 +20,7 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 | `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage                                                |
 | `/city`           | Sign in (Privy) as CEO (host, prices) or guest (parties, portfolio); wallet, dollars, Get test dollars                                                 |
 | `/city/party/:id` | Over the 3D club: menu, one-tap buy (quote → delegate → relay), host prices, Walk in the club (own avatar, cameras, dances); after it ends, settlement |
-| `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                                                                  |
+| `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses, shares behind the units, each settled party's steps             |
 | `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                                                                |
 | `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                                                                         |
 
