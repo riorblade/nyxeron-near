@@ -39,6 +39,10 @@ work: the judges' README must say so (HACKATHON Q-002).
 
 Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left.
 
+The landing (`src/landing/Landing.tsx`) is the only screen in the first chunk; the rest load lazily. Its clips
+(`public/landing/`, from our earlier NYXERON landing) start after the page has loaded and only on screen, with a poster
+image first and a still under `prefers-reduced-motion`.
+
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.
 
