@@ -9,10 +9,11 @@ import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
 import { dexEthPrice, freshDepositsOnly, nearTreasury, warehouseFunder } from './fund.ts'
 import { oneClick } from './intents.ts'
-import { nearOwnerChain, nearRelayer } from './near.ts'
+import { nearOwnerChain, nearProvider, nearRelayer } from './near.ts'
 import { marketQuotes } from './quotes.ts'
 import { robinhoodReader, verifyMenu } from './robinhood.ts'
 import { type BuyShares, buySharesFor, settlement } from './settlement.ts'
+import { hoodShares, type ProofSource } from './proof.ts'
 import { kyberSwap, robinhoodHood, warehouseBuyer } from './swap.ts'
 
 const cfg = loadConfig()
@@ -28,7 +29,19 @@ if (!relayer) console.warn('no relayer key: /api/relay and /api/onboard answer 5
 // Add money / Cash out. Testnet answers dry quotes only (1Click has no testnet).
 const oneclick = oneClick({ url: cfg.ONECLICK_URL, jwt: cfg.ONECLICK_JWT })
 const quotes = marketQuotes({ allowed: new Set(menu.ok) })
-const app = createApp({ cfg, db, identity, quotes, relayer, oneclick })
+// /proof: units on the contract; on mainnet also the warehouse's shares (set below once its signer exists).
+const nearRead = nearProvider(cfg.NEAR_NETWORK)
+const proof: ProofSource = {
+  supply: async (token) =>
+    BigInt(
+      ((await nearRead.callFunction({
+        contractId: cfg.CONTRACT_ID,
+        method: 'mt_supply',
+        args: { token_id: token },
+      })) as string | null) ?? 0,
+    ),
+}
+const app = createApp({ cfg, db, identity, quotes, relayer, oneclick, proof })
 
 // Mainnet: the warehouse buys the real shares (swap.ts) and the treasury keeps it in USDG and gas (fund.ts), both with
 // the warehouse account's key. Testnet keeps simulated purchases (SPEC §10).
@@ -65,6 +78,7 @@ if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_
   fundTimer = setInterval(() => {
     void funder.tick().catch((e: unknown) => console.error('warehouse funding tick', e))
   }, 15_000)
+  proof.warehouse = { address: signer.address, sharesUi: hoodShares(signer.address) }
   void signer.address().then(
     (a) => console.log(`warehouse ${a} on Robinhood Chain, controlled by ${cfg.WAREHOUSE_ACCOUNT_ID}`),
     (e: unknown) => console.error('warehouse address', e),

@@ -50,6 +50,27 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
     if (s.ok) setSettlement(await s.json())
   }, [account.api, partyId])
 
+  // What this player already bought here (paid on chain), so Your drinks survives a reload.
+  useEffect(() => {
+    void (async () => {
+      const r = await account.api.parties[':id'].mine.$get({ param: { id: String(partyId) } })
+      if (!r.ok) return
+      const { drinks: paid } = await r.json()
+      setDrinks((d) =>
+        d.length
+          ? d
+          : paid.map((x, i) => ({
+              key: -1 - i,
+              ticker: x.ticker,
+              qty: x.qty,
+              total: x.total,
+              state: 'done' as const,
+              note: x.hash,
+            })),
+      )
+    })()
+  }, [account.api, partyId])
+
   useEffect(() => {
     void load()
     // Often enough that every guest sees the host's moves (happy hour, pyro) within a few seconds.

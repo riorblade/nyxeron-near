@@ -191,6 +191,9 @@ const migrations = [
    CREATE INDEX warehouse_funding_created ON warehouse_funding(created_at);
    -- what each finished swap cost in gas (wei), from its receipt
    ALTER TABLE warehouse_swaps ADD COLUMN gas_wei TEXT NOT NULL DEFAULT '0';`,
+  // 11. A drink quote the relay paid (relay.ts): what GET /api/parties/:id/mine lists after a reload.
+  `ALTER TABLE quotes ADD COLUMN paid_tx TEXT NOT NULL DEFAULT '';
+   CREATE INDEX quotes_buyer ON quotes(buyer_id, party_id);`,
 ]
 
 export function openDb(path: string): Db {

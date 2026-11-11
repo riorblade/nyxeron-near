@@ -10,7 +10,7 @@ import {
 } from 'near-api-js'
 import { describe, expect, it } from 'vitest'
 import { all } from './db.ts'
-import { fakeIdentity, fakeRelayer, testApp } from './testing.ts'
+import { fakeIdentity, fakeQuotes, fakeRelayer, testApp } from './testing.ts'
 
 const CONTRACT = 'nyxeron.testnet'
 const USDC = '3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af'
@@ -188,5 +188,36 @@ describe('POST /api/onboard', () => {
     const { call } = setup()
     for (let i = 0; i < 3; i++) expect((await call('POST', '/api/onboard', 'tok-alice')).status).toBe(200)
     expect((await call('POST', '/api/onboard', 'tok-alice')).status).toBe(429)
+  })
+})
+
+describe('GET /api/parties/:id/mine', () => {
+  it('lists a drink once the relay paid it, and not one that failed on chain', async () => {
+    const fake = fakeRelayer()
+    const env = { QUOTE_KEY: KeyPair.fromRandom('ed25519').toString() }
+    const t = testApp(
+      env,
+      fakeIdentity({ alice: { email: 'alice@test.io', nearAccount: aliceAccount } }),
+      fakeQuotes,
+      fake.relayer,
+    )
+    const party = (await (await t.call('POST', '/api/parties', 'tok-host', { title: 'Friday Night' })).json()) as {
+      id: number
+    }
+    const buy = async (qty: number) => {
+      const q = (await (
+        await t.call('POST', `/api/parties/${party.id}/quote`, 'tok-alice', { token: 'tsla', qty })
+      ).json()) as { payment: { args: object } }
+      return t.call('POST', '/api/relay', 'tok-alice', { signedDelegate: wire({ args: q.payment.args }) })
+    }
+    expect((await buy(3)).status).toBe(200)
+    fake.failRelay()
+    expect((await buy(1)).status).toBe(422)
+    const mine = async (token: string) =>
+      (await (await t.call('GET', `/api/parties/${party.id}/mine`, token)).json()) as { drinks: object[] }
+    expect((await mine('tok-alice')).drinks).toEqual([
+      { token: 'tsla', ticker: 'TSLA', qty: 3, total: 3 * 620_000, hash: 'tx-ok', at: expect.any(Number) },
+    ])
+    expect((await mine('tok-bob')).drinks).toEqual([]) // only your own
   })
 })

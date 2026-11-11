@@ -276,6 +276,27 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
           return c.json(await view(p))
         },
       )
+      // This player's paid drinks at a party (the relay marks a quote paid), newest first.
+      .get('/:id/mine', validate('param', z.object({ id: z.coerce.number().int() })), (c) => {
+        const p = getParty(c.req.valid('param').id)
+        const rows = all<{ token: TokenId; qty: number; unit_price: number; paid_tx: string; created_at: number }>(
+          db,
+          `SELECT token, qty, unit_price, paid_tx, created_at FROM quotes
+           WHERE party_id = ? AND buyer_id = ? AND paid_tx <> '' ORDER BY created_at DESC`,
+          p.id,
+          c.var.user.id,
+        )
+        return c.json({
+          drinks: rows.map((r) => ({
+            token: r.token,
+            ticker: tokens[r.token]?.ticker ?? r.token,
+            qty: r.qty,
+            total: r.unit_price * r.qty,
+            hash: r.paid_tx,
+            at: r.created_at,
+          })),
+        })
+      })
       // Where the party's settlement is: the web's Collect shares and /proof read this.
       .get('/:id/settlement', validate('param', z.object({ id: z.coerce.number().int() })), (c) =>
         c.json(settlementView(db, getParty(c.req.valid('param').id), Boolean(cfg.OWNER_ACCOUNT_ID), now())),

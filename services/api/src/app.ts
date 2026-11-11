@@ -9,11 +9,20 @@ import type { OneClick } from './intents.ts'
 import type { Relayer } from './near.ts'
 import { onboardRoutes } from './onboard.ts'
 import { configRoutes, partyRoutes } from './parties.ts'
+import { type ProofSource, proofRoutes } from './proof.ts'
 import { playerRoutes } from './players.ts'
 import { type Quotes, quoteRoutes } from './quotes.ts'
 import { relayRoutes } from './relay.ts'
 
-export type Deps = { cfg: Config; db: Db; identity: Identity; quotes: Quotes; relayer?: Relayer; oneclick?: OneClick }
+export type Deps = {
+  cfg: Config
+  db: Db
+  identity: Identity
+  quotes: Quotes
+  relayer?: Relayer
+  oneclick?: OneClick
+  proof?: ProofSource
+}
 
 export function createApp(deps: Deps) {
   const app = new Hono()
@@ -32,6 +41,7 @@ export function createApp(deps: Deps) {
     .route('/relay', relayRoutes(deps))
     .route('/parties', partyRoutes(deps))
     .route('/config', configRoutes(deps.cfg, deps.relayer))
+    .route('/proof', proofRoutes(deps))
   return app
 }
 
