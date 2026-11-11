@@ -125,13 +125,45 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 1. `release_wholesale(party)`.
 2. `mint_warehouse(token, units, proof)` per token for the total owed. On testnet the proof is `demo:<party>:<token>:1`
-   (the purchase is simulated, SPEC §10). On mainnet `buyShares` will buy through 1Click + Kyber + `chainsig.ts`; until
-   then the party stops with `not_built`.
+   (the purchase is simulated, SPEC §10). On mainnet `buyShares` is to be `warehouseBuyer(...).buyShares` from
+   `swap.ts` (below); until it is wired the party stops with `not_built`.
 3. `settle(party, party:<id>:<batch>, ≤ 32 transfers)` from the contract's `owed(party)`.
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
 (`party_pot`, `is_used_proof`, `is_settled`), so a crash or a lost answer never doubles a step. A failed step retries
 after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`.
+
+## Buying the warehouse's shares (`swap.ts`)
+
+`warehouseBuyer({ db, hood, kyber, signer, price }).buyShares(party, token, units)` buys `units × 0.001` shares of the
+pinned token for the warehouse and returns the proof for `mint_warehouse`:
+
+1. What a party owes of one token is split into swaps of at most **\$50** (each sized at 90 % of the cap at the market
+   price), rows `<party>:<token>`, then `<party>:<token>:1`, … The proof is the first swap's hash, plus `+<n>` when n
+   more swaps were needed (≤ 128 chars, unique per party and token).
+2. Per swap, a KyberSwap route USDG → token, sized so the minimum out after 0.5 % slippage covers what is owed
+   (`balanceOfUI = balanceOf × uiMultiplier / 1e18`, so the raw amount is rounded up).
+3. The row is reserved first (`building`, with a lease, in one synchronous step), so a second call for the same row gets
+   `swap_in_flight`. A crash leaves a lease that another call may take over after 5 minutes; a failure before sending
+   frees the row (`failed`).
+4. Refused before anything is signed: over \$50 in one swap (`over_swap_limit`, permanent), over **\$500** in a UTC day
+   (`daily_limit`, counted together with swaps being built), another router (`wrong_router`), and a router call that
+   doesn't do what was asked. Kyber's `/route/build` data is decoded as MetaAggregationRouterV2 `swap` and must have
+   srcToken = USDG, dstToken = the pinned token, dstReceiver = the warehouse, `amount` = amountIn (and `srcAmounts`
+   no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent). That
+   router-enforced minimum must be worth at least 98 % of the USDG in at the market price (`under_market`).
+5. `approve(router, amountIn)` whenever the allowance isn't exactly this swap (`chainsig.ts` refuses an approve above
+   \$50); the swap is signed by the warehouse (`chainsig.ts`).
+6. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
+   receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
+   with `swap_dropped`; after 3 retries with no receipt and a free nonce, `swap_unconfirmed`. A person checks; it is
+   never bought again automatically.
+7. The receipt must show the pinned token's `Transfer` to the warehouse for at least what is owed (raw `balanceOf`
+   units, rounded up from `units × 0.001` shares through `uiMultiplier`). Checking this transaction's own logs, not the
+   balance, means another party's shares can't cover a short swap. Otherwise the row is `stuck` with `short_fill`, and
+   **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`.
+
+`robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
 
 ## Rules
 
