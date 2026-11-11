@@ -53,9 +53,33 @@ describe('parties', () => {
       host: { nearAccount: expect.stringMatching(/^[0-9a-f]{64}$/) },
     })
     expect(body.menu).toEqual([
-      { token: 'tsla', ticker: 'TSLA', name: 'Tesla', price: 620_000, wholesale: W.tsla, maxPrice: W.tsla * 3 },
-      { token: 'nvda', ticker: 'NVDA', name: 'NVIDIA', price: 320_000, wholesale: W.nvda, maxPrice: W.nvda * 3 },
-      { token: 'spy', ticker: 'SPY', name: 'S&P 500', price: 920_000, wholesale: W.spy, maxPrice: W.spy * 3 },
+      {
+        token: 'tsla',
+        ticker: 'TSLA',
+        name: 'Tesla',
+        price: 620_000,
+        listPrice: 620_000,
+        wholesale: W.tsla,
+        maxPrice: W.tsla * 3,
+      },
+      {
+        token: 'nvda',
+        ticker: 'NVDA',
+        name: 'NVIDIA',
+        price: 320_000,
+        listPrice: 320_000,
+        wholesale: W.nvda,
+        maxPrice: W.nvda * 3,
+      },
+      {
+        token: 'spy',
+        ticker: 'SPY',
+        name: 'S&P 500',
+        price: 920_000,
+        listPrice: 920_000,
+        wholesale: W.spy,
+        maxPrice: W.spy * 3,
+      },
     ])
   })
 
@@ -120,6 +144,71 @@ describe('House Party (testnet + DEMO_MODE)', () => {
   it('never opens without DEMO_MODE (so never on mainnet)', async () => {
     const t = setup({ env: { ...demo, DEMO_MODE: 'false' } })
     expect((await list(t)).parties).toEqual([])
+  })
+})
+
+describe('POST /api/parties/:id/moves', () => {
+  type Menu = { token: string; price: number; listPrice: number }[]
+  const move = (t: ReturnType<typeof setup>, id: number, kind: string, token = 'tok-host') =>
+    t.call('POST', `/api/parties/${id}/moves`, token, { kind })
+
+  it('happy hour: every drink 20 % off in the menu and the signed quote, once a party, for 5 minutes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const t = setup()
+      const { id } = await json(await t.party('tok-host', { title: 'Friday Night', minutes: 30 }))
+      const res = await move(t, id, 'happyHour')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { menu: Menu; moves: { kind: string }[]; happyHourUsed: boolean }
+      expect(body.moves.map((m) => m.kind)).toEqual(['happyHour'])
+      // 62¢ → 49.6¢ → 50¢ (cents); 32¢ → 26¢; 92¢ → 74¢.
+      expect(body.menu.map((m) => [m.token, m.price, m.listPrice])).toEqual([
+        ['tsla', 500_000, 620_000],
+        ['nvda', 260_000, 320_000],
+        ['spy', 740_000, 920_000],
+      ])
+      const q = (await (
+        await t.call('POST', `/api/parties/${id}/quote`, 'tok-guest', { token: 'tsla', qty: 2 })
+      ).json()) as { quote: { unit_price: string }; payment: { args: { amount: string } } }
+      expect(q.quote.unit_price).toBe('500000')
+      expect(q.payment.args.amount).toBe('1000000')
+      expect((await move(t, id, 'happyHour')).status).toBe(429) // once a party
+      vi.setSystemTime(Date.now() + 5 * 60_000)
+      const after = (await json(await t.call('GET', `/api/parties/${id}`, 'tok-guest'))) as unknown as { menu: Menu }
+      expect(after.menu[0]).toMatchObject({ price: 620_000, listPrice: 620_000 })
+      expect((await move(t, id, 'happyHour')).status).toBe(429) // still once, after it ended
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('never prices a drink below wholesale', async () => {
+    const t = setup()
+    const { id } = await json(await t.party())
+    await t.call('PUT', `/api/parties/${id}/prices`, 'tok-host', { prices: { tsla: W.tsla } })
+    const body = (await (await move(t, id, 'happyHour')).json()) as { menu: Menu }
+    expect(body.menu[0]).toMatchObject({ token: 'tsla', price: W.tsla })
+  })
+
+  it('host only, live parties only; pyro at most every 10 s, anthem not while it runs', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const t = setup()
+      const { id } = await json(await t.party())
+      expect((await move(t, id, 'pyro', 'tok-guest')).status).toBe(403)
+      expect((await move(t, id, 'confetti')).status).toBe(400)
+      const first = (await (await move(t, id, 'pyro')).json()) as { pyroAt: number }
+      expect(first.pyroAt).toBe(Date.now())
+      expect((await move(t, id, 'pyro')).status).toBe(429)
+      vi.setSystemTime(Date.now() + 10_000)
+      expect((await move(t, id, 'pyro')).status).toBe(200)
+      expect((await move(t, id, 'anthem')).status).toBe(200)
+      expect((await move(t, id, 'anthem')).status).toBe(429)
+      vi.setSystemTime(Date.now() + 10 * 60_000) // the party is over
+      expect((await move(t, id, 'mcHype')).status).toBe(409)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

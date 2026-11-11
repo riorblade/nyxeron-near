@@ -32,6 +32,16 @@ const live = (p: Party, now: number) => p.starts_at <= now && now < p.ends_at
 // already holds test USDC), so the margin goes back to the faucet's pocket.
 export const HOUSE_ID = 'house'
 export const HOUSE_MINUTES = 10
+// The CEO's moves (POST /:id/moves). Happy hour is money: the quote and the menu price every drink 20 % off while
+// it runs, never below wholesale. The rest is show, drawn by every guest's club.
+export const MOVES = {
+  happyHour: { ms: 5 * 60_000, gap: Infinity }, // once a party
+  anthem: { ms: 2 * 60_000, gap: 0 },
+  mcHype: { ms: 60_000, gap: 0 },
+  pyro: { ms: 0, gap: 10_000 },
+} as const
+export type MoveKind = keyof typeof MOVES
+export const HAPPY_HOUR_OFF = 0.2
 const houseOn = (cfg: Config) => cfg.NEAR_NETWORK === 'testnet' && cfg.DEMO_MODE && Boolean(cfg.RELAYER_ACCOUNT_ID)
 
 export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quotes: Quotes; now?: () => number }) {
@@ -51,8 +61,35 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
     for (const id of tokenIds) if (prices[id]) out[id] = wholesaleMicroUsdc(prices[id]!.usd)
     return out
   }
+  // The price a guest pays now: the host's price, 20 % off in happy hour (never below wholesale).
+  const happyHour = (partyId: number) =>
+    Boolean(
+      one(
+        db,
+        "SELECT 1 AS x FROM party_moves WHERE party_id = ? AND kind = 'happyHour' AND until_ms > ?",
+        partyId,
+        now(),
+      ),
+    )
+  const priceNow = (price: number, wholesale: number, happy: boolean) =>
+    happy ? Math.max(wholesale, roundCent(price * (1 - HAPPY_HOUR_OFF))) : price
+  const movesView = (partyId: number) => {
+    const t = now()
+    const rows = all<{ kind: MoveKind; at_ms: number; until_ms: number }>(
+      db,
+      'SELECT kind, at_ms, until_ms FROM party_moves WHERE party_id = ? ORDER BY at_ms',
+      partyId,
+    )
+    return {
+      moves: rows.filter((m) => m.until_ms > t).map((m) => ({ kind: m.kind, until: m.until_ms })),
+      pyroAt: rows.filter((m) => m.kind === 'pyro').at(-1)?.at_ms ?? null,
+      happyHourUsed: rows.some((m) => m.kind === 'happyHour'),
+    }
+  }
+
   const view = async (p: Party) => {
     const wholesale = await wholesaleNow()
+    const happy = happyHour(p.id)
     const host = one<Pick<User, 'name' | 'near_account'>>(
       db,
       'SELECT name, near_account FROM users WHERE id = ?',
@@ -74,6 +111,7 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
       startsAt: p.starts_at,
       endsAt: p.ends_at,
       live: live(p, now()),
+      ...movesView(p.id),
       menu: prices
         .filter((m) => isTokenId(m.token) && wholesale[m.token])
         .sort((a, b) => tokenIds.indexOf(a.token) - tokenIds.indexOf(b.token)) // the game's menu order
@@ -81,7 +119,8 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
           token: m.token,
           ticker: tokens[m.token].ticker,
           name: tokens[m.token].name,
-          price: m.price,
+          price: priceNow(m.price, wholesale[m.token]!, happy),
+          listPrice: m.price,
           wholesale: wholesale[m.token]!,
           maxPrice: wholesale[m.token]! * MAX_MARKUP,
         })),
@@ -204,6 +243,39 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
           return c.json(await view(p))
         },
       )
+      .post(
+        '/:id/moves',
+        requireActive,
+        validate('param', z.object({ id: z.coerce.number().int() })),
+        validate('json', z.object({ kind: z.enum(Object.keys(MOVES) as [MoveKind, ...MoveKind[]]) })),
+        async (c) => {
+          const p = getParty(c.req.valid('param').id)
+          if (p.host_id !== c.var.user.id) throw new AppError(403, 'not_host')
+          const t = now()
+          if (!live(p, t)) throw new AppError(409, 'party_not_live')
+          const { kind } = c.req.valid('json')
+          const rule = MOVES[kind]
+          tx(db, () => {
+            const last = one<{ at_ms: number; until_ms: number }>(
+              db,
+              'SELECT at_ms, until_ms FROM party_moves WHERE party_id = ? AND kind = ? ORDER BY at_ms DESC LIMIT 1',
+              p.id,
+              kind,
+            )
+            if (last && (last.until_ms > t || t - last.at_ms < rule.gap)) throw new AppError(429, 'too_soon')
+            // A move never outlasts the party.
+            run(
+              db,
+              'INSERT INTO party_moves (party_id, kind, at_ms, until_ms) VALUES (?, ?, ?, ?)',
+              p.id,
+              kind,
+              t,
+              Math.min(p.ends_at, t + rule.ms),
+            )
+          })
+          return c.json(await view(p))
+        },
+      )
       // Where the party's settlement is: the web's Collect shares and /proof read this.
       .get('/:id/settlement', validate('param', z.object({ id: z.coerce.number().int() })), (c) =>
         c.json(settlementView(db, getParty(c.req.valid('param').id), Boolean(cfg.OWNER_ACCOUNT_ID), now())),
@@ -231,6 +303,7 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
           if (!menu || !wholesale) throw new AppError(400, 'unknown_token')
           // The market moved since the host set the price: the contract would refuse it, so the host must reprice.
           if (menu.price < wholesale || menu.price > wholesale * MAX_MARKUP) throw new AppError(409, 'reprice_needed')
+          const unitPrice = priceNow(menu.price, wholesale, happyHour(p.id))
           const ceo = one<{ near_account: string }>(
             db,
             'SELECT near_account FROM users WHERE id = ?',
@@ -247,7 +320,7 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
             ceo,
             token,
             qty,
-            unit_price: String(menu.price),
+            unit_price: String(unitPrice),
             unit_wholesale: String(wholesale),
             expires_ms: t + QUOTE_TTL_MS,
           }
@@ -264,12 +337,12 @@ export function partyRoutes(deps: { cfg: Config; db: Db; identity: Identity; quo
             ceo,
             token,
             qty,
-            menu.price,
+            unitPrice,
             wholesale,
             quote.expires_ms,
             t,
           )
-          const total = String(menu.price * qty)
+          const total = String(unitPrice * qty)
           return c.json({
             quote,
             // Exactly what the client puts in the delegate it signs (then POST /api/relay).
