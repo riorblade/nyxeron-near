@@ -33,7 +33,7 @@
       "destination": "https://api.nyxeron.xyz/api/:path*"
     },
     {
-      "source": "/((?!assets/|venue/).*)",
+      "source": "/((?!assets/|venue/|landing/|robots.txt).*)",
       "destination": "/index.html"
     }
   ],

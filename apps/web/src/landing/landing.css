@@ -1,0 +1,233 @@
+/* The landing's own motion (Landing.tsx). Colors come from index.css's tokens. */
+@import '@fontsource-variable/big-shoulders-display';
+
+.landing {
+  --glow:
+    0 0 6px var(--color-neon), 0 0 22px var(--color-neon),
+    0 0 60px color-mix(in srgb, var(--color-neon) 60%, transparent);
+}
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px max(16px, 4vw);
+  transition:
+    background-color 0.3s,
+    padding 0.3s,
+    backdrop-filter 0.3s;
+}
+.nav.is-scrolled {
+  padding-block: 8px;
+  background: color-mix(in srgb, var(--color-night) 80%, transparent);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.btn-gold,
+.btn-line {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  transition:
+    filter 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+.btn-gold {
+  background: var(--color-gold);
+  color: var(--color-night);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-gold) 45%, transparent);
+}
+.btn-gold:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+.btn-line {
+  border: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-night) 50%, transparent);
+  backdrop-filter: blur(8px);
+}
+.btn-line:hover {
+  border-color: var(--color-violet);
+}
+
+/* Hero: 100vh on screen, 220vh of scroll for the dance floor to open. */
+.hero-wrap {
+  height: 220vh;
+}
+.floor {
+  clip-path: ellipse(0% 0% at 50% 50%);
+}
+
+.neon-title {
+  font-family: 'Big Shoulders Display Variable', sans-serif;
+  font-weight: 900;
+  font-size: clamp(4.5rem, 19vw, 15rem);
+  line-height: 0.85;
+  letter-spacing: 0.04em;
+  color: #fff4fd;
+  text-shadow: var(--glow);
+}
+.neon-title span {
+  display: inline-block;
+  animation:
+    rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tube 1.6s steps(1) both;
+  animation-delay: calc(var(--i) * 70ms), calc(300ms + var(--i) * 70ms);
+}
+/* One letter keeps a faulty tube. */
+.neon-title span:nth-child(4) {
+  animation:
+    rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
+    tube 1.6s steps(1) both,
+    flicker 5s steps(1) 2.5s infinite;
+  animation-delay: calc(var(--i) * 70ms), calc(300ms + var(--i) * 70ms), 2.5s;
+}
+.neon-text {
+  color: #fff4fd;
+  text-shadow: var(--glow);
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+@keyframes tube {
+  0%,
+  20%,
+  45% {
+    text-shadow: none;
+    opacity: 0.35;
+  }
+  10%,
+  30%,
+  60%,
+  100% {
+    text-shadow: var(--glow);
+    opacity: 1;
+  }
+}
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.3;
+    text-shadow: none;
+  }
+  94% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0.4;
+    text-shadow: none;
+  }
+}
+
+/* The hero line changes once the dance floor is open. */
+.swap {
+  display: grid;
+}
+.swap > span {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.5s,
+    transform 0.5s;
+}
+.swap .b,
+.swap.is-b .a {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.swap.is-b .b {
+  opacity: 1;
+  transform: none;
+}
+
+.statement-word {
+  opacity: 0.15;
+  transition: opacity 0.15s linear;
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-neon);
+}
+.card {
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--color-panel) 90%, transparent), var(--color-night));
+  padding: 1.5rem;
+}
+.door {
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+.door:hover {
+  border-color: var(--color-violet);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--color-violet) 25%, transparent);
+}
+
+.rise {
+  opacity: 0;
+  transform: translateY(40px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--d);
+}
+.rise.on {
+  opacity: 1;
+  transform: none;
+}
+
+.trail {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+  border: 1px solid var(--color-neon);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-night) 85%, transparent);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-neon) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-wrap {
+    height: auto;
+  }
+  .floor {
+    display: none;
+  }
+  .neon-title span,
+  .rise,
+  .swap > span {
+    animation: none !important;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .swap .b {
+    display: none;
+  }
+  .statement-word {
+    opacity: 1;
+  }
+}
