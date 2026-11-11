@@ -601,6 +601,18 @@ body:has(.game) {
   flex: none;
 }
 
+/* The venue carousel's ← →, either side of the club. */
+.venuenav {
+  position: fixed;
+  top: 50%;
+}
+.venuenav.prev {
+  left: 336px;
+}
+.venuenav.next {
+  right: 316px;
+}
+
 /* ---------- bottom dock ---------- */
 .dock {
   position: fixed;
@@ -1951,14 +1963,26 @@ body:has(.game) {
   }
   .quest {
     top: auto;
-    bottom: 120px;
+    bottom: 212px; /* above Open club */
     left: 8px;
     right: 8px;
     width: auto;
     max-height: 34vh;
     overflow: auto;
   }
+  /* Under the HUD, clear of the goals panel. */
+  .venuenav {
+    top: 150px;
+  }
+  .venuenav.prev {
+    left: 8px;
+  }
+  .venuenav.next {
+    right: 8px;
+  }
+  /* Lifted over the music pill (audio/MusicToggle.tsx), which sits bottom-left on every screen. */
   .dock {
+    bottom: 50px;
     gap: 6px;
     padding: 8px;
   }
@@ -1972,7 +1996,7 @@ body:has(.game) {
     height: 22px;
   }
   .opengo {
-    bottom: 96px;
+    bottom: 134px;
     right: 8px;
   }
   .opengo .btn.xl {
@@ -1981,7 +2005,7 @@ body:has(.game) {
     padding: 0 18px;
   }
   .modal {
-    padding: 8px 6px 90px;
+    padding: 8px 6px 128px;
   }
   .suppliers,
   .staff,
@@ -2007,7 +2031,7 @@ body:has(.game) {
   }
   .alertstack {
     top: auto;
-    bottom: 100px;
+    bottom: 138px;
     width: auto;
     right: 8px;
     max-height: 30vh;
