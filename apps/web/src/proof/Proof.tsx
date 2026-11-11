@@ -1,10 +1,12 @@
 // /proof: what is on chain behind the game, for judges and the curious. The one page where NEAR and Robinhood Chain
-// are named. Per-party steps (payment → swap → mint → settle) are listed once the api serves them (proof.ts).
+// are named. The shares behind the units and each party's steps come from the api's public proof (proof.ts).
 import { tokens } from '@nyxeron/game'
 import { useEffect, useState } from 'react'
 import { api } from '../api.ts'
 import { explorer, nearProvider, type Network, view } from '../near/chain.ts'
 import { Link } from '../router.tsx'
+import { stepLabel } from '../city/settlement.ts'
+import { backedText, type PartySteps, proofText, type ProofView } from './proof.ts'
 
 type Config = { network: Network; contractId: string; usdcId: string; quoteKey: string | null }
 type Registered = [string, { symbol: string; backing: string; shares_per_unit: string }]
@@ -12,6 +14,7 @@ type Registered = [string, { symbol: string; backing: string; shares_per_unit: s
 export function Proof() {
   const [config, setConfig] = useState<Config>()
   const [registry, setRegistry] = useState<Registered[]>()
+  const [proof, setProof] = useState<ProofView | null>()
   const [error, setError] = useState<string>()
 
   useEffect(() => {
@@ -23,6 +26,10 @@ export function Proof() {
       } catch {
         setError("Couldn't read the chain right now.")
       }
+    })()
+    void (async () => {
+      const r = await api.proof.$get().catch(() => undefined)
+      setProof(r?.ok ? ((await r.json()) as ProofView) : null)
     })()
   }, [])
 
@@ -95,10 +102,142 @@ export function Proof() {
           ))}
         </ul>
       </section>
-      <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm text-muted">
-        Party by party (payment, share purchase, units minted, units delivered) appears here once the first City party
-        has settled.
-      </section>
+      {proof === null && (
+        <p className="mt-4 text-sm text-down">Couldn't read the parties right now. Try again in a minute.</p>
+      )}
+      {proof && config && <Backing proof={proof} />}
+      {proof && config && <Parties proof={proof} network={config.network} />}
     </main>
+  )
+}
+
+const ticker = (id: string) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase()
+
+/** Units on the contract against the shares behind them (the warehouse's balance, read on mainnet). */
+function Backing({ proof }: { proof: ProofView }) {
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm">
+      <h2 className="mb-2 font-semibold">Shares behind the units</h2>
+      {proof.demo ? (
+        <p className="text-muted">
+          On testnet the share purchase after a party is simulated: each mint carries a <code>demo:</code> proof, and no
+          real share stands behind these units. On mainnet the warehouse buys the shares first, and this table shows
+          what it holds.
+        </p>
+      ) : (
+        proof.warehouse && (
+          <p className="break-all text-muted">
+            Warehouse on Robinhood Chain: <span className="text-ink">{proof.warehouse}</span>
+          </p>
+        )
+      )}
+      {proof.tokens.length === 0 ? (
+        <p className="mt-2 text-muted">No units minted yet.</p>
+      ) : (
+        <table className="mt-2 w-full tabular-nums">
+          <thead className="text-left text-xs text-muted">
+            <tr>
+              <th className="font-normal">Stock</th>
+              <th className="font-normal">Units</th>
+              <th className="font-normal">Shares owed</th>
+              {!proof.demo && <th className="font-normal">Shares held</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {proof.tokens.map((t) => {
+              const b = backedText(t)
+              return (
+                <tr key={t.token}>
+                  <td className="font-semibold">{t.ticker}</td>
+                  <td>{t.units}</td>
+                  <td>{t.sharesOwed}</td>
+                  {!proof.demo && (
+                    <td>
+                      {t.sharesHeld ?? '…'} {b && <span className={b.ok ? 'text-up' : 'text-down'}>{b.text}</span>}
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </section>
+  )
+}
+
+/** The latest settled parties; one opens to its steps, each with its NEAR tx. */
+function Parties({ proof, network }: { proof: ProofView; network: Network }) {
+  const [open, setOpen] = useState<string>()
+  const [steps, setSteps] = useState<Record<string, PartySteps | null>>({})
+
+  const toggle = async (id: string) => {
+    setOpen((o) => (o === id ? undefined : id))
+    if (steps[id] !== undefined) return
+    const r = await api.proof.parties[':chainParty'].$get({ param: { chainParty: id } }).catch(() => undefined)
+    const body = r?.ok ? await r.json() : null
+    setSteps((s) => ({ ...s, [id]: body }))
+  }
+
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm">
+      <h2 className="mb-2 font-semibold">Party by party</h2>
+      <p className="text-muted">
+        After a party ends: its money is released for the shares, the shares are bought and minted as units, and the
+        units are delivered to the guests.
+      </p>
+      {proof.recent.length === 0 && <p className="mt-2 text-muted">No party has settled yet.</p>}
+      <ul className="mt-2 divide-y divide-line">
+        {proof.recent.map((p) => {
+          const s = steps[p.chainParty]
+          return (
+            <li key={p.chainParty} className="py-2">
+              <button
+                className="flex w-full items-baseline justify-between gap-3 text-left hover:text-ink"
+                aria-expanded={open === p.chainParty}
+                onClick={() => void toggle(p.chainParty)}
+              >
+                <span className="font-semibold">{p.title}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {new Date(p.endsAt).toLocaleString()} · {p.status}
+                </span>
+              </button>
+              {open === p.chainParty && (
+                <div className="mt-1 text-xs text-muted">
+                  {s === undefined && 'Loading…'}
+                  {s === null && "Couldn't read this party right now."}
+                  {s && (
+                    <ol className="list-decimal pl-5">
+                      {s.steps.map((op, i) => (
+                        <li key={i}>
+                          {stepLabel(op, ticker)}{' '}
+                          {op.hash ? (
+                            <a
+                              className="hover:text-ink"
+                              href={`${explorer(network)}/txns/${op.hash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              tx ↗
+                            </a>
+                          ) : (
+                            `(${op.status})`
+                          )}
+                          {'proof' in op && proofText(op.proof) && (
+                            <span className="block break-all" title={op.proof ?? undefined}>
+                              proof: {proofText(op.proof)}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
