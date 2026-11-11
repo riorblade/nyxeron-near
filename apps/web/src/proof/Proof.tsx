@@ -206,7 +206,8 @@ function Parties({ proof, network }: { proof: ProofView; network: Network }) {
                 <div className="mt-1 text-xs text-muted">
                   {s === undefined && 'Loading…'}
                   {s === null && "Couldn't read this party right now."}
-                  {s && (
+                  {s?.steps.length === 0 && 'Nobody bought a drink at this party, so there was nothing to deliver.'}
+                  {s && s.steps.length > 0 && (
                     <ol className="list-decimal pl-5">
                       {s.steps.map((op, i) => (
                         <li key={i}>
