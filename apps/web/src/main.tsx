@@ -3,10 +3,12 @@ import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MusicToggle } from './audio/MusicToggle.tsx'
 import { type MusicMode, useMusic } from './audio/music.ts'
+import { AppHome } from './landing/AppHome.tsx'
 import { Landing } from './landing/Landing.tsx'
 import { Practice } from './practice/Practice.tsx'
 import { Proof } from './proof/Proof.tsx'
 import { usePath } from './router.tsx'
+import { isLandingHost } from './site.ts'
 
 // Screens that need sign-in load Privy with them; Practice and the landing stay light.
 const SpikeRoute = lazy(() => import('./spike/SpikeRoute.tsx'))
@@ -34,6 +36,8 @@ function Want({ mode }: { mode: MusicMode }) {
 
 function App() {
   const path = usePath()
+  // nyxeron.xyz shows only the landing (vercel.json sends app paths to app.nyxeron.xyz).
+  if (isLandingHost() || path.startsWith('/landing')) return <Landing />
   if (path.startsWith('/practice')) return <Practice />
   if (path.startsWith('/proof')) return <Proof />
   if (path.startsWith('/admin'))
@@ -54,7 +58,7 @@ function App() {
         <SpikeRoute />
       </Suspense>
     )
-  return <Landing />
+  return <AppHome />
 }
 
 createRoot(document.getElementById('root')!).render(

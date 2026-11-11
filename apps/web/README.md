@@ -16,7 +16,7 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 
 | Path              | What                                                                                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/`               | Landing                                                                                                                                                |
+| `/`               | App home: Practice, City, Proof. On nyxeron.xyz: the landing (**Launch app** → app.nyxeron.xyz; app paths redirect there). Locally: `/landing`         |
 | `/practice`       | Practice: club dashboard, live party, night report, fast-forward week. No login; career in localStorage                                                |
 | `/city`           | Sign in (Privy) as CEO (host, prices) or guest (parties, portfolio); wallet, dollars, Get test dollars                                                 |
 | `/city/party/:id` | Over the 3D club: menu, one-tap buy (quote → delegate → relay), host prices, Walk in the club (own avatar, cameras, dances); after it ends, settlement |

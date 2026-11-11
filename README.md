@@ -9,7 +9,7 @@ Built at NEAR HACKATHON (1–14 Nov 2026).
 
 <!-- TODO(#39): tracks, open decision D1 in SPEC §12 (proposed: `games`, `defi`, `open`). -->
 
-**Live demo: https://nyxeron.xyz** (NEAR testnet). Repo: https://github.com/riorblade/nyxeron-near
+**Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Repo: https://github.com/riorblade/nyxeron-near
 
 <!-- TODO(#40): X post link and demo video. -->
 
@@ -21,11 +21,11 @@ piece of a real share, in their own account, without learning what a blockchain 
 
 ## Try it
 
-Open https://nyxeron.xyz. Every step says what to do and what you should see. Steps 1–4 need no account; step 8 is optional.
+Open https://nyxeron.xyz and tap **Launch app** (or go straight to https://app.nyxeron.xyz). Every step says what to do and what you should see. Steps 1–4 need no account; step 8 is optional.
 
 | #   | Do                                                                                                                                           | See                                                                                                                                 |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Tap **Play · no sign-in**, then **Play** on the title screen                                                                                 | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices                                          |
+| 1   | Tap **Practice**, then **Play** on the title screen                                                                                          | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices                                          |
 | 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; then **Open club** (bottom right)                                    | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                                               |
 | 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                                                    | The night report: margin, reputation, goals, "Why it went this way" and a receipt of what sold                                      |
 | 4   | Tap **Next night**, then **Week** in the dock                                                                                                | Seven nights simulated at once, with each night's guests, drinks, margin and reputation                                             |
@@ -36,7 +36,7 @@ Open https://nyxeron.xyz. Every step says what to do and what you should see. St
 | 9   | When the party ends (a House Party lasts 10 minutes), look at **Collect shares** in your portfolio                                           | "Delivering your shares…", then "Delivered to your portfolio." and a delivery receipt; "TSLA 0.003 share" under **Shares you hold** |
 | 10  | Tap **Add money**, keep USDC on Base, type any address for the refund field, tap **Get a quote**                                             | "You send 10.0 USDC on Base. You get about $9.99… here": a live NEAR Intents quote; on testnet nothing is sent                      |
 | 11  | Tap **Switch to CEO**, then **Host a party**: give it a name and a length, tap **Open it**                                                   | Your party page with **Your prices**: move a slider and tap **Save prices** (wholesale up to 3× wholesale); you keep the margin     |
-| 12  | Open https://nyxeron.xyz/proof                                                                                                               | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses                           |
+| 12  | Open https://app.nyxeron.xyz/proof                                                                                                           | The contract, USDC and price key on NEAR, the registered stocks, and the pinned Robinhood token addresses                           |
 
 <!-- TODO(#39): per-party steps on /proof once the public read lands (#83); until then they show on the party page. -->
 
