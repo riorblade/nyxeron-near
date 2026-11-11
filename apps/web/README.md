@@ -21,7 +21,7 @@ pnpm --filter @nyxeron/web dev           # http://localhost:5173, /api is proxie
 | `/city`           | Sign in (Privy) as CEO (host, prices) or guest (parties, portfolio); wallet, dollars, Get test dollars                                                 |
 | `/city/party/:id` | Over the 3D club: menu, one-tap buy (quote → delegate → relay), host prices, Walk in the club (own avatar, cameras, dances); after it ends, settlement |
 | `/proof`          | What is on chain: contract, USDC, registered stocks, pinned Robinhood token addresses                                                                  |
-| `/admin`          | Back office, lazy-loaded: role, players, settlement problems with retry                                                                                |
+| `/admin`          | Back office, lazy-loaded: players with ban / unban (reason), settlement problems with retry, staff, audit log                                          |
 | `/spike`          | Spike 10 test page (Privy NEAR wallet signing)                                                                                                         |
 
 Add money / Cash out (`city/MoneyPanel.tsx`, `city/money.ts`) quote through the api's 1Click endpoints; on testnet every
