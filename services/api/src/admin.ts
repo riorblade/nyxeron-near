@@ -36,10 +36,20 @@ export function adminRoutes(deps: { cfg: Config; db: Db; identity: Identity }) {
         }),
       )
       .get('/me', (c) => c.json({ email: c.var.user.email, role: c.var.role }))
-      // Settlement steps that ran out of retries; a retry checks the chain first, so it never doubles a step.
+      // Settlement steps that ran out of retries; a retry checks the chain first, so it never doubles a step. `stuck`:
+      // warehouse swaps and fundings the api stopped on because it can't tell whether money moved (swap.ts, fund.ts).
+      // They block that token's or asset's purchases until a person checks the hash and sets the row by hand.
       .get('/settlement', (c) => {
         const ops = all<OpRow>(db, "SELECT * FROM chain_ops WHERE status = 'failed' ORDER BY updated_at DESC LIMIT 100")
+        const stuck = all<{ kind: string; id: string; error: string; hash: string; at: number }>(
+          db,
+          `SELECT 'swap' AS kind, id, error, tx_hash AS hash, at FROM warehouse_swaps WHERE status = 'stuck'
+           UNION ALL
+           SELECT 'funding', id, error, deposit_tx, created_at FROM warehouse_funding WHERE status = 'stuck'
+           ORDER BY at DESC LIMIT 100`,
+        )
         return c.json({
+          stuck,
           failed: ops.map((o) => ({
             id: o.id,
             party: o.party_id,

@@ -18,7 +18,7 @@ import {
 } from 'viem'
 import { publicKeyToAddress } from 'viem/accounts'
 import type { Config } from './config.ts'
-import { nearProvider } from './near.ts'
+import { type MayResign, nearProvider } from './near.ts'
 import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
 
 export const WAREHOUSE_PATH = 'nyxeron-warehouse-hood'
@@ -167,23 +167,28 @@ export function warehouse(deps: {
   return { address, sign, signAndSend }
 }
 
-// The real MPC contract, called by `accountId`. `sign` needs 1 yocto, so `key` must be a full-access key.
-// The warehouse address depends on accountId, path and network: changing any of them gives a different address.
-export function nearMpc(opts: {
-  network: Config['NEAR_NETWORK']
-  accountId: string
-  key: string
-  contractId?: string
-}): Mpc {
-  const provider = nearProvider(opts.network)
+/** The warehouse account, one object for everything it signs (MPC requests and the treasury's deposits). */
+export function warehouseAccount(
+  network: Config['NEAR_NETWORK'],
+  accountId: string,
+  key: string,
+  opts: { mayResign?: MayResign } = {},
+): Account {
+  return new Account(accountId, nearProvider(network, opts), key as KeyPairString)
+}
+
+// The real MPC contract, called by `account`. `sign` needs 1 yocto, so its key must be a full-access key.
+// The warehouse address depends on the account, path and network: changing any of them gives a different address.
+export function nearMpc(opts: { network: Config['NEAR_NETWORK']; account: Account; contractId?: string }): Mpc {
+  const { account } = opts
+  const provider = account.provider
   const contractId = opts.contractId ?? MPC_BY_NETWORK[opts.network]
-  const account = new Account(opts.accountId, provider, opts.key as KeyPairString)
   return {
     derivedPublicKey: (path) =>
       provider.callFunction({
         contractId,
         method: 'derived_public_key',
-        args: { path, predecessor: opts.accountId, domain_id: DOMAIN_SECP256K1 },
+        args: { path, predecessor: account.accountId, domain_id: DOMAIN_SECP256K1 },
       }) as Promise<string>,
     sign: (hash, path) =>
       account.callFunction({

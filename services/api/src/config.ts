@@ -39,6 +39,11 @@ const Env = z
     // NEAR Intents 1Click (Add money / Cash out). The JWT is optional: without it 1Click adds 0.25 % to each quote.
     ONECLICK_URL: z.url().default('https://1click.chaindefuser.com'),
     ONECLICK_JWT: z.string().min(10).optional(),
+    // Mainnet: the NEAR account whose Chain Signatures control the warehouse's Robinhood Chain address, and the
+    // contract's treasury (released wholesale lands here; 1Click funding leaves from here). A full-access key: an MPC
+    // sign and an ft_transfer both attach a deposit. Without it, a mainnet party stops at its mint (`not_built`).
+    WAREHOUSE_ACCOUNT_ID: z.string().min(2).optional(),
+    WAREHOUSE_KEY: z.string().startsWith('ed25519:').optional(),
   })
   .refine((e) => !(e.DEMO_MODE && e.NEAR_NETWORK === 'mainnet'), {
     message: 'DEMO_MODE hands out free credits: never on mainnet',
@@ -51,6 +56,10 @@ const Env = z
   .refine((e) => Boolean(e.OWNER_ACCOUNT_ID) === Boolean(e.OWNER_KEY), {
     message: 'set OWNER_ACCOUNT_ID and OWNER_KEY together',
     path: ['OWNER_KEY'],
+  })
+  .refine((e) => Boolean(e.WAREHOUSE_ACCOUNT_ID) === Boolean(e.WAREHOUSE_KEY), {
+    message: 'set WAREHOUSE_ACCOUNT_ID and WAREHOUSE_KEY together',
+    path: ['WAREHOUSE_KEY'],
   })
   .refine((e) => e.NEAR_NETWORK === 'testnet' || Boolean(e.CONTRACT_ID), {
     message: 'CONTRACT_ID is required on mainnet',

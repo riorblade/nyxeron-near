@@ -91,7 +91,7 @@ web, use the typed client (`hc<AppType>()` from `hono/client`) instead of writin
 | `PUT /api/parties/:id/prices`          | host          | body `{ prices: { tsla: 800000 } }`, each within wholesale … 3× wholesale                                                                                                                                                                                                                                                                                                                                                |
 | `POST /api/parties/:id/quote`          | player        | body `{ token, qty }` (1–20) → `{ quote, payment }`: `payment` is the exact `ft_transfer_call` to sign and send to `/api/relay`; valid 60 s                                                                                                                                                                                                                                                                              |
 | `GET /api/parties/:id/settlement`      | player        | `{ status, ops: [{ kind, token?, units?, hash?, status }] }`; status `live` → `waiting` → `pending` → `done` (or `failed`), `off` without an owner key; ops are `release`, `mint` per token, `settle` per batch of ≤ 32 guests                                                                                                                                                                                           |
-| `GET /api/admin/settlement`            | back office   | `{ failed: [{ id, party, kind, attempts, error, updatedAt }] }`, settlement steps out of retries                                                                                                                                                                                                                                                                                                                         |
+| `GET /api/admin/settlement`            | back office   | `{ failed: [{ id, party, kind, attempts, error, updatedAt }], stuck: [{ kind, id, error, hash, at }] }`, settlement steps out of retries and warehouse swaps / fundings (`kind` `swap` / `funding`) stopped for a person                                                                                                                                                                                                 |
 | `POST /api/admin/settlement/:op/retry` | owner, admin  | runs a failed step again (it checks the chain first, so it never doubles a step) → `{ ok }`                                                                                                                                                                                                                                                                                                                              |
 
 Error codes so far: `unauthorized` (401); `banned`, `not_admin`, `not_host`, `wrong_sender`, `wrong_key`,
@@ -125,13 +125,15 @@ A timer (every 10 s, only with `OWNER_ACCOUNT_ID` / `OWNER_KEY`) takes each part
 
 1. `release_wholesale(party)`.
 2. `mint_warehouse(token, units, proof)` per token for the total owed. On testnet the proof is `demo:<party>:<token>:1`
-   (the purchase is simulated, SPEC §10). On mainnet `buyShares` is to be `warehouseBuyer(...).buyShares` from
-   `swap.ts` (below); until it is wired the party stops with `not_built`.
+   (the purchase is simulated, SPEC §10). On mainnet it is the warehouse's real swap (`swap.ts`, below) when
+   `WAREHOUSE_ACCOUNT_ID` / `WAREHOUSE_KEY` are set; without them the party stops with `not_built`.
 3. `settle(party, party:<id>:<batch>, ≤ 32 transfers)` from the contract's `owed(party)`.
 
 Every step is a row in `chain_ops`. The job runs one transaction at a time and checks the chain before each send
 (`party_pot`, `is_used_proof`, `is_settled`), so a crash or a lost answer never doubles a step. A failed step retries
-after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`.
+after 15 s, 30 s, 60 s …; after 5 tries the party stops and shows in `/api/admin/settlement`. A wait is not a try: an
+error with a `retryAt` (the day's swap cap, the warehouse being topped up, another buy of the same swap) runs again at
+that time without counting.
 
 ## Buying the warehouse's shares (`swap.ts`)
 
@@ -152,7 +154,9 @@ pinned token for the warehouse and returns the proof for `mint_warehouse`:
    srcToken = USDG, dstToken = the pinned token, dstReceiver = the warehouse, `amount` = amountIn (and `srcAmounts`
    no more), no fee, no permit, and a `minReturnAmount` that covers what is owed (`bad_swap_call_*`, permanent). That
    router-enforced minimum must be worth at least 98 % of the USDG in at the market price (`under_market`).
-5. `approve(router, amountIn)` whenever the allowance isn't exactly this swap (`chainsig.ts` refuses an approve above
+5. Nothing is signed the warehouse can't pay: too little USDG for the swap (`warehouse_low_usdg`) or ETH for its gas
+   and the approve (`warehouse_low_eth`) wait 2 minutes while `fund.ts` tops it up (a wait, not a failed attempt).
+   `approve(router, amountIn)` whenever the allowance isn't exactly this swap (`chainsig.ts` refuses an approve above
    \$50); the swap is signed by the warehouse (`chainsig.ts`).
 6. The signed swap is written to `warehouse_swaps` **before** it is broadcast. A retry checks that transaction (its
    receipt, or a rebroadcast) instead of buying again. If its nonce is used and no receipt shows up, the row is `stuck`
@@ -164,6 +168,43 @@ pinned token for the warehouse and returns the proof for `mint_warehouse`:
    **no new swap is sent for any party** (`halted_short_fill`) until a person has moved that row out of `stuck`.
 
 `robinhoodHood()` and `kyberSwap()` are the real chain and aggregator; tests use fakes.
+
+## Funding the warehouse (`fund.ts`)
+
+SPEC §5.3 step 2. On mainnet the warehouse account is also the contract's treasury: released wholesale lands there as
+USDC, and every 15 s `warehouseFunder(...).tick()` keeps the warehouse's Robinhood Chain address above a floor of USDG
+(**\$60**, refilled with \$100) and of ETH for gas (**0.0002 ETH**, refilled with \$5), through 1Click:
+
+1. ETH first, then USDG; at most one deposit per tick and one in flight per asset. Less than **\$5** in the treasury
+   (`treasury_low`) or over **\$600** of deposits in a UTC day (`daily_limit`, refunds count) sends nothing.
+2. A 1Click quote from the treasury's USDC. Its answer must name the warehouse as recipient, USDG by its contract
+   address (`0x5fc5…d168`) or Robinhood Chain's native ETH, the treasury for refunds, exactly our amount, no memo, a
+   real (not dry) `EXACT_INPUT` swap with `depositType` / `refundType` `ORIGIN_CHAIN` and `recipientType`
+   `DESTINATION_CHAIN` (not an intents.near balance), and a minimum out worth at least **97 %** of what we send;
+   otherwise nothing is sent. That price is not 1Click's: USDG is \$1, ETH is WETH's deepest Robinhood Chain pool on
+   DexScreener (`dexEthPrice`).
+3. The deposit is written to `warehouse_funding` as `quoted`, then sent in one transaction: `storage_deposit` for the
+   deposit address (USDC doesn't know it yet, #65) and `ft_transfer`. The receipt that ran those two actions decides:
+   failed → both reverted, nothing moved (`failed`; three in a UTC day stop the funder until the next,
+   `too_many_failures`); succeeded → the USDC left, whatever a later refund receipt did. A lost answer, no outcome
+   for that receipt, or a `quoted` row found after a restart is `stuck` with `deposit_unknown`.
+4. 1Click's status, at most every 10 s. `SUCCESS` → `done` only once the warehouse's own balance shows it (now + what
+   its finished swaps surely spent since ≥ the balance when the refill was decided + the quote's minimum out: their
+   USDG, or the gas their receipts show; nothing for swaps in flight, stuck or reverted, or for approves), else `stuck`
+   as `success_not_on_chain` 10 minutes past the deadline. Any error there makes a delivery look short, never a
+   missing one look delivered. `REFUNDED` → `refunded`
+   (the USDC is back in the treasury), `FAILED` / `INCOMPLETE_DEPOSIT` / past the deadline → `stuck`.
+
+A `stuck` row is listed in `GET /api/admin/settlement`; it blocks that asset's refills and counts toward its day until a
+person checks the deposit (nearblocks, the 1Click explorer) and sets its `status` to `done` or `failed` in the database.
+
+The MPC requests and the deposits sign with one `Account` object (`warehouseAccount` in `chainsig.ts`), so they share
+the key's nonce. near-api-js refreshes a nonce only on `InvalidNonceError`, which its failover provider wraps;
+`NonceRetryProvider` (`near.ts`, behind every signing account: relayer, owner, warehouse) unwraps it when every RPC
+refused the nonce (nothing ran), so a key also used elsewhere (the relayer and owner as one account, the CLI) costs one
+re-sign, not every transaction after it. Run one api process per warehouse account: the one-in-flight rule is per
+process. While the warehouse waits for funds, a party's mint waits too (every 2 minutes, not counted as a try). Measured on 2026-11-07: \$20 → ≥ 19.68 USDG, \$5 → ≥ 0.00219 ETH;
+one swap's gas ≈ 0.00003 ETH.
 
 ## Rules
 

@@ -16,7 +16,8 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
 import { KYBER_ROUTER, USDG } from './chainsig.ts'
 import { type Db, one, openDb, run } from './db.ts'
-import { SettlementError } from './settlement.ts'
+import { GRACE_MS, SettlementError, settlement } from './settlement.ts'
+import { fakeChain } from './testing.ts'
 import {
   BUILD_LEASE_MS,
   type Built,
@@ -118,6 +119,8 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
     approvals: [] as bigint[],
     lastOut: 0n,
     sendFails: opts.sendFails ?? false,
+    usdg: 10n ** 12n, // $1M
+    eth: E18,
   }
   const hood: Hood = {
     async gasPrice() {
@@ -125,6 +128,12 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
     },
     async usdgAllowance() {
       return state.allowance
+    },
+    async usdgBalance() {
+      return state.usdg
+    },
+    async ethBalance() {
+      return state.eth
     },
     async uiMultiplier() {
       return E18
@@ -148,7 +157,13 @@ function fakeHood(opts: { fill?: Fill; status?: 'success' | 'reverted'; sendFail
         elsewhere: [transfer(TSLA, POOL, SOMEONE, state.lastOut)],
         other_token: [transfer(tokens.nvda.address as Address, POOL, me.address, state.lastOut)],
       }[opts.fill ?? 'full']
-      state.receipts.set(hash, { transactionHash: hash, status, logs: status === 'success' ? logs : [] })
+      state.receipts.set(hash, {
+        transactionHash: hash,
+        status,
+        logs: status === 'success' ? logs : [],
+        gasUsed: 800_000n,
+        effectiveGasPrice: 20_000_000n,
+      })
       return hash
     },
     async waitForReceipt(hash) {
@@ -251,6 +266,14 @@ describe('buying for a party', () => {
     expect(swapRow(t.db)).toMatchObject({ status: 'done', tx_hash: proof })
   })
 
+  it('records what the swap cost in gas, from its receipt (fund.ts tells deliveries from spending by it)', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(one<{ gas_wei: string }>(t.db, "SELECT gas_wei FROM warehouse_swaps WHERE id = 'p1:tsla'")).toEqual({
+      gas_wei: (800_000n * 20_000_000n).toString(),
+    })
+  })
+
   it('skips the approve when the allowance is exactly the swap', async () => {
     const t = setup()
     await t.buyer.buyShares('p1', 'tsla', 10n)
@@ -276,6 +299,47 @@ describe('buying for a party', () => {
   it('refuses an unknown token', async () => {
     const t = setup()
     await expect(t.buyer.buyShares('p1', 'doge', 1n)).rejects.toMatchObject({ code: 'unknown_token', permanent: true })
+  })
+})
+
+describe('what the warehouse holds', () => {
+  // The fake's swap: 800k gas × 1.5, at twice the 0.02 gwei gas price; the approve adds 80k.
+  const SWAP_WEI = 1_200_000n * 40_000_000n
+  const APPROVE_WEI = 80_000n * 40_000_000n
+
+  it('signs nothing when the warehouse lacks the gas for the approve and the swap, and buys once it has it', async () => {
+    const t = setup()
+    t.state.eth = SWAP_WEI + APPROVE_WEI - 1n
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'warehouse_low_eth',
+      permanent: false,
+    })
+    expect(t.signed).toEqual([])
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'warehouse_low_eth' })
+    t.state.eth = SWAP_WEI + APPROVE_WEI
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(swapRow(t.db)).toMatchObject({ status: 'done' })
+  })
+
+  it('needs no gas for an approve it will not send', async () => {
+    const t = setup()
+    await t.buyer.buyShares('p1', 'tsla', 10n) // leaves (in the fake) an allowance of exactly the same swap
+    t.state.eth = SWAP_WEI
+    await t.buyer.buyShares('p2', 'tsla', 10n)
+    expect(t.state.approvals.length).toBe(1)
+  })
+
+  it('signs nothing when the warehouse holds less USDG than the swap costs', async () => {
+    const t = setup()
+    t.state.usdg = 0n
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({
+      code: 'warehouse_low_usdg',
+      permanent: false,
+    })
+    expect(t.signed).toEqual([])
+    t.state.usdg = 4_100_000n // the swap sizes ≈ $4.06 for 0.01 TSLA at $400
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(BigInt(swapRow(t.db)!.usdg_in)).toBeLessThanOrEqual(4_100_000n)
   })
 })
 
@@ -608,5 +672,39 @@ describe('a broadcast that never lands', () => {
     })
     expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'swap_unconfirmed' })
     expect(t.routes.length).toBe(1)
+  })
+})
+
+describe('with the settlement job', () => {
+  it('two jobs ticking at once, with this buyer and a slow MPC: one swap, one mint', async () => {
+    const t = setup()
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (7, 'host', 'P', 1, 0, 0, 0)",
+    )
+    run(t.db, "UPDATE meta SET value = 't' WHERE key = 'install'")
+    const chain = fakeChain({ 't-7': [{ account_id: 'ab'.repeat(32), token_id: 'tsla', qty: '10' }] })
+    // The swap's MPC signature takes a while (≈ 6 s on mainnet): both jobs tick while it is pending.
+    const sign = t.signer.sign
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    t.signer.sign = async (tx) => {
+      if (tx.to?.toLowerCase() === KYBER_ROUTER.toLowerCase()) await gate
+      return sign(tx)
+    }
+    const now = () => GRACE_MS + 1
+    const a = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    const b = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now })
+    await a.tick() // release
+    const buying = a.tick() // the mint: buys first
+    await new Promise((r) => setTimeout(r, 0))
+    await Promise.all([a.tick(), b.tick(), b.tick()])
+    release()
+    await buying
+    for (let i = 0; i < 5; i++) await Promise.all([a.tick(), b.tick()])
+    expect(t.state.sent.length).toBe(1)
+    expect(chain.minted.get('tsla')).toBe(10n)
+    expect(chain.calls.filter((c) => c.startsWith('mint:'))).toHaveLength(1)
   })
 })

@@ -57,10 +57,14 @@ export type BuyShares = (party: string, token: string, units: bigint) => Promise
 export class SettlementError extends Error {
   readonly code: string
   readonly permanent: boolean
-  constructor(code: string, permanent = false) {
+  // A wait, not a failure (the day's cap, the warehouse being topped up): try again at this time, and don't count it
+  // against MAX_ATTEMPTS.
+  readonly retryAt?: number
+  constructor(code: string, permanent = false, retryAt?: number) {
     super(code)
     this.code = code
     this.permanent = permanent
+    this.retryAt = retryAt
   }
 }
 
@@ -75,11 +79,13 @@ export function chainParty(db: Db, partyId: number): string {
   return `${install}-${partyId}`
 }
 
-/** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: not built yet (1Click + Kyber). */
-export function buySharesFor(cfg: Config): BuyShares {
-  return async (party, token) => {
-    if (cfg.NEAR_NETWORK !== 'testnet') throw new SettlementError('not_built', true)
-    return `demo:${party}:${token}:1`
+/** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: the warehouse's real swap (swap.ts),
+ * or `not_built` when the api has no warehouse account. */
+export function buySharesFor(cfg: Config, mainnet?: BuyShares): BuyShares {
+  return async (party, token, units) => {
+    if (cfg.NEAR_NETWORK === 'testnet') return `demo:${party}:${token}:1`
+    if (!mainnet) throw new SettlementError('not_built', true)
+    return mainnet(party, token, units)
   }
 }
 
@@ -228,13 +234,15 @@ export function settlement(deps: {
       log(`settlement: ${op.id} done ${hash}`)
     } catch (e) {
       const code = e instanceof SettlementError ? e.code : String((e as Error)?.message ?? e).slice(0, 300)
-      const final = (e instanceof SettlementError && e.permanent) || attempts >= MAX_ATTEMPTS
+      const wait = e instanceof SettlementError && !e.permanent ? e.retryAt : undefined
+      const final = wait === undefined && ((e instanceof SettlementError && e.permanent) || attempts >= MAX_ATTEMPTS)
       run(
         db,
-        'UPDATE chain_ops SET status = ?, error = ?, next_at = ?, updated_at = ? WHERE id = ?',
+        'UPDATE chain_ops SET status = ?, attempts = ?, error = ?, next_at = ?, updated_at = ? WHERE id = ?',
         final ? 'failed' : 'pending',
+        wait === undefined ? attempts : op.attempts,
         code,
-        now() + backoff(attempts),
+        wait ?? now() + backoff(attempts),
         now(),
         op.id,
       )

@@ -50,6 +50,8 @@ const APPROVE_GAS = 80_000n
 export type Hood = {
   gasPrice(): Promise<bigint>
   usdgAllowance(owner: Address, spender: Address): Promise<bigint>
+  usdgBalance(owner: Address): Promise<bigint>
+  ethBalance(owner: Address): Promise<bigint>
   uiMultiplier(token: Address): Promise<bigint>
   // How many of `address`'s transactions are mined (not pending).
   minedNonce(address: Address): Promise<number>
@@ -57,7 +59,14 @@ export type Hood = {
   sendRawTransaction(raw: Hex): Promise<Hex>
   waitForReceipt(hash: Hex): Promise<Receipt>
 }
-export type Receipt = { transactionHash: Hex; status: 'success' | 'reverted'; logs: Log[] }
+// gasUsed × effectiveGasPrice is what the transaction cost the warehouse in ETH (viem's receipts carry both).
+export type Receipt = {
+  transactionHash: Hex
+  status: 'success' | 'reverted'
+  logs: Log[]
+  gasUsed?: bigint
+  effectiveGasPrice?: bigint
+}
 
 export type Route = { amountIn: string; amountOut: string; summary: unknown }
 export type Built = { amountIn: string; amountOut: string; gas: string; data: Hex; routerAddress: Address }
@@ -96,6 +105,10 @@ type SwapRow = {
 export const BUILD_LEASE_MS = 5 * 60_000
 // Retries that found no receipt for a recorded swap before it stops for a person (each waits up to 2 min).
 export const MAX_RESUMES = 3
+// How long a buy waits for the warehouse to be topped up (fund.ts ticks every 15 s, 1Click takes ≈ 20 s) or for another
+// buy of the same row, before trying again. Waits don't use up the settlement job's attempts.
+export const FUNDING_WAIT_MS = 2 * 60_000
+export const IN_FLIGHT_WAIT_MS = 30_000
 // Units per swap are sized to this share of the $50 cap, so the sizing buffer and a re-quote stay under it.
 const CHUNK_SHARE_BPS = 9_000n
 
@@ -205,7 +218,14 @@ export function warehouseBuyer(deps: {
     // The swap succeeded but the shares didn't come (blocked, burned, wrong token): a person has to look, and no swap
     // is sent for any party until then.
     if (got < BigInt(row.need_raw)) stuck(row.id, 'short_fill')
-    run(db, "UPDATE warehouse_swaps SET status = 'done', error = '' WHERE id = ?", row.id)
+    // What it cost in gas, so fund.ts can tell a delivery from the swaps' spending (none recorded counts as none).
+    const gasWei = (receipt.gasUsed ?? 0n) * (receipt.effectiveGasPrice ?? 0n)
+    run(
+      db,
+      "UPDATE warehouse_swaps SET status = 'done', error = '', gas_wei = ? WHERE id = ?",
+      gasWei.toString(),
+      row.id,
+    )
     log(`warehouse bought ${row.need_ui} ${row.token} (ui, 18 dp) for ${row.usdg_in} µUSDG: ${row.tx_hash}`)
     return row.tx_hash
   }
@@ -250,7 +270,7 @@ export function warehouseBuyer(deps: {
     return tx(db, () => {
       const row = rowOf(id)
       const free = !row || row.status === 'failed' || (row.status === 'building' && now() - row.at >= BUILD_LEASE_MS)
-      if (!free) throw new SettlementError('swap_in_flight')
+      if (!free) throw new SettlementError('swap_in_flight', false, now() + IN_FLIGHT_WAIT_MS)
       const lease = `${process.pid}-${now()}-${++leases}`
       run(
         db,
@@ -309,9 +329,10 @@ export function warehouseBuyer(deps: {
       if (amountIn > limits.maxSwapMicro) throw new SettlementError('over_swap_limit', true)
       // The day's cap and this row's share of it in one step, so two buys can't both fit in the same room.
       tx(db, () => {
-        if (spentToday(id) + amountIn > limits.maxDayMicro) throw new SettlementError('daily_limit')
+        if (spentToday(id) + amountIn > limits.maxDayMicro)
+          throw new SettlementError('daily_limit', false, (utcDay(now()) + 1) * 86_400_000)
         if (run(db, `UPDATE warehouse_swaps SET usdg_in = ? WHERE ${mine}`, Number(amountIn), id, lease) !== 1)
-          throw new SettlementError('swap_in_flight')
+          throw new SettlementError('swap_in_flight', false, now() + IN_FLIGHT_WAIT_MS)
       })
 
       const built = await kyber.build(route, from, limits.slippageBps)
@@ -322,9 +343,17 @@ export function warehouseBuyer(deps: {
         throw new SettlementError('under_market')
 
       const fee = await fees()
+      const swapGas = (BigInt(built.gas) * 3n) / 2n
       // Exactly this swap's amount every time: an allowance left by a swap that reverted is never more than the swap
       // checked above.
-      if ((await hood.usdgAllowance(from, KYBER_ROUTER)) !== amountIn) {
+      const approve = (await hood.usdgAllowance(from, KYBER_ROUTER)) !== amountIn
+      // Nothing is signed that the warehouse can't pay: a swap without the USDG reverts and still burns gas. Retryable:
+      // fund.ts tops the warehouse up from the treasury.
+      if ((await hood.ethBalance(from)) < (swapGas + (approve ? APPROVE_GAS : 0n)) * fee.maxFeePerGas)
+        throw new SettlementError('warehouse_low_eth', false, now() + FUNDING_WAIT_MS)
+      if ((await hood.usdgBalance(from)) < amountIn)
+        throw new SettlementError('warehouse_low_usdg', false, now() + FUNDING_WAIT_MS)
+      if (approve) {
         await signer.signAndSend({
           type: 'eip1559',
           chainId: ROBINHOOD_CHAIN_ID,
@@ -342,7 +371,7 @@ export function warehouseBuyer(deps: {
         to: built.routerAddress,
         data: built.data,
         value: 0n,
-        gas: (BigInt(built.gas) * 3n) / 2n,
+        gas: swapGas,
         ...fee,
       })
       hash = keccak256(raw)
@@ -363,7 +392,7 @@ export function warehouseBuyer(deps: {
         id,
         lease,
       )
-      if (recorded !== 1) throw new SettlementError('swap_in_flight')
+      if (recorded !== 1) throw new SettlementError('swap_in_flight', false, now() + IN_FLIGHT_WAIT_MS)
     } catch (e) {
       // Nothing was sent: free the row for the next try.
       run(db, `UPDATE warehouse_swaps SET status = 'failed', error = ? WHERE ${mine}`, codeOf(e), id, lease)
@@ -442,6 +471,9 @@ export function robinhoodHood(): Hood {
     gasPrice: () => client.getGasPrice(),
     usdgAllowance: (owner, spender) =>
       client.readContract({ address: USDG, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
+    usdgBalance: (owner) =>
+      client.readContract({ address: USDG, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
+    ethBalance: (address) => client.getBalance({ address }),
     uiMultiplier: (token) => client.readContract({ address: token, abi: STOCK_ABI, functionName: 'uiMultiplier' }),
     minedNonce: (address) => client.getTransactionCount({ address, blockTag: 'latest' }),
     async receipt(hash) {
