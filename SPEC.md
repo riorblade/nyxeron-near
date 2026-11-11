@@ -123,7 +123,8 @@ grosir; top-up minimal $1, cap $20/hari dan $100 total per pemain selama hackath
      router) ≥ yang terutang. Lalu tanda tangan MPC (≈ 6 detik), broadcast, tunggu receipt.
   4. Verifikasi di receipt swap itu sendiri: event `Transfer` dari token **yang alamatnya dipin** ke gudang, minimal
      sejumlah yang terutang. Ini lebih ketat daripada "saldo naik", yang bisa juga disebabkan swap pesta lain. Kalau
-     swap sukses tapi saham tidak datang (`short_fill`), semua pembelian berhenti sampai dicek orang.
+     swap sukses tapi saham tidak datang (`short_fill`), semua pembelian berhenti sampai dicek orang; pesta lain
+     menunggu (tidak gagal) dan lanjut begitu halt dibereskan.
   5. `mint_warehouse(token, units, proof)`, dengan proof = tx hash swap pertama (ditambah `+n` kalau ada n swap lagi),
      lalu `settle(op_id, transfers)` ke tamu (maks 32 per panggilan).
 - **Menu:** hanya token dari daftar terverifikasi spike 18 (codehash beacon + beacon Robinhood), dipin per alamat.

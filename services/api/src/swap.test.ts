@@ -21,6 +21,7 @@ import { fakeChain } from './testing.ts'
 import {
   BUILD_LEASE_MS,
   type Built,
+  HALT_WAIT_MS,
   type Hood,
   type Kyber,
   type Receipt,
@@ -377,23 +378,47 @@ describe('limits (SPEC §5.3)', () => {
     expect(t.routes.length).toBe(routes + 1) // only the third swap was quoted
   })
 
-  it('refuses one swap of more than $50, for good, without signing', async () => {
+  it('refuses one swap of more than $50 without signing, and sizes it again on the retry', async () => {
     const t = setup()
     // our price says $100 while the market is at $400: sized as ≤ $50, it would cost four times that
+    let spot = 100
+    const buyer = warehouseBuyer({
+      db: t.db,
+      hood: t.hood,
+      kyber: {
+        route: (...a) => t.kyber.route(...a),
+        async build(route, from, slip) {
+          const built = await t.kyber.build(route, from, slip)
+          t.state.lastOut = BigInt(built.amountOut) // what the fake swap delivers
+          return built
+        },
+      },
+      signer: t.signer,
+      price: async () => spot,
+      now: () => NOW,
+    })
+    const err = await buyer.buyShares('p1', 'tsla', 400n).catch((e: unknown) => e)
+    // retryable and counted: the price source may agree with the market on a later attempt
+    expect(err).toMatchObject({ code: 'over_swap_limit', permanent: false, retryAt: undefined })
+    expect(t.signed).toEqual([])
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'over_swap_limit' })
+    spot = 400
+    await buyer.buyShares('p1', 'tsla', 400n)
+    expect(BigInt(swapRow(t.db)!.usdg_in)).toBeLessThanOrEqual(50_000_000n)
+  })
+
+  it('refuses for good a token where one unit alone is worth more than a swap may cost', async () => {
+    const t = setup()
     const buyer = warehouseBuyer({
       db: t.db,
       hood: t.hood,
       kyber: t.kyber,
       signer: t.signer,
-      price: async () => 100,
+      price: async () => 50_000, // one unit = 0.001 share = $50, over 90 % of the cap
       now: () => NOW,
     })
-    await expect(buyer.buyShares('p1', 'tsla', 400n)).rejects.toMatchObject({
-      code: 'over_swap_limit',
-      permanent: true,
-    })
+    await expect(buyer.buyShares('p1', 'tsla', 1n)).rejects.toMatchObject({ code: 'over_swap_limit', permanent: true })
     expect(t.signed).toEqual([])
-    expect(swapRow(t.db)).toMatchObject({ status: 'failed', error: 'over_swap_limit' })
   })
 
   it('stops at $500 a UTC day across swaps; yesterday does not count', async () => {
@@ -440,9 +465,11 @@ describe('proof only when the shares arrived', () => {
       expect(swapRow(t.db)).toMatchObject({ status: 'stuck', error: 'short_fill' })
       // and stays stopped: no second purchase, no proof from a later look, and no other party buys either
       await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ permanent: true })
+      // other parties wait for the person instead of failing for good
       await expect(t.buyer.buyShares('p2', 'nvda', 10n)).rejects.toMatchObject({
         code: 'halted_short_fill',
-        permanent: true,
+        permanent: false,
+        retryAt: NOW + HALT_WAIT_MS,
       })
       expect(t.routes.length).toBe(1)
       expect(t.state.sent.length).toBe(1)
@@ -584,11 +611,24 @@ describe('the router call Kyber built', () => {
   for (const [tamper, code] of cases) {
     it(`refuses a call with a tampered ${tamper}, before approving or signing anything`, async () => {
       const t = setup({ tamper })
-      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code, permanent: true })
+      // an unexpected call shape may be a passing Kyber change, so it is retried; a wrong field in a swap call is not
+      const permanent = tamper !== 'not_swap'
+      await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code, permanent })
       expect(t.signed).toEqual([])
       expect(t.state.approvals).toEqual([])
     })
   }
+
+  it('buys on the retry once Kyber builds a normal swap call again', async () => {
+    const o: { tamper?: Tamper } = { tamper: 'not_swap' }
+    const t = setup(o)
+    await expect(t.buyer.buyShares('p1', 'tsla', 10n)).rejects.toMatchObject({ code: 'bad_swap_call_not_swap' })
+    expect(swapRow(t.db)).toMatchObject({ status: 'failed' })
+    delete o.tamper
+    await t.buyer.buyShares('p1', 'tsla', 10n)
+    expect(swapRow(t.db)).toMatchObject({ status: 'done' })
+    expect(t.state.sent.length).toBe(1)
+  })
 
   it('takes the honest call (the same encoding the live /route/build answers with)', async () => {
     const t = setup()
@@ -706,5 +746,38 @@ describe('with the settlement job', () => {
     expect(t.state.sent.length).toBe(1)
     expect(chain.minted.get('tsla')).toBe(10n)
     expect(chain.calls.filter((c) => c.startsWith('mint:'))).toHaveLength(1)
+  })
+
+  it('a party settling while buys are halted waits for the person, then settles', async () => {
+    const t = setup()
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('host', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (7, 'host', 'P', 1, 0, 0, 0)",
+    )
+    run(t.db, "UPDATE meta SET value = 't' WHERE key = 'install'")
+    run(
+      t.db,
+      `INSERT INTO warehouse_swaps (id, token, units, usdg_in, need_ui, need_raw, nonce, raw_tx, tx_hash, status, error, at)
+       VALUES ('t-1:nvda', 'nvda', 1, 1, '0', '0', 0, '0x', '0x', 'stuck', 'short_fill', ?)`,
+      NOW,
+    )
+    const chain = fakeChain({ 't-7': [{ account_id: 'ab'.repeat(32), token_id: 'tsla', qty: '10' }] })
+    let clock = NOW + GRACE_MS
+    const job = settlement({ db: t.db, chain: chain.chain, buyShares: t.buyer.buyShares, now: () => clock })
+    // well past the job's 5 attempts, each tick after the last wait is over
+    for (let i = 0; i < 12; i++) {
+      await job.tick()
+      clock += HALT_WAIT_MS + 1
+    }
+    expect(t.state.sent).toEqual([])
+    expect(one(t.db, "SELECT 1 FROM chain_ops WHERE status = 'failed'")).toBeUndefined()
+    run(t.db, "UPDATE warehouse_swaps SET status = 'done', error = 'resolved by hand' WHERE id = 't-1:nvda'")
+    for (let i = 0; i < 5; i++) {
+      await job.tick()
+      clock += HALT_WAIT_MS + 1
+    }
+    expect(t.state.sent.length).toBe(1)
+    expect(chain.minted.get('tsla')).toBe(10n)
   })
 })
