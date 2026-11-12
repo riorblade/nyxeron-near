@@ -7,6 +7,22 @@ Commands are near-cli-rs 0.30 with the legacy keychain (`~/.near-credentials`), 
 the read-only ones were run against testnet on 2026-11-07. Swap the `<…>` placeholders; nothing below is a secret.
 Steps 2–6 cost little on testnet with `network-config testnet` and fresh accounts: rehearse them there first.
 
+**Rehearsed on testnet, 2026-11-11** (#122). Steps 1–6 ran as written, with `network-config testnet`, the testnet USDC
+and `v1.signer-prod.testnet`. The funder was a faucet account (`near account create-account sponsor-by-faucet-service`,
+10 NEAR), and the four accounts were `c.`, `owner.`, `relayer.` and `wh.nyx-rehearse-1794409317.testnet`.
+
+- Step 1: `src` unchanged since `2be2144` (the audit). `cargo near build reproducible-wasm` at `e45d0b8` gives 345,575 bytes,
+  SHA-256 `9fa25bdb0da779e192e09c0c43b3f2435348df3c560c6f6cc8f661b2291f9e7a`.
+- Step 3: the deployed code's SHA-256 is the same. The contract used 346.0 KB of storage (≈ 3.46 NEAR).
+- Step 4: `config()` named the USDC, the treasury and the quote key, with `paused: false`. `tokens()` was byte for byte
+  `nyxeron.testnet`'s (1,180 bytes), and both accounts were registered on USDC.
+- Step 5: the owner's new key can only call `release_wholesale`, `mint_warehouse` and `settle` on the contract.
+- Step 6: `derived_public_key` and the api's `warehouse().address()` agree (`0xeD09bF2b9113e25C3b849871d6d8A7100Be251Fe`
+  for the rehearsal's `wh.` account; mainnet's is different).
+
+`nyxeron.testnet` runs another hash (`3a8a5272…`, a non-reproducible build), so compare mainnet with step 1, not with
+testnet.
+
 ## 0. Decide first
 
 | What                                   | Options                                                                         | Ref          |
