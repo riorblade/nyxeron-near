@@ -63,7 +63,9 @@ export function BarFigure({ active }: { active: { current: number } }) {
         parts[name].style.opacity = String(alpha)
       }
       // One pose per stop, at local time u (0..1, looping): the stops before it are done, the ones after not started.
+      const stations = [...root.querySelectorAll<SVGGElement>('[data-station]')]
       const pose = (stop: number, u: number) => {
+        stations.forEach((g) => g.classList.toggle('on', Number(g.dataset.station) === stop))
         const done = (i: number) => stop > i
         const now = (i: number) => stop === i
         place('card', done(0) ? 1 : now(0) ? ease(clamp(u / 0.45)) : 0)

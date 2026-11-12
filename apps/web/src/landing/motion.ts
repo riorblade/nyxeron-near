@@ -146,7 +146,7 @@ export function startLanding(root: HTMLElement) {
   // The night's beats on the stairs are lit only while they are well inside the frame, never under the top bar.
   const bio = new IntersectionObserver(
     (entries) => entries.forEach((e) => e.target.classList.toggle('in', e.isIntersecting)),
-    { rootMargin: '-16% 0px -14% 0px' },
+    { rootMargin: '-24% 0px -14% 0px' },
   )
   root.querySelectorAll('.beat').forEach((el) => bio.observe(el))
   off.push(() => bio.disconnect())

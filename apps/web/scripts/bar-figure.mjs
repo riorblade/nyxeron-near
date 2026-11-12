@@ -272,14 +272,16 @@ const coin = (r, tone = 'hi') => S(k.cylinder(0, 0, r, 0, 1.6, P, 32, 0.2), { to
 const part = (name, body, z = 0) => `<g data-part="${name}" transform="${k.translateAlong(P, [0, 0, z])}">${body}</g>`
 
 // Back to front, by where each machine stands on the counter.
+// Each machine is marked with its stop, so the page can light the one being read.
+const at_ = (stop, draw) => () => `<g data-station="${stop}">${draw()}</g>`
 const stations = [
-  [READER.x + READER.w / 2, 0, () => reader() + part('card', card())],
-  [FUNNEL[0], FUNNEL[1], terminal],
-  [JAR[0], JAR[1], jar],
-  [SPLIT.x, SPLIT.y, () => chutes() + splitter()],
-  [SAFE.x + SAFE.w / 2, SAFE.y + SAFE.d / 2, safe],
-  [STACK[0], STACK[1], stack],
-  [TAP[0], TAP[1], tap],
+  [READER.x + READER.w / 2, 0, () => at_(0, reader)() + part('card', card())],
+  [FUNNEL[0], FUNNEL[1], at_(1, terminal)],
+  [JAR[0], JAR[1], at_(2, jar)],
+  [SPLIT.x, SPLIT.y, at_(2, () => chutes() + splitter())],
+  [SAFE.x + SAFE.w / 2, SAFE.y + SAFE.d / 2, at_(2, safe)],
+  [STACK[0], STACK[1], at_(3, stack)],
+  [TAP[0], TAP[1], at_(3, tap)],
 ].sort((a, b) => depth(a) - depth(b))
 
 const svg = k.figureSvg({

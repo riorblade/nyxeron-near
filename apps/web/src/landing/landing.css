@@ -69,6 +69,7 @@
 }
 .display-2 {
   font-size: clamp(48px, 8.4vw, 132px);
+  line-height: 0.94;
   letter-spacing: -0.015em;
 }
 .lede {
@@ -77,6 +78,7 @@
 }
 /* where a part sits in the night; the top bar's clock runs between these */
 .stamp {
+  width: fit-content;
   margin-bottom: 18px;
   font-family: var(--mono);
   font-size: 13px;
@@ -509,6 +511,21 @@
   gap: 10svh;
   padding: 18svh var(--side) 12svh;
 }
+.floor .stamp,
+.last .stamp,
+.beat-at {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: rgb(11 6 20 / 0.78);
+}
+.beat-l .beat-at {
+  margin-inline: auto 0;
+}
+.beat-c .beat-at,
+.last .stamp {
+  margin-inline: auto;
+}
 .floor-title {
   max-width: 14ch;
   font-size: clamp(54px, 7.2vw, 120px);
@@ -548,7 +565,7 @@
 
 /* ---------- 3. the flow: the bar figure plays the stop being read ---------- */
 .flow {
-  padding: 20svh var(--side) 16svh;
+  padding: 12svh var(--side) 16svh;
 }
 .flow-head {
   display: flex;
@@ -654,6 +671,16 @@
   color: var(--color-ink);
   text-align: right;
 }
+/* the machine of the stop being read lights up */
+.bar-art [data-station] .iso-line {
+  transition: stroke 0.5s;
+}
+.bar-art [data-station].on .iso-line {
+  stroke: var(--color-neon);
+}
+.bar-art [data-station].on {
+  filter: drop-shadow(0 0 6px rgb(255 43 214 / 0.45));
+}
 .bar-art {
   aspect-ratio: 640 / 380;
   margin: 8px -10px;
@@ -721,9 +748,9 @@
   left: 0;
   top: 0;
   z-index: 40;
-  width: min(30vw, 440px);
+  width: min(22vw, 320px);
   aspect-ratio: 16 / 10;
-  translate: 40px -50%;
+  translate: 32px -112%;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
@@ -1187,5 +1214,10 @@
   }
   .cta:hover .fill {
     clip-path: none;
+  }
+  .bar-cta {
+    opacity: 1;
+    visibility: visible;
+    translate: 0 0;
   }
 }
