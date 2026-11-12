@@ -18,7 +18,7 @@ export default function City() {
 
   if (!account.ready) return <p className="p-6 text-muted">Loading…</p>
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
+    <main className="mx-auto max-w-4xl px-4 pt-6 pb-16">
       <header className="mb-4 flex items-center justify-between">
         <div>
           <Link href="/" className="flex items-center gap-1.5 text-xs text-muted hover:text-ink">
@@ -132,7 +132,7 @@ function Parties({ account }: { account: Account }) {
       <ul className="divide-y divide-line">
         {parties?.map((p) => (
           <li key={p.id}>
-            <Link href={`/city/party/${p.id}`} className="flex items-center justify-between py-3 hover:text-neon">
+            <Link href={`/city/party/${p.id}`} className="flex items-center justify-between gap-3 py-3 hover:text-neon">
               <span>
                 <span className="font-semibold">{p.title}</span>
                 {p.demo && (
@@ -142,7 +142,7 @@ function Parties({ account }: { account: Account }) {
                 )}
                 <span className="ml-2 text-sm text-muted">by {p.host || 'a host'}</span>
               </span>
-              <span className="text-sm text-muted">
+              <span className="shrink-0 text-sm text-muted">
                 ends {new Date(p.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}
               </span>
             </Link>

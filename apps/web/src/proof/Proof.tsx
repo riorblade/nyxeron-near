@@ -35,7 +35,7 @@ export function Proof() {
 
   const near = config ? explorer(config.network) : ''
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <main className="mx-auto max-w-3xl px-4 pt-6 pb-16">
       <Link href="/" className="text-xs text-muted hover:text-ink">
         ← NYXERON
       </Link>
