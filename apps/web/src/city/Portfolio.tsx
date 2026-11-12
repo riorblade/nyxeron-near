@@ -98,7 +98,10 @@ export function Portfolio({ account }: { account: Account }) {
                 <li key={id} className="flex justify-between tabular-nums">
                   <span>{ticker(id)}</span>
                   <span>
-                    {shares(units)} share <span className="text-muted">({units} drinks)</span>
+                    {shares(units)} share{' '}
+                    <span className="text-muted">
+                      ({units} drink{units === 1 ? '' : 's'})
+                    </span>
                   </span>
                 </li>
               ))}

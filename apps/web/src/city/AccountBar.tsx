@@ -25,19 +25,25 @@ export function AccountBar({ account }: { account: Account }) {
           </a>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <div className="mr-2 text-right">
           <div className="text-xs text-muted">Balance</div>
           <div className="text-lg font-bold tabular-nums">{balance === undefined ? '…' : usd(balance)}</div>
         </div>
         {config?.testDollars && <TestDollars account={account} />}
-        <button onClick={() => setPanel('add')} className="rounded-xl bg-gold px-3 py-2 text-sm font-bold text-night">
+        <button
+          onClick={() => setPanel('add')}
+          className="rounded-xl bg-gold px-3 py-2 text-sm font-bold whitespace-nowrap text-night"
+        >
           Add money
         </button>
-        <button onClick={() => setPanel('cashout')} className="rounded-xl border border-line px-3 py-2 text-sm">
+        <button
+          onClick={() => setPanel('cashout')}
+          className="rounded-xl border border-line px-3 py-2 text-sm whitespace-nowrap"
+        >
           Cash out
         </button>
-        <button onClick={account.logout} className="ml-1 text-xs text-muted hover:text-ink">
+        <button onClick={account.logout} className="ml-1 text-xs whitespace-nowrap text-muted hover:text-ink">
           Sign out
         </button>
       </div>
@@ -73,7 +79,7 @@ function TestDollars({ account }: { account: Account }) {
         onClick={() => void get()}
         disabled={state.busy || empty || !account.canPay}
         title={empty ? 'The test faucet is empty right now.' : `Free test dollars (${usd(grant.amount)}), once a day`}
-        className="rounded-xl border border-neon/60 px-3 py-2 text-sm text-neon disabled:opacity-40"
+        className="rounded-xl border border-neon/60 px-3 py-2 text-sm whitespace-nowrap text-neon disabled:opacity-40"
       >
         {state.busy ? 'Sending…' : 'Get test dollars'}
       </button>
