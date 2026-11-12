@@ -1,233 +1,1191 @@
-/* The landing's own motion (Landing.tsx). Colors come from index.css's tokens. */
-@import '@fontsource-variable/big-shoulders-display';
+/* The landing (Landing.tsx, motion.ts). Colors come from index.css's tokens; the system is in DESIGN.md. */
+@import '@fontsource-variable/nunito';
+@import '@fontsource/ibm-plex-mono/500.css';
 
-.landing {
-  --glow:
-    0 0 6px var(--color-neon), 0 0 22px var(--color-neon),
-    0 0 60px color-mix(in srgb, var(--color-neon) 60%, transparent);
+/* Preloaded in index.html; `block` so the wordmark paints once, in its own face (no swap, no layout shift). */
+@font-face {
+  font-family: 'NX Display';
+  src: url('/landing/fonts/big-shoulders-display.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
 }
 
-.nav {
+.lp {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --body: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --side: max(16px, 5vw);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.55;
+  overflow-x: clip;
+}
+.lp em {
+  font-style: normal;
+  color: var(--color-neon);
+}
+.lp ::selection {
+  background: var(--color-neon);
+  color: var(--color-night);
+}
+.lp :focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+.skip {
   position: fixed;
-  inset: 0 0 auto;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px max(16px, 4vw);
-  transition:
-    background-color 0.3s,
-    padding 0.3s,
-    backdrop-filter 0.3s;
-}
-.nav.is-scrolled {
-  padding-block: 8px;
-  background: color-mix(in srgb, var(--color-night) 80%, transparent);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--color-line);
-}
-
-.btn-gold,
-.btn-line {
-  border-radius: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  font-weight: 700;
-  transition:
-    filter 0.2s,
-    border-color 0.2s,
-    transform 0.2s;
-}
-.btn-gold {
+  left: 12px;
+  top: -60px;
+  z-index: 60;
+  padding: 10px 14px;
+  border-radius: 999px;
   background: var(--color-gold);
   color: var(--color-night);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--color-gold) 45%, transparent);
+  font-weight: 800;
 }
-.btn-gold:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-}
-.btn-line {
-  border: 1px solid var(--color-line);
-  background: color-mix(in srgb, var(--color-night) 50%, transparent);
-  backdrop-filter: blur(8px);
-}
-.btn-line:hover {
-  border-color: var(--color-violet);
+.skip:focus-visible {
+  top: 12px;
 }
 
-/* Hero: 100vh on screen, 220vh of scroll for the dance floor to open. */
-.hero-wrap {
-  height: 220vh;
+/* ---------- display type ---------- */
+.display-1,
+.display-2,
+.wordmark,
+.floor-title,
+.beat-title,
+.door-title,
+.stop-title,
+.num,
+.sign {
+  font-family: var(--display);
+  text-transform: uppercase;
+  font-weight: 850;
+  line-height: 0.88;
 }
-.floor {
-  clip-path: ellipse(0% 0% at 50% 50%);
+.display-1 {
+  font-size: clamp(64px, 14vw, 220px);
+  letter-spacing: -0.02em;
 }
-
-.neon-title {
-  font-family: 'Big Shoulders Display Variable', sans-serif;
-  font-weight: 900;
-  font-size: clamp(4.5rem, 19vw, 15rem);
-  line-height: 0.85;
-  letter-spacing: 0.04em;
-  color: #fff4fd;
-  text-shadow: var(--glow);
+.display-2 {
+  font-size: clamp(48px, 8.4vw, 132px);
+  letter-spacing: -0.015em;
 }
-.neon-title span {
-  display: inline-block;
-  animation:
-    rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
-    tube 1.6s steps(1) both;
-  animation-delay: calc(var(--i) * 70ms), calc(300ms + var(--i) * 70ms);
+.lede {
+  max-width: 34ch;
+  color: var(--color-muted);
 }
-/* One letter keeps a faulty tube. */
-.neon-title span:nth-child(4) {
-  animation:
-    rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both,
-    tube 1.6s steps(1) both,
-    flicker 5s steps(1) 2.5s infinite;
-  animation-delay: calc(var(--i) * 70ms), calc(300ms + var(--i) * 70ms), 2.5s;
-}
-.neon-text {
-  color: #fff4fd;
-  text-shadow: var(--glow);
-}
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-}
-@keyframes tube {
-  0%,
-  20%,
-  45% {
-    text-shadow: none;
-    opacity: 0.35;
-  }
-  10%,
-  30%,
-  60%,
-  100% {
-    text-shadow: var(--glow);
-    opacity: 1;
-  }
-}
-@keyframes flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  92% {
-    opacity: 0.3;
-    text-shadow: none;
-  }
-  94% {
-    opacity: 1;
-  }
-  96% {
-    opacity: 0.4;
-    text-shadow: none;
-  }
-}
-
-/* The hero line changes once the dance floor is open. */
-.swap {
-  display: grid;
-}
-.swap > span {
-  grid-area: 1 / 1;
-  transition:
-    opacity 0.5s,
-    transform 0.5s;
-}
-.swap .b,
-.swap.is-b .a {
-  opacity: 0;
-  transform: translateY(12px);
-}
-.swap.is-b .b {
-  opacity: 1;
-  transform: none;
-}
-
-.statement-word {
-  opacity: 0.15;
-  transition: opacity 0.15s linear;
-}
-
-.kicker {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.3em;
+/* where a part sits in the night; the top bar's clock runs between these */
+.stamp {
+  margin-bottom: 18px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-neon);
 }
-.card {
+
+/* ---------- top bar: brand, the night clock, music, launch ---------- */
+.bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px var(--side);
+  transition:
+    background 0.4s,
+    backdrop-filter 0.4s;
+}
+.bar.is-scrolled {
+  background: color-mix(in srgb, var(--color-night) 72%, transparent);
+  backdrop-filter: blur(14px);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: start;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.clock {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--color-ink);
+}
+.clock-label {
+  color: var(--color-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+.bar-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.bar-cta {
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 -8px;
+  transition:
+    opacity 0.4s var(--ease),
+    visibility 0.4s,
+    translate 0.5s var(--ease),
+    transform 0.4s var(--ease);
+  border-radius: 999px;
+  background: var(--color-gold);
+  color: var(--color-night);
+  padding: 9px 16px;
+  font-weight: 800;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.bar.is-past .bar-cta {
+  opacity: 1;
+  visibility: visible;
+  translate: 0 0;
+}
+.brand svg,
+.brand span {
+  transition:
+    filter 0.4s,
+    text-shadow 0.4s,
+    rotate 0.6s var(--ease);
+}
+.music {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  max-width: 230px;
+  padding: 8px 14px;
   border: 1px solid var(--color-line);
-  border-radius: 1.25rem;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--color-panel) 90%, transparent), var(--color-night));
-  padding: 1.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-night) 55%, transparent);
+  font-size: 13px;
+  color: var(--color-muted);
+  transition:
+    border-color 0.3s,
+    color 0.3s;
+}
+.music.is-on {
+  border-color: color-mix(in srgb, var(--color-neon) 60%, transparent);
+  color: var(--color-ink);
+}
+.music-short {
+  display: none;
+}
+.music-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.eq i {
+  width: 3px;
+  height: 4px;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  transition: scale 0.4s var(--ease);
+}
+.eq i:nth-child(2n) {
+  transition-delay: 60ms;
+}
+.music.is-on .eq i {
+  background: var(--color-neon);
+  animation: eq 0.9s ease-in-out infinite alternate;
+}
+.music.is-on .eq i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.music.is-on .eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+.music.is-on .eq i:nth-child(4) {
+  animation-delay: -0.15s;
+}
+@keyframes eq {
+  from {
+    height: 3px;
+  }
+  to {
+    height: 14px;
+  }
+}
+@media (hover: hover) {
+  .music:hover {
+    color: var(--color-ink);
+    border-color: var(--color-neon);
+  }
+  .music:hover .eq i {
+    scale: 1 2.6;
+    background: var(--color-neon);
+  }
+  .bar-cta:hover {
+    transform: translateY(-2px);
+  }
+  .brand:hover svg {
+    rotate: 90deg;
+    filter: drop-shadow(0 0 8px rgb(255 43 214 / 0.9));
+  }
+  .brand:hover span {
+    text-shadow: 0 0 12px rgb(255 43 214 / 0.8);
+  }
+}
+
+/* ---------- primary actions: gold, filled from the pointer's side ---------- */
+.cta {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-gold);
+  background: var(--color-gold);
+  color: var(--color-night);
+  font-weight: 800;
+  white-space: nowrap;
+  transition: color 0.35s;
+}
+.cta .fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--color-ink);
+  clip-path: circle(0% at 50% 50%);
+}
+.cta-line {
+  background: color-mix(in srgb, var(--color-night) 40%, transparent);
+  border-color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.cta-line .fill {
+  background: var(--color-neon);
+}
+.cta-line.is-filled {
+  color: var(--color-night);
+  border-color: var(--color-neon);
+}
+.cta:active .fill,
+.cta:focus-visible .fill {
+  clip-path: circle(150% at 50% 50%);
+}
+.cta-line:focus-visible,
+.cta-line:active {
+  color: var(--color-night);
+}
+
+/* ---------- 1. the descent: a sticky stairs clip scrubbed by scroll ---------- */
+.track {
+  --p: 0;
+  position: relative;
+  height: 300svh;
+}
+.scene {
+  position: sticky;
+  top: 0;
+  height: 100lvh;
+  overflow: hidden;
+  background: #050308;
+}
+.scene video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.08);
+}
+.scene-tint {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      rgb(11 6 20 / 0.55),
+      rgb(11 6 20 / 0.05) 30%,
+      rgb(11 6 20 / 0.2) 60%,
+      rgb(11 6 20 / 0.9)
+    ),
+    radial-gradient(ellipse at 50% 40%, transparent 30%, rgb(11 6 20 / 0.55) 100%);
+  mix-blend-mode: multiply;
+}
+/* the club's neon leaks up the stairs as you go down */
+.scene-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 40% 55% at 50% 62%, rgb(255 43 214 / 0.55), transparent 70%);
+  mix-blend-mode: screen;
+  opacity: calc(var(--p) * 1.2 - 0.15);
+}
+.track-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.track-content > * {
+  pointer-events: auto;
+}
+.intro {
+  position: relative;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 var(--side) 7svh;
+}
+.wordmark {
+  font-size: clamp(88px, 21.5vw, 420px);
+  letter-spacing: -0.03em;
+  margin-left: -0.04em;
+  color: var(--color-ink);
+  text-shadow:
+    0 0 0.04em rgb(255 43 214 / 0.9),
+    0 0 0.18em rgb(255 43 214 / 0.45);
+  animation: switch-on 1.6s steps(1) 0.2s both;
+}
+.intro-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px 32px;
+  margin-top: 18px;
+  animation: rise-in 1s var(--ease) 0.5s both;
+}
+.intro-line {
+  max-width: 22ch;
+  font-family: var(--display);
+  font-size: clamp(28px, 3.2vw, 48px);
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cue {
+  position: absolute;
+  right: var(--side);
+  top: 46svh;
+  writing-mode: vertical-rl;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  opacity: calc(1 - var(--p) * 8);
+}
+.cue::after {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 48px;
+  margin-top: 12px;
+  background: linear-gradient(var(--color-muted), transparent);
+  animation: drip 2.4s var(--ease) infinite;
+}
+@keyframes drip {
+  from {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  60% {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+  to {
+    transform: scaleY(0);
+    transform-origin: bottom;
+  }
+}
+
+/* the night's beats, mirrored across the door's axis (Freight Scroll Hero) */
+.beat {
+  position: absolute;
+  isolation: isolate;
+  width: min(36vw, 540px);
+}
+.beat-at {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--color-neon);
+}
+.beat-title {
+  margin-top: 10px;
+  font-size: clamp(44px, 5.2vw, 88px);
+  text-shadow: 0 12px 32px rgb(0 0 0 / 0.6);
+}
+.beat::before {
+  content: '';
+  position: absolute;
+  inset: -40px -60px;
+  z-index: -1;
+  background: radial-gradient(closest-side, rgb(11 6 20 / 0.72), transparent);
+}
+.beat-text {
+  margin-top: 16px;
+  font-size: 19px;
+  color: var(--color-ink);
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.8);
+}
+.beat-l {
+  top: 118svh;
+  right: calc(50% + 9vw);
+  text-align: right;
+}
+.beat-r {
+  top: 172svh;
+  left: calc(50% + 9vw);
+}
+.beat-c {
+  top: 236svh;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: min(86vw, 640px);
+  text-align: center;
+}
+
+/* ---------- 2. the floor: full-bleed clip, numbers along the bottom ---------- */
+.floor {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+.floor-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1);
+}
+.floor-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      var(--color-night),
+      rgb(11 6 20 / 0.25) 25%,
+      rgb(11 6 20 / 0.35) 55%,
+      var(--color-night)
+    ),
+    linear-gradient(120deg, rgb(255 43 214 / 0.32), transparent 50%);
+}
+.floor-in {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10svh;
+  padding: 18svh var(--side) 12svh;
+}
+.floor-title {
+  max-width: 14ch;
+  font-size: clamp(54px, 7.2vw, 120px);
+  letter-spacing: -0.015em;
+}
+.numbers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid color-mix(in srgb, var(--color-ink) 25%, transparent);
+}
+.numbers li {
+  padding: 22px 24px 0 0;
+}
+.numbers li + li {
+  padding-left: 24px;
+  border-left: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+.num {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: clamp(56px, 6.4vw, 104px);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gold);
+}
+.num-unit {
+  font-size: 0.3em;
+  letter-spacing: 0.04em;
+  color: var(--color-ink);
+}
+.num-text {
+  margin-top: 10px;
+  max-width: 24ch;
+  font-size: 15px;
+  color: var(--color-ink);
+}
+
+/* ---------- 3. the flow: the bar figure plays the stop being read ---------- */
+.flow {
+  padding: 20svh var(--side) 16svh;
+}
+.flow-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px 48px;
+  margin-bottom: 56px;
+}
+.flow-head .lede {
+  max-width: 40ch;
+}
+.flow-body {
+  display: grid;
+  grid-template-columns: 7fr 5fr;
+  gap: 48px;
+}
+.flow-fig {
+  position: sticky;
+  top: 14svh;
+  align-self: start;
+}
+.stops {
+  border-top: 1px solid var(--color-line);
+}
+.stop {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 20px;
+  padding: 36px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.stop-n {
+  font-family: var(--display);
+  font-weight: 850;
+  font-size: 72px;
+  line-height: 0.8;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--color-neon);
+  transition: color 0.5s var(--ease);
+}
+.stop.is-active .stop-n {
+  color: var(--color-neon);
+}
+.stop-title {
+  font-size: clamp(36px, 3.2vw, 52px);
+  transition: color 0.5s var(--ease);
+}
+.stop.is-active .stop-title {
+  color: var(--color-neon);
+}
+.stop-tech {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--color-gold);
+}
+.stop-text {
+  margin-top: 12px;
+  max-width: 48ch;
+  color: var(--color-muted);
+}
+
+/* the figure card, in the anatomy kit's style with this site's palette */
+.bar-plate {
+  --anatomy-page: var(--color-night);
+  --anatomy-card: #120a20;
+  --anatomy-paper: #150c25;
+  --anatomy-face: #1d1232;
+  --anatomy-top: #22163a;
+  --anatomy-shade-0: #0e0818;
+  --anatomy-shade-1: #120a1f;
+  --anatomy-shade-2: #160d26;
+  --anatomy-shade-3: #1b112e;
+  --anatomy-lit-top: #3a1d48;
+  --anatomy-lit-shade: #2a1538;
+  --anatomy-hi: #e6dcf8;
+  --anatomy-mid: #8a7bab;
+  --anatomy-lo: #4d3f6b;
+  --anatomy-faint: #2f2348;
+  --anatomy-lit: var(--color-neon);
+  --anatomy-dot: #e6dcf8;
+  --anatomy-halo: #000;
+  margin: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  background: var(--anatomy-card);
+  padding: 18px 20px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.plate-top,
+.plate-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.plate-bottom p {
+  color: var(--color-ink);
+  text-align: right;
+}
+.bar-art {
+  aspect-ratio: 640 / 380;
+  margin: 8px -10px;
+}
+@media (hover: none) {
+  .plate-hint {
+    display: none;
+  }
+}
+
+/* ---------- 4. the doors: an index list with the screen behind each door ---------- */
+.doors {
+  padding: 14svh var(--side) 16svh;
+}
+.door-list {
+  margin-top: 48px;
+  border-top: 1px solid var(--color-line);
 }
 .door {
+  display: grid;
+  grid-template-columns: 5fr 2fr 4fr 48px;
+  align-items: center;
+  gap: 24px;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.door-title {
+  font-size: clamp(56px, 8vw, 128px);
+  letter-spacing: -0.015em;
   transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
+    translate 0.6s var(--ease),
+    color 0.4s;
 }
-.door:hover {
-  border-color: var(--color-violet);
-  box-shadow: 0 0 40px color-mix(in srgb, var(--color-violet) 25%, transparent);
+.door-meta {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-gold);
 }
-
-.rise {
-  opacity: 0;
-  transform: translateY(40px);
-  transition:
-    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-  transition-delay: var(--d);
+.door-text {
+  color: var(--color-muted);
 }
-.rise.on {
-  opacity: 1;
-  transform: none;
+.door-arrow {
+  justify-self: end;
+  font-size: 32px;
+  transition: translate 0.5s var(--ease);
 }
-
-.trail {
-  position: absolute;
-  z-index: 5;
+.door-thumb {
+  display: none;
+}
+@media (hover: hover) {
+  .door:hover .door-title,
+  .door:focus-visible .door-title {
+    translate: 24px 0;
+    color: var(--color-neon);
+  }
+  .door:hover .door-arrow,
+  .door:focus-visible .door-arrow {
+    translate: 6px 0;
+  }
+}
+.peek {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  width: min(30vw, 440px);
+  aspect-ratio: 16 / 10;
+  translate: 40px -50%;
   pointer-events: none;
-  white-space: nowrap;
-  border: 1px solid var(--color-neon);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--color-night) 85%, transparent);
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--color-neon) 40%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.6);
+}
+.peek img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .hero-wrap {
+/* ---------- 5. questions at the door ---------- */
+.faq {
+  display: grid;
+  grid-template-columns: 5fr 7fr;
+  gap: 48px;
+  padding: 10svh var(--side) 18svh;
+}
+.faq-title {
+  position: sticky;
+  top: 18svh;
+  align-self: start;
+}
+.faq-list {
+  border-top: 1px solid var(--color-line);
+}
+.qa {
+  border-bottom: 1px solid var(--color-line);
+}
+.qa summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: clamp(19px, 1.6vw, 24px);
+  font-weight: 700;
+  transition: color 0.3s;
+}
+.qa summary::-webkit-details-marker {
+  display: none;
+}
+.qa-mark {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.qa-mark::before,
+.qa-mark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 18px;
+  height: 2px;
+  background: var(--color-neon);
+  transition: rotate 0.5s var(--ease);
+}
+.qa-mark::after {
+  rotate: 90deg;
+}
+.qa[open] .qa-mark::after {
+  rotate: 0deg;
+}
+.qa p {
+  max-width: 58ch;
+  padding: 0 0 26px;
+  color: var(--color-muted);
+}
+.qa[open] p {
+  animation: rise-in 0.6s var(--ease) both;
+}
+@media (hover: hover) {
+  .qa summary:hover {
+    color: var(--color-neon);
+  }
+}
+
+/* ---------- 6. last call ---------- */
+.last {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: end center;
+  padding-bottom: 12svh;
+  overflow: hidden;
+  text-align: center;
+}
+.last-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.last-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, var(--color-night), rgb(11 6 20 / 0.55) 30%, rgb(11 6 20 / 0.7) 70%, var(--color-night)),
+    rgb(11 6 20 / 0.25);
+}
+.last-in {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  padding: 0 var(--side);
+}
+.last-in .lede {
+  max-width: 40ch;
+  color: var(--color-ink);
+}
+.last-in .intro-actions {
+  justify-content: center;
+}
+
+/* ---------- footer: the club's sign ---------- */
+.finale {
+  margin-bottom: 12svh;
+}
+.finale .lede {
+  margin-top: 22px;
+  max-width: 44ch;
+  color: var(--color-ink);
+}
+.foot {
+  padding: 16svh var(--side) 0;
+  border-top: 1px solid var(--color-line);
+  overflow: hidden;
+}
+.foot-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  max-width: 900px;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.foot-cols a,
+.foot-cols p {
+  display: block;
+  width: fit-content;
+  padding: 4px 0;
+}
+.foot-h {
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.foot-cols a {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  transition:
+    background-size 0.5s var(--ease),
+    color 0.3s;
+}
+@media (hover: hover) {
+  .foot-cols a:hover {
+    color: var(--color-ink);
+    background-size: 100% 1px;
+  }
+}
+.foot-cols a:focus-visible {
+  color: var(--color-ink);
+  background-size: 100% 1px;
+}
+.sign {
+  display: flex;
+  justify-content: space-between;
+  margin: 8svh -0.02em -0.12em;
+  font-size: 25.5vw;
+  line-height: 0.78;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+.sign.in span {
+  animation: tube 2.2s steps(1) calc(var(--i) * 90ms) both;
+  color: var(--color-ink);
+  text-shadow:
+    0 0 0.03em rgb(255 43 214 / 0.95),
+    0 0 0.14em rgb(255 43 214 / 0.5);
+}
+.sign.in span:nth-child(3) {
+  animation:
+    tube 2.2s steps(1) 180ms both,
+    hum 7s steps(1) 3s infinite;
+}
+
+/* ---------- motion: reveals switch on like a neon tube ---------- */
+[data-reveal] {
+  opacity: 0;
+  translate: 0 24px;
+  transition:
+    opacity 0.9s var(--ease) calc(var(--i, 0) * 70ms),
+    translate 0.9s var(--ease) calc(var(--i, 0) * 70ms);
+}
+[data-reveal].in {
+  opacity: 1;
+  translate: 0 0;
+}
+.sign[data-reveal] {
+  opacity: 1;
+  translate: 0 0;
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 24px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes switch-on {
+  0% {
+    opacity: 0.08;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  16% {
+    opacity: 0.2;
+  }
+  28% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 0.35;
+  }
+  40%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes tube {
+  0% {
+    opacity: 0.1;
+  }
+  10% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 0.2;
+  }
+  24%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes hum {
+  0%,
+  96% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.35;
+  }
+  98% {
+    opacity: 1;
+  }
+}
+
+/* ---------- phones: one column down the door's axis ---------- */
+@media (max-width: 760px) {
+  .lp {
+    font-size: 16px;
+  }
+  .bar {
+    grid-template-columns: auto 1fr auto;
+    padding: 10px 16px;
+  }
+  .brand span,
+  .clock-label,
+  .music-title {
+    display: none;
+  }
+  .music-short {
+    display: inline;
+  }
+  .clock {
+    justify-self: center;
+  }
+  .music {
+    padding: 8px 12px;
+  }
+  .bar-cta {
+    padding: 9px 14px;
+  }
+  .track {
+    height: 270svh;
+  }
+  .intro {
+    padding-bottom: 6svh;
+  }
+  .wordmark {
+    font-size: 23vw;
+  }
+  .intro-line {
+    font-size: 30px;
+  }
+  .intro-actions {
+    width: 100%;
+  }
+  .intro .cta {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .cue {
+    display: none;
+  }
+  .beat,
+  .beat-l,
+  .beat-r,
+  .beat-c {
+    left: 16px;
+    right: 16px;
+    width: auto;
+    text-align: center;
+  }
+  .beat-c {
+    top: 222svh;
+  }
+  .beat-l {
+    top: 115svh;
+  }
+  .beat-r {
+    top: 175svh;
+  }
+  .beat-title {
+    font-size: 46px;
+  }
+  .beat-text {
+    font-size: 17px;
+  }
+  .floor-in {
+    gap: 6svh;
+    padding: 14svh 16px 6svh;
+  }
+  .floor-title {
+    font-size: 56px;
+  }
+  .numbers {
+    grid-template-columns: 1fr 1fr;
+  }
+  .numbers li,
+  .numbers li + li {
+    padding: 18px 12px 18px 0;
+    border-left: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+  .num {
+    font-size: 52px;
+  }
+  .num-text {
+    font-size: 14px;
+  }
+  .faq {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .faq-title {
+    position: static;
+  }
+  .flow-body {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  /* the figure stays at the top while the stops scroll under it */
+  .flow-fig {
+    top: 52px;
+    z-index: 2;
+    margin: 0 -16px;
+    padding: 8px 16px 12px;
+    background: var(--color-night);
+  }
+  .bar-plate {
+    padding: 10px 12px;
+    font-size: 10px;
+  }
+  .plate-top,
+  .plate-hint {
+    display: none;
+  }
+  .stop {
+    grid-template-columns: 52px 1fr;
+    gap: 14px;
+    padding: 28px 0;
+  }
+  .stop-n {
+    font-size: 56px;
+  }
+  .door {
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    padding: 22px 0;
+  }
+  .door-title {
+    font-size: 64px;
+  }
+  .door-meta {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .door-text {
+    grid-column: 1 / -1;
+  }
+  .door-arrow {
+    display: none;
+  }
+  .door-thumb {
+    display: block;
+    grid-column: 1 / -1;
+    width: 100%;
     height: auto;
+    margin-top: 10px;
+    border-radius: 6px;
   }
-  .floor {
-    display: none;
+  .foot-cols {
+    grid-template-columns: 1fr 1fr;
   }
-  .neon-title span,
-  .rise,
-  .swap > span {
-    animation: none !important;
+  .foot-cols > div {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- reduced motion: everything visible, nothing moving ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .wordmark,
+  .intro-row,
+  .qa[open] p {
+    animation: none;
+  }
+  [data-reveal] {
+    opacity: 1;
+    translate: 0 0;
     transition: none;
-    opacity: 1;
-    transform: none;
   }
-  .swap .b {
-    display: none;
+  .cue::after,
+  .music.is-on .eq i,
+  .sign.in span {
+    animation: none;
   }
-  .statement-word {
-    opacity: 1;
+  .door-title,
+  .door-arrow,
+  .qa-mark::before,
+  .qa-mark::after {
+    transition: none;
+  }
+  .cta.cta:hover {
+    color: var(--color-night);
+  }
+  .cta:hover .fill {
+    clip-path: none;
   }
 }

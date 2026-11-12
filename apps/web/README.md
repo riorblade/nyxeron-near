@@ -37,11 +37,15 @@ level (L1 30 guests → L4 150). `<Venue level night />` only reads the `Night`;
 old scene draws. Assets live in `public/venue/` (sprites, textures, DJ loops). Both screens are adapted from our earlier
 work: the judges' README must say so (HACKATHON Q-002).
 
-Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left.
+Club music (`src/audio/`, Kiel) plays on every screen with a mute toggle bottom-left; on the landing the toggle is
+in the top bar. It starts as early as the browser allows: at once where the browser trusts the site, else on the first
+scroll or tap.
 
-The landing (`src/landing/Landing.tsx`) is the only screen in the first chunk; the rest load lazily. Its clips
-(`public/landing/`, from our earlier NYXERON landing) start after the page has loaded and only on screen, with a poster
-image first and a still under `prefers-reduced-motion`.
+The landing (`src/landing/Landing.tsx`) is the only screen in the first chunk; the rest load lazily. Scrolling it is
+one night out: the street-to-stairs clip is scrubbed by the scroll position (`motion.ts`, one `gsap.ticker` clock with
+Lenis), and the clock in the top bar runs from doors at 22:00 to closing at 04:00. `src/landing/DESIGN.md` has the
+concept, the system and the references. Its clips (`public/landing/`, from our earlier NYXERON landing) load after the
+page has settled and only near the screen, with a poster first and a still under `prefers-reduced-motion`.
 
 Practice gets the night's prices from `GET /api/quotes` and falls back to a labelled sample when the api is down.
 Colors are placeholder tokens in `src/index.css` until the design tokens land.
