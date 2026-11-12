@@ -9,20 +9,19 @@ Player endpoints (buying, the portfolio, add money and cash out) need a sign-in 
 
 ## Health
 
-<CodeGroup>
-```bash Request
+```bash title="Request"
 curl https://app.nyxeron.xyz/api/health
 ```
-```json Response
+
+```json title="Response"
 { "ok": true, "network": "testnet" }
 ```
-</CodeGroup>
 
 ## Stock prices
 
 `GET /api/quotes` returns the live price of each stock token on Robinhood Chain, with its 24-hour change and liquidity. `stale` is `true` when the cached prices are older than the server's refresh interval.
 
-```json Response
+```json title="Response"
 {
   "at": 1794485258316,
   "stale": false,
@@ -43,7 +42,7 @@ curl https://app.nyxeron.xyz/api/health
 
 `testDollars` is set on testnet only, in micro-USDC: what **Get test dollars** sends ($3.00) and what the faucet has left.
 
-```json Response
+```json title="Response"
 {
   "network": "testnet",
   "contractId": "nyxeron.testnet",
@@ -68,7 +67,7 @@ curl https://app.nyxeron.xyz/api/health
 | `tokens[]`              | Per stock: `units` in circulation, `sharesOwed` they stand for, `sharesHeld` by the warehouse and `backed` (mainnet; `null` on testnet) |
 | `recent[]`              | Recent parties: `chainParty`, `title`, `endsAt`, `status`                                                                               |
 
-```json Response
+```json title="Response"
 {
   "network": "testnet",
   "contractId": "nyxeron.testnet",
@@ -93,7 +92,7 @@ curl https://app.nyxeron.xyz/api/health
 
 `GET /api/proof/parties/:chainParty` returns a party's settlement steps: the release, each mint with its proof, and each settle batch. Each step has its transaction hash and status. `chainParty` is the id the contract knows the party by, so you can pass it to the contract's `owed` and `party_pot` views.
 
-```json Response
+```json title="Response"
 {
   "chainParty": "dfec4462-8",
   "title": "House Party",

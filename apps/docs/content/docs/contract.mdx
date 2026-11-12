@@ -7,8 +7,8 @@ The NYXERON contract takes the drink payments and holds the stock units as **NEP
 
 ## What it enforces on its own
 
-<AccordionGroup>
-  <Accordion title="A payment goes through whole, or comes back whole" defaultOpen>
+<Accordions type="single">
+  <Accordion title="A payment goes through whole, or comes back whole">
     If any check fails, the contract refunds the full amount and emits a `refund` event that says why. It checks for a bad signature, an expired quote, a wrong amount, an unknown stock, and the contract being paused.
   </Accordion>
   <Accordion title="Prices are bounded">
@@ -36,7 +36,7 @@ The NYXERON contract takes the drink payments and holds the stock units as **NEP
   <Accordion title="It can stop">
     `set_paused` refunds new payments and stops release, mint and settle. Holders can still move their units and hosts can still claim their margin.
   </Accordion>
-</AccordionGroup>
+</Accordions>
 
 ## What it trusts the server for
 

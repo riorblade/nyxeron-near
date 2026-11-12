@@ -4,3 +4,8 @@ target
 .claude
 skills-lock.json
 HACKATHON.md
+
+# the docs app build (apps/docs)
+.next
+.source
+next-env.d.ts

@@ -141,7 +141,7 @@ Practice mode works without any `.env`. Checks: `pnpm lint` (typecheck, ESLint, 
 | [`packages/game`](packages/game)         | The game as pure TS: stocks, economy numbers, party simulation    | Kiel  |
 | [`contracts/nyxeron`](contracts/nyxeron) | NEAR contract: drink payments and stock units as NEP-245          | Ghoza |
 | [`spikes`](spikes)                       | Hands-on tests behind each design choice, results in FINDINGS.md  | all   |
-| [`docs/site`](docs/site)                 | The docs at docs.nyxeron.xyz (Mintlify)                           | Wisnu |
+| [`apps/docs`](apps/docs)                 | The docs at docs.nyxeron.xyz (Next.js, Fumadocs, MDX)             | Wisnu |
 
 Plan: [plan.md](plan.md) · design: [SPEC.md](SPEC.md) · spike results: [spikes/FINDINGS.md](spikes/FINDINGS.md) ·
 hackathon rules: [HACKATHON.md](HACKATHON.md) · how we work: [CONTRIBUTING.md](CONTRIBUTING.md).

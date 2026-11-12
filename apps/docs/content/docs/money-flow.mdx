@@ -6,10 +6,17 @@ description: 'Where a dollar goes, from tapping Buy to holding the share.'
 One drink makes four stops. Each stop uses a part of NEAR.
 
 <Steps>
-  <Step title="Sign in: a NEAR account of your own">
+  <Step>
+
+    ### Sign in: a NEAR account of your own
+
     Google or email sign-in gives every player a NEAR account through Privy's embedded wallet. Our server never has the player's key.
+
   </Step>
-  <Step title="Order: USDC, no gas">
+  <Step>
+
+    ### Order: USDC, no gas
+
     The game asks the server for a **price quote** for that drink: the party, the guest, the stock, the quantity, the price, the wholesale and an expiry. The server signs it, and it is valid for 60 seconds.
 
     The player signs one action, a USDC `ft_transfer_call` to the NYXERON contract carrying the quote. They sign it as a **NEP-366 meta-transaction**, and our relayer submits it and pays the gas.
@@ -17,13 +24,19 @@ One drink makes four stops. Each stop uses a part of NEAR.
     The relayer forwards only three kinds of action, each signed by the player: a USDC payment to our contract, the exact USDC transfer of the player's own cash-out, and a host's `claim_margin`. Each carries at most 1 yoctoNEAR. The server can never move a player's dollars on its own.
 
   </Step>
-  <Step title="Split: the contract checks and divides">
+  <Step>
+
+    ### Split: the contract checks and divides
+
     The contract checks the quote: the signature, this contract, not used before, not expired, the right buyer, and a price between wholesale and 3× wholesale. If anything is off, it **refunds the whole payment** and says why.
 
     If everything holds, it sends the **margin** to the party's host at once and keeps the **wholesale** in the party's pot. The guest is recorded as **owed** the units.
 
   </Step>
-  <Step title="Settle: the shares arrive">
+  <Step>
+
+    ### Settle: the shares arrive
+
     About 90 seconds after the party ends:
 
     1. **Release:** the party's pot goes to the treasury.
@@ -51,6 +64,6 @@ One drink makes four stops. Each stop uses a part of NEAR.
 - **Add money:** pick an asset and a chain, and get a quote. You send to a deposit address and receive USDC in your NEAR account. If something goes wrong, the refund goes back to an address you give on the source chain.
 - **Cash out:** from $1 to $1,000 of USDC, to your address on another chain. You sign the USDC transfer to 1Click's deposit address, and a failed swap is refunded to your NEAR account.
 
-<Note>
+<Callout>
   1Click has no testnet. On testnet both are dry runs against mainnet: you get real numbers and nothing is sent.
-</Note>
+</Callout>
