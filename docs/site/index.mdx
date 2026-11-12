@@ -1,0 +1,54 @@
+---
+title: 'Introduction'
+description: 'A nightclub game on NEAR where every drink on the menu is a real share.'
+---
+
+<img src="/images/cover.jpg" alt="NYXERON: a nightclub where every drink is a real share" />
+
+NYXERON is a nightclub game. A host (the CEO) opens a party and sets the drink prices. Guests buy drinks, and every drink holds **0.001 of a real share**: Tesla, NVIDIA, Apple, the S&P 500 and more. When the party ends, the guest owns those shares in their own NEAR account.
+
+## Why
+
+Owning a stock takes a brokerage account. Owning one on chain takes a wallet, a seed phrase, gas and a bridge. Neither feels like play.
+
+NYXERON hides all of that behind a game. A player signs in with Google or email, sees a balance in dollars and taps **Buy** on a drink. There is no wallet pop-up, no seed phrase and no gas. A few minutes later they hold a slice of a real share, without having to learn what a blockchain is.
+
+## What is live
+
+The game runs on **NEAR testnet** at [app.nyxeron.xyz](https://app.nyxeron.xyz), with test dollars you can get once a day. Real NEAR transactions carry every step: the payments, the contract's split, the release, the mint and the delivery. The only step that is simulated on testnet is buying the stock tokens themselves; [Real shares and Proof](/real-shares) explains why.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Practice a night, then buy a real share on testnet, in about five minutes.
+  </Card>
+  <Card title="How a night works" icon="martini-glass-citrus" href="/how-a-night-works">
+    What the CEO decides, what guests do, and when the shares arrive.
+  </Card>
+  <Card title="Money flow" icon="arrows-split-up-and-left" href="/money-flow">
+    Where a dollar goes from Buy to the share in your account.
+  </Card>
+  <Card title="Proof" icon="magnifying-glass" href="/real-shares">
+    Check every unit and every party on chain yourself.
+  </Card>
+</CardGroup>
+
+## Three ways in
+
+|              | What it is                                                                                      | Account         |
+| ------------ | ----------------------------------------------------------------------------------------------- | --------------- |
+| **Practice** | Run a club called The Basement for a night, with play money and live stock prices.              | None            |
+| **City**     | Real parties on testnet. Host one as CEO, or go out as a guest and buy drinks.                  | Google or email |
+| **Proof**    | The contract, the stocks behind the units, and every party's steps, with links to the explorer. | None            |
+
+## Built on NEAR
+
+| Part              | NEAR feature                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- |
+| Sign-in           | Google or email gives each player a NEAR account of their own, through Privy                                |
+| No gas            | NEP-366 meta-transactions: the player signs, our relayer pays the gas                                       |
+| Paying for drinks | USDC sent to our contract with a price quote the server signed; the contract checks it and splits the money |
+| Owning shares     | Stock units as NEP-245 multi tokens, 1 unit = 0.001 share                                                   |
+| Real stocks       | Robinhood stock tokens, bought by an address a NEAR account controls through Chain Signatures               |
+| Money in and out  | NEAR Intents (1Click), from and to almost any chain                                                         |
+
+Built at NEAR HACKATHON, November 2026.

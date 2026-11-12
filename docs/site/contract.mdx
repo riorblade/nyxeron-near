@@ -1,0 +1,105 @@
+---
+title: 'The contract'
+description: 'What the NYXERON contract enforces on its own, and what it trusts the server for.'
+---
+
+The NYXERON contract takes the drink payments and holds the stock units as **NEP-245** multi tokens. It is written in Rust with near-sdk 5. On testnet it is [`nyxeron.testnet`](https://testnet.nearblocks.io/address/nyxeron.testnet), paid in Circle's testnet USDC.
+
+## What it enforces on its own
+
+<AccordionGroup>
+  <Accordion title="A payment goes through whole, or comes back whole" defaultOpen>
+    If any check fails, the contract refunds the full amount and emits a `refund` event that says why. It checks for a bad signature, an expired quote, a wrong amount, an unknown stock, and the contract being paused.
+  </Accordion>
+  <Accordion title="Prices are bounded">
+    A quote must:
+    - be signed by the server's quote key;
+    - name this contract, so it can't be paid on another deploy that trusts the same key;
+    - be used once and not be expired;
+    - have a price between the wholesale and 3 × the wholesale.
+
+    The buyer named in the quote must be the account paying.
+
+  </Accordion>
+  <Accordion title="The host gets the margin at once">
+    The margin is sent to the party's host with each payment. If that transfer fails, the margin waits for the host's `claim_margin`. A party's first purchase fixes its host, so a later quote can't send that party's margin elsewhere.
+  </Accordion>
+  <Accordion title="A guest gets what they paid for, never more">
+    Each purchase records the units the guest is owed. `settle` moves units from the warehouse to the party's guests:
+    - all or nothing;
+    - each at most what they are owed;
+    - each settle batch only once.
+
+    Each `mint_warehouse` proof (the share purchase's transaction hash) backs one mint only.
+
+  </Accordion>
+  <Accordion title="It can stop">
+    `set_paused` refunds new payments and stops release, mint and settle. Holders can still move their units and hosts can still claim their margin.
+  </Accordion>
+</AccordionGroup>
+
+## What it trusts the server for
+
+The contract can't read Robinhood Chain, so the owner key decides that a mint is backed. That key is a function-call key limited to this contract's owner methods: it can't move anyone's USDC or units. On mainnet, [Proof](/real-shares) compares the units in circulation with the shares the warehouse holds, so anyone can check the owner key's claims.
+
+## A drink, in the contract's words
+
+The guest's account sends `ft_transfer_call` on USDC with this contract as the receiver, the exact amount, and a `msg` with the quote and the server's signature:
+
+```json
+{
+  "v": 2,
+  "contract": "nyxeron.testnet",
+  "id": "q_8f3a",
+  "party": "42",
+  "buyer": "<guest account>",
+  "ceo": "<host account>",
+  "token": "tsla",
+  "qty": 3,
+  "unit_price": "410000",
+  "unit_wholesale": "390000",
+  "expires_ms": 1793780000000
+}
+```
+
+Prices are in micro-USDC. The contract checks the signature over the exact bytes it was given, then parses them.
+
+When it is accepted:
+
+- the margin `(unit_price − unit_wholesale) × qty` goes to the host;
+- `unit_wholesale × qty` goes to the party's pot;
+- the guest is owed `qty` units of the stock;
+- a `purchase` event is emitted.
+
+## Methods
+
+| Who     | Method                                                 | What it does                                                                                  |
+| ------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Owner   | `release_wholesale(party)`                             | Sends the party's pot to the treasury and closes the party to purchases                       |
+| Owner   | `mint_warehouse(token_id, amount, proof)`              | Mints units to the warehouse; the proof is the purchase's transaction and backs one mint only |
+| Owner   | `settle(party, op_id, transfers)`                      | Warehouse → guests, all or nothing, at most 32 transfers, each `op_id` once                   |
+| Owner   | `register_token`, `set_quote_key`, `set_paused`, …     | Setup and the emergency stop                                                                  |
+| Anyone  | `claim_margin()`                                       | Sends the caller's held margin                                                                |
+| Holders | `mt_transfer`, `mt_batch_transfer`, `mt_transfer_call` | NEP-245 transfers, 1 yoctoNEAR                                                                |
+
+**Views:**
+
+- `owed(party)`
+- `party_pot(party)`
+- `claimable_margin(account_id)`
+- `mt_balance_of(account_id, token_id)`
+- `mt_supply(token_id)`
+- `tokens()`
+- `is_used_proof(proof)`
+- `is_settled(op_id)`
+- `is_paused()`
+- `config()`
+
+**Events** (NEP-297):
+
+- `nyxeron` 1.0.0: `purchase`, `refund`, `margin_held`, `release`, `release_failed`.
+- `nep245`: `mt_mint` with the proof as memo, `mt_transfer` with the settle's `op_id`.
+
+## Tested
+
+78 unit tests and 10 sandbox tests, which run against a real NEP-141 token, plus `cargo fmt` and `clippy` in CI. It had a security review in November 2026, and its code hasn't changed since.

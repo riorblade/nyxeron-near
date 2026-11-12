@@ -1,0 +1,57 @@
+---
+title: 'Real shares and Proof'
+description: 'Where the shares behind the units come from, and how to check them yourself.'
+---
+
+A unit on the NYXERON contract is a claim on real stock tokens. One unit is 0.001 of a share. The tokens themselves are **Robinhood stock tokens** on Robinhood Chain (chain id 4663). They are held by the game's **warehouse**.
+
+## The warehouse
+
+The warehouse is an address on Robinhood Chain with **no private key**. A NEAR account controls it through **Chain Signatures**: NEAR's MPC network signs the warehouse's transactions when that NEAR account asks. Nobody holds a key that could move the shares outside the game.
+
+When a party ends, the warehouse buys what the party owes:
+
+1. The party's wholesale goes to the treasury, which keeps the warehouse topped up with USDG (and a little ETH for gas) through NEAR Intents.
+2. The warehouse swaps USDG for the stock token through KyberSwap. It checks that the route sends exactly the pinned token to the warehouse itself, takes no fee, and returns at least 98% of the market value.
+3. The swap's receipt must show the stock token arriving at the warehouse, at least what the party owes. Only then does the contract mint the units, with the swap's transaction hash as the proof. Each proof backs one mint only.
+
+The warehouse works with safety limits. A swap is at most **$50** and a day at most **$500**. If a swap ever comes back short, the warehouse sends no new swap for any party until a person has checked it.
+
+## Pinned tokens
+
+The menu only buys these Robinhood Chain token addresses:
+
+| Ticker | Stock      | Token address                                |
+| ------ | ---------- | -------------------------------------------- |
+| TSLA   | Tesla      | `0x322F0929c4625eD5bAd873c95208D54E1c003b2d` |
+| NVDA   | NVIDIA     | `0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC` |
+| AAPL   | Apple      | `0xaf3d76f1834a1d425780943c99ea8a608f8a93f9` |
+| GOOGL  | Alphabet   | `0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3` |
+| META   | Meta       | `0xc0d6457c16cc70d6790dd43521c899c87ce02f35` |
+| MSFT   | Microsoft  | `0xe93237c50d904957cf27e7b1133b510c669c2e74` |
+| SPY    | S&P 500    | `0x117cc2133c37B721F49dE2A7a74833232B3B4C0C` |
+| QQQ    | Nasdaq 100 | `0xd5f3879160bc7c32ebb4dc785f8a4f505888de68` |
+| CRCL   | Circle     | `0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5` |
+| MSTR   | Strategy   | `0xec262a75e413fafd0df80480274532c79d42da09` |
+
+[Proof](https://app.nyxeron.xyz/proof) shows the same list, live.
+
+## Testnet: the purchase is simulated
+
+Robinhood Chain's stock tokens and NEAR Intents exist on mainnet only. On testnet, everything else is real: the payment, the contract's split, the release, the mint and the delivery are all testnet transactions you can open on the explorer. Only the purchase is simulated: a testnet mint carries a `demo:` proof instead of a swap hash, and Proof labels it as a "simulated purchase (testnet)".
+
+The mainnet purchase is built and waits for its first mainnet run.
+
+## Check it on Proof
+
+[app.nyxeron.xyz/proof](https://app.nyxeron.xyz/proof) needs no account. It shows:
+
+- **On NEAR:** the game contract, the USDC contract and the key the contract accepts quotes from.
+- **Backing:** for each stock, the units in circulation and the shares they stand for. On mainnet it also shows the shares the warehouse holds, and whether they cover the units.
+- **Party by party:** each recent party's release, mints (with their proof) and settle batches, each with a link to its transaction.
+
+The same data is public as JSON: see the [API reference](/api-reference).
+
+## Known risks
+
+Robinhood's token issuer can block, pause or burn its tokens, and the Robinhood Chain sequencer can filter transactions. Purchases are kept small, and the contract can be paused: paused, it refunds new payments and stops release, mint and settle, while holders can still move their units and hosts can still claim their margin.

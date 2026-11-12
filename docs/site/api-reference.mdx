@@ -1,0 +1,117 @@
+---
+title: 'API reference'
+description: 'The public endpoints: no account needed.'
+---
+
+The game server answers under `https://app.nyxeron.xyz/api`. The endpoints below need no account and return JSON. Errors are `{ "error": "<code>" }` with a fitting HTTP status.
+
+Player endpoints (buying, the portfolio, add money and cash out) need a sign-in token and are used by the game itself.
+
+## Health
+
+<CodeGroup>
+```bash Request
+curl https://app.nyxeron.xyz/api/health
+```
+```json Response
+{ "ok": true, "network": "testnet" }
+```
+</CodeGroup>
+
+## Stock prices
+
+`GET /api/quotes` returns the live price of each stock token on Robinhood Chain, with its 24-hour change and liquidity. `stale` is `true` when the cached prices are older than the server's refresh interval.
+
+```json Response
+{
+  "at": 1794485258316,
+  "stale": false,
+  "prices": {
+    "tsla": { "usd": 389.54, "change24h": 0.9, "liquidityUsd": 256019 },
+    "nvda": { "usd": 159.41, "change24h": -9.16, "liquidityUsd": 1118753 }
+  }
+}
+```
+
+## Config
+
+`GET /api/config` returns what a client needs to talk to the chain:
+
+- the network, the contract and the USDC contract;
+- the public key the contract accepts quotes from;
+- the menu, with each stock's pinned Robinhood Chain address.
+
+`testDollars` is set on testnet only, in micro-USDC: what **Get test dollars** sends ($3.00) and what the faucet has left.
+
+```json Response
+{
+  "network": "testnet",
+  "contractId": "nyxeron.testnet",
+  "usdcId": "3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af",
+  "quoteKey": "ed25519:…",
+  "menu": [
+    { "token": "tsla", "name": "Tesla", "ticker": "TSLA", "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d" }
+  ],
+  "testDollars": { "amount": 3000000, "faucetBalance": 3540000 }
+}
+```
+
+## Proof
+
+`GET /api/proof` returns what [Proof](/real-shares) shows, cached for 30 seconds:
+
+| Field                   | Meaning                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `network`, `contractId` | Where the units live                                                                                                                    |
+| `demo`                  | `true` on testnet: mints carry `demo:` proofs (the purchase is simulated)                                                               |
+| `warehouse`             | The warehouse's Robinhood Chain address (mainnet), else `null`                                                                          |
+| `tokens[]`              | Per stock: `units` in circulation, `sharesOwed` they stand for, `sharesHeld` by the warehouse and `backed` (mainnet; `null` on testnet) |
+| `recent[]`              | Recent parties: `chainParty`, `title`, `endsAt`, `status`                                                                               |
+
+```json Response
+{
+  "network": "testnet",
+  "contractId": "nyxeron.testnet",
+  "demo": true,
+  "warehouse": null,
+  "tokens": [
+    {
+      "token": "tsla",
+      "ticker": "TSLA",
+      "address": "0x322F…3b2d",
+      "units": "8",
+      "sharesOwed": "0.008",
+      "sharesHeld": null,
+      "backed": null
+    }
+  ],
+  "recent": [{ "chainParty": "dfec4462-10", "title": "House Party", "endsAt": 1794478696516, "status": "done" }]
+}
+```
+
+## One party's steps
+
+`GET /api/proof/parties/:chainParty` returns a party's settlement steps: the release, each mint with its proof, and each settle batch. Each step has its transaction hash and status. `chainParty` is the id the contract knows the party by, so you can pass it to the contract's `owed` and `party_pot` views.
+
+```json Response
+{
+  "chainParty": "dfec4462-8",
+  "title": "House Party",
+  "endsAt": 1794477469341,
+  "status": "done",
+  "steps": [
+    { "kind": "release", "hash": "Dvp6FhxSwaNGMvLZJZhrtceRYXoCghb3gUqUg4y2obMp", "status": "done" },
+    {
+      "kind": "mint",
+      "token": "tsla",
+      "units": "2",
+      "hash": "FSxrSsF3ktMdsWBRR6hkgYNd7k5bogpqojx1yFTFFDNE",
+      "status": "done",
+      "proof": "demo:dfec4462-8:tsla:1"
+    },
+    { "kind": "settle", "units": "2", "hash": "7u9BeYiGhgzfXyVYJKY6TUh42rGcwrq9hm8EQhe2Brn1", "status": "done" }
+  ]
+}
+```
+
+A party where nobody bought a drink has no steps.

@@ -1,0 +1,77 @@
+---
+title: 'How a night works'
+description: 'The CEO sets the menu, guests buy drinks, and the shares go home when the party ends.'
+---
+
+A party is a night at a club. It has a host, a menu of ten real stocks, a start and an end. Everything a guest buys during the party is delivered as shares after it ends.
+
+## The menu
+
+Every drink is named after a stock and holds **0.001 of a share** of it.
+
+| Drink | Stock      |
+| ----- | ---------- |
+| TSLA  | Tesla      |
+| NVDA  | NVIDIA     |
+| AAPL  | Apple      |
+| GOOGL | Alphabet   |
+| META  | Meta       |
+| MSFT  | Microsoft  |
+| SPY   | S&P 500    |
+| QQQ   | Nasdaq 100 |
+| CRCL  | Circle     |
+| MSTR  | Strategy   |
+
+Each drink has a **wholesale** price, which is what the shares behind it cost:
+
+```
+wholesale = stock price × 0.001 × 1.01, rounded up to the cent
+```
+
+The 1% covers the swap fee when the shares are bought. Stock prices come live from the token market on Robinhood Chain.
+
+## As the CEO
+
+<Steps>
+  <Step title="Open a party">
+    Give it a name and a length, from 5 to 60 minutes (10 by default). Every drink starts at 1.5× its wholesale price.
+  </Step>
+  <Step title="Set your prices">
+    Move each drink's price anywhere from wholesale to **3× wholesale**. The difference is your margin. The contract
+    refuses any price outside that range, so a guest can never be overcharged.
+  </Step>
+  <Step title="Make moves during the night">
+    - **Happy hour:** every drink 20% off for 5 minutes, once a party, never below wholesale. - **Anthem:** 2 minutes. -
+    **MC hype:** 1 minute. - **Pyro:** at most every 10 seconds.
+  </Step>
+  <Step title="Keep the margin">
+    Your margin is sent to your NEAR account with each payment, as it happens. If that transfer can't go through, the
+    contract holds it until you claim it.
+  </Step>
+</Steps>
+
+## As a guest
+
+<Steps>
+  <Step title="Sign in">
+    Google or email. You get a NEAR account of your own, with no seed phrase and nothing to install.
+  </Step>
+  <Step title="Buy drinks">
+    Pick a live party and tap **Buy** or **×3**. You pay in dollars (USDC). You sign the payment and our relayer pays
+    the gas, so there is no pop-up.
+  </Step>
+  <Step title="Collect your shares">
+    About 90 seconds after the party ends, the shares behind your drinks are delivered to your account. **Shares you
+    hold** in your portfolio shows them, with a receipt.
+  </Step>
+</Steps>
+
+## Practice
+
+Practice is the same economy as a single-player game, with play money and no account. You run The Basement for a night: you price the menu, pick a DJ and decide when to call happy hour. Guests come in, buy at the bar and react to the music and the prices. The night report shows your margin, your reputation and why the night went the way it did. **Week** simulates seven nights at once, to test a menu before a real party.
+
+<img src="/images/night-report.jpg" alt="The night report: margin, reputation, goals and a receipt of what sold" />
+
+## The House Party
+
+On testnet there is always one party on: the **House Party**, hosted by NYXERON House and listed first. Each one lasts 10 minutes, so a guest can try the whole flow at any time, shares included, without waiting for a host.
