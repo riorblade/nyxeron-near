@@ -72,6 +72,35 @@ waits for its first mainnet run.
 Prices: wholesale = token price × 0.001 × 1.01 (swap fee buffer), rounded up to the cent. A host may charge up to 3×
 wholesale; the contract refuses anything above it and refunds the payment in full.
 
+## The contract
+
+`contracts/nyxeron` (Rust, near-sdk 5) takes the drink payments and holds the stock units as NEP-245 multi tokens.
+Full interface: [`contracts/nyxeron/README.md`](contracts/nyxeron/README.md). Security review:
+[`contracts/nyxeron/AUDIT.md`](contracts/nyxeron/AUDIT.md).
+
+What it enforces on its own:
+
+- **A payment either goes through whole or comes back whole.** Every check failing (bad signature, expired quote,
+  wrong amount, unknown stock, paused, …) refunds the full amount with a `refund` event that says why.
+- **Prices are bounded.** A quote must be signed by the api's quote key, name this contract, be used once and not be
+  expired, and its price must be between the wholesale and 3 × the wholesale. The buyer must be the one paying.
+- **The host gets the margin at once.** The margin is sent to the party's host with the payment (if that transfer
+  fails, it waits for the host's `claim_margin`). The host is fixed by the party's first purchase, so a later quote
+  can't send that party's margin elsewhere.
+- **A guest gets what they paid for, never more.** Each purchase records the units the guest is owed. `settle` moves
+  units from the warehouse to the party's guests, all or nothing, each at most what they are owed, and each `op_id`
+  runs once. Each `mint_warehouse` proof (the share purchase's tx hash) backs one mint only.
+- **It can stop.** `set_paused` refunds new payments and stops release, mint and settle; holders can still move their
+  units and hosts can still claim margin.
+
+What it trusts the api for: the contract can't read Robinhood Chain, so the owner key decides that a mint is backed.
+That key is a function-call key limited to this contract's owner methods. On mainnet, `/proof` compares the units in
+circulation (`mt_supply`) with the shares the warehouse holds; on testnet the share purchase is simulated, so it shows
+the units without that column.
+
+Tests: `cd contracts/nyxeron && cargo test` runs 78 unit tests and 10 sandbox tests against a real NEP-141 token
+(two more are gas probes, run with `--ignored`). CI also runs `cargo fmt --check` and `cargo clippy`.
+
 ## On chain
 
 | Network | What                    | Account                                                                    |
