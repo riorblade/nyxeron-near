@@ -94,8 +94,9 @@ What it enforces on its own:
   units and hosts can still claim margin.
 
 What it trusts the api for: the contract can't read Robinhood Chain, so the owner key decides that a mint is backed.
-That key is a function-call key limited to this contract's owner methods. `/proof` compares the units in circulation
-(`mt_supply`) with the shares the warehouse holds.
+That key is a function-call key limited to this contract's owner methods. On mainnet, `/proof` compares the units in
+circulation (`mt_supply`) with the shares the warehouse holds; on testnet the share purchase is simulated, so it shows
+the units without that column.
 
 Tests: `cd contracts/nyxeron && cargo test` runs 78 unit tests and 10 sandbox tests against a real NEP-141 token
 (two more are gas probes, run with `--ignored`). CI also runs `cargo fmt --check` and `cargo clippy`.
