@@ -189,7 +189,12 @@ function Backing({ proof }: { proof: ProofView }) {
               return (
                 <tr key={t.token}>
                   <td className="font-semibold">{t.ticker}</td>
-                  <td>{t.units}</td>
+                  <td>
+                    {t.units}
+                    {t.simulatedUnits !== '0' && (
+                      <span className="text-muted"> ({t.simulatedUnits} simulated earlier)</span>
+                    )}
+                  </td>
                   <td>{t.sharesOwed}</td>
                   {!proof.demo && (
                     <td>

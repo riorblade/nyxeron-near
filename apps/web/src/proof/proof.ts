@@ -17,6 +17,8 @@ export type ProofView = {
     units: string | null
     sharesOwed: string | null
     sharesHeld: string | null
+    // Units minted with demo: proofs (testnet, before the warehouse bought): not held against it.
+    simulatedUnits: string
     backed: boolean | null
   }[]
   recent: { chainParty: string; title: string; endsAt: number; status: string }[]

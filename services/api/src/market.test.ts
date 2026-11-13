@@ -1,7 +1,18 @@
 import { tokenIds } from '@nyxeron/game'
-import { type Address, decodeFunctionData, type Hex, parseAbi, type TransactionSerializableEIP1559 } from 'viem'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import {
+  type Abi,
+  type AbiFunction,
+  type Address,
+  decodeFunctionData,
+  type Hex,
+  toFunctionSelector,
+  type TransactionSerializableEIP1559,
+} from 'viem'
 import { describe, expect, it } from 'vitest'
 import type { HoodNet } from './hoodnet.ts'
+import { HOOD_CONTRACTS_DIR } from './hood-deploy.ts'
 import { MARKET_ABI, REPOST_AFTER_S, syntheticMarket } from './market.ts'
 import { checkSwapCall } from './swap.ts'
 
@@ -16,6 +27,7 @@ const NET: HoodNet = {
   tokens: Object.fromEntries(tokenIds.map((id, i) => [id, addr(100 + i)])) as HoodNet['tokens'],
   synthetic: true,
 }
+const ARTIFACT = join(HOOD_CONTRACTS_DIR, 'out/Synthetic.sol/SyntheticMarket.json')
 const TSLA = NET.tokens.tsla
 const WAREHOUSE = addr(0xaaa)
 const NOW_S = 1_800_000_000
@@ -90,12 +102,11 @@ describe('the synthetic market (testnet Kyber)', () => {
     expect(minOut).toBe(((E18 / 100n) * 9_950n) / 10_000n)
   })
 
-  it('its ABI matches the Solidity market', () => {
-    const sol = parseAbi([
-      'function setPrice(address token, uint256 priceMicro_)',
-      'function priceMicro(address) view returns (uint256)',
-      'function pricedAt(address) view returns (uint256)',
-    ])
-    for (const f of sol) expect(MARKET_ABI).toContainEqual(expect.objectContaining({ name: f.name }))
+  // The forge artifact, when contracts/hood-testnet is built (CI's hood-testnet job; the anvil test covers the rest).
+  it.skipIf(!existsSync(ARTIFACT))("its ABI is the Solidity market's: same selectors", () => {
+    const sol = JSON.parse(readFileSync(ARTIFACT, 'utf8')) as { abi: Abi }
+    const selectors = (abi: Abi) =>
+      abi.filter((f) => f.type === 'function').map((f) => toFunctionSelector(f as AbiFunction))
+    for (const s of selectors(MARKET_ABI)) expect(selectors(sol.abi)).toContain(s)
   })
 })

@@ -33,6 +33,16 @@ export function proofRoutes(deps: { cfg: Config; db: Db; proof?: ProofSource; no
     const demo = cfg.NEAR_NETWORK === 'testnet' && !src?.warehouse
     const net = src?.warehouse?.net ?? HOOD_MAINNET
     const warehouse = src?.warehouse ? await src.warehouse.address().catch(() => null) : null
+    // Units minted with `demo:` proofs (testnet, before a warehouse bought anything): nothing stands behind them, so the
+    // warehouse is held only to the rest.
+    const simulated = new Map<string, bigint>()
+    for (const o of all<{ payload: string }>(
+      db,
+      "SELECT payload FROM chain_ops WHERE kind = 'mint' AND status = 'done'",
+    )) {
+      const p = JSON.parse(o.payload) as { token: string; units: string; proof?: string }
+      if (p.proof?.startsWith('demo:')) simulated.set(p.token, (simulated.get(p.token) ?? 0n) + BigInt(p.units))
+    }
     const rows = await Promise.all(
       tokenIds.map(async (id) => {
         const units = src ? await src.supply(id).catch(() => null) : null
@@ -46,7 +56,11 @@ export function proofRoutes(deps: { cfg: Config; db: Db; proof?: ProofSource; no
           // What the units stand for, and what the warehouse holds, both in shares (decimal strings).
           sharesOwed: units === null ? null : shares(units * UNIT),
           sharesHeld: sharesUi === null ? null : shares(sharesUi),
-          backed: units === null || sharesUi === null ? null : sharesUi >= units * UNIT,
+          simulatedUnits: (simulated.get(id) ?? 0n).toString(),
+          backed:
+            units === null || sharesUi === null
+              ? null
+              : sharesUi >= (units > (simulated.get(id) ?? 0n) ? units - (simulated.get(id) ?? 0n) : 0n) * UNIT,
         }
       }),
     )

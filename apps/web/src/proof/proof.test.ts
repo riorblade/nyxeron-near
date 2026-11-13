@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { backedText, proofLink, proofText } from './proof.ts'
 
-const row = { token: 'tsla', ticker: 'TSLA', address: '0x1', units: '3', sharesOwed: '0.003', sharesHeld: null }
+const row = {
+  token: 'tsla',
+  ticker: 'TSLA',
+  address: '0x1',
+  units: '3',
+  sharesOwed: '0.003',
+  sharesHeld: null,
+  simulatedUnits: '0',
+}
 
 describe('proof', () => {
   it('names a mint proof: simulated on testnet, else the swap', () => {

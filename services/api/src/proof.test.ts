@@ -58,6 +58,51 @@ describe('GET /api/proof (public)', () => {
     ])
   })
 
+  it('testnet: units minted earlier with demo: proofs are counted apart, not held against the warehouse', async () => {
+    const net = hoodTestnet({
+      usdg: `0x${'01'.repeat(20)}`,
+      market: `0x${'02'.repeat(20)}`,
+      tokens: Object.fromEntries(
+        ['tsla', 'nvda', 'aapl', 'googl', 'meta', 'msft', 'spy', 'qqq', 'crcl', 'mstr'].map((id, i) => [
+          id,
+          `0x${(i + 16).toString(16).repeat(20)}`,
+        ]),
+      ) as never,
+    })!
+    const t = setup(
+      {},
+      {
+        supply: async (tok) => (tok === 'tsla' ? 10n : 0n),
+        warehouse: { address: async () => '0xabc', sharesUi: async () => 6n * E15, net },
+      },
+    )
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('h', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (1, 'h', 'P', 1, 0, 0, 0)",
+    )
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (2, 'h', 'Q', 1, 0, 0, 0)",
+    )
+    const mint = (party: number, units: number, proof: string, status = 'done') =>
+      run(
+        t.db,
+        `INSERT INTO chain_ops (id, party_id, seq, kind, payload, status, next_at, updated_at)
+         VALUES (?, ?, 2, 'mint', ?, ?, 0, 0)`,
+        `mint:${party}:tsla`,
+        party,
+        JSON.stringify({ token: 'tsla', units: String(units), proof }),
+        status,
+      )
+    mint(1, 4, 'demo:x-1:tsla:1')
+    mint(2, 6, `0x${'ab'.repeat(32)}`)
+    const body = (await (await t.get('/api/proof')).json()) as { tokens: object[] }
+    expect(body.tokens).toEqual([
+      expect.objectContaining({ token: 'tsla', units: '10', simulatedUnits: '4', sharesHeld: '0.006', backed: true }),
+    ])
+  })
+
   it('mainnet: the warehouse holds at least what the units stand for, or says it does not', async () => {
     const held: Record<string, bigint> = { '0x322F0929c4625eD5bAd873c95208D54E1c003b2d': 7n * E15 }
     const { get } = setup(
