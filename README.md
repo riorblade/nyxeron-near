@@ -7,9 +7,11 @@ pop-up and no gas.
 
 Built at NEAR HACKATHON (1–14 Nov 2026).
 
-<!-- TODO(#39): tracks, open decision D1 in SPEC §12 (proposed: `games`, `defi`, `open`). -->
+**Track: Games With Real Economies (`games`).** The game loop comes first: price a menu, read the crowd, keep the
+margin. The economy is real (every drink is a slice of a real share), and players never notice the chain: Google
+sign-in, no gas, no pop-up, shares as NEP-245 tokens.
 
-**Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Repo: https://github.com/riorblade/nyxeron-near
+**Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Docs: https://docs.nyxeron.xyz · Repo: https://github.com/riorblade/nyxeron-near
 
 <!-- TODO(#40): X post link and demo video. -->
 

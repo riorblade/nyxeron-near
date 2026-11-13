@@ -217,10 +217,10 @@ Bukti mainnet di README: satu top-up, satu pembelian minuman, satu swap saham gu
 
 ## 12. Keputusan terbuka
 
-| #   | Keputusan                                                             | Rekomendasi                                                       |
-| --- | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| D1  | Track                                                                 | `games` + `defi` + `open` (+ `realworld` kalau cash-out CEO jadi) |
-| D2  | Akun mainnet (kontrak, api, treasury, relayer) dan akun payout hadiah | tim buat sendiri                                                  |
-| D3  | Dana mainnet untuk bukti                                              | ≈ $20                                                             |
-| D4  | Fallback kalau tanda tangan Privy ternyata ber-UI                     | pembelian lewat saldo di kontrak + session key (spike 03)         |
-| D5  | Riwayat repo berisi string token lama sebelum dibuka publik           | bersihkan (force-push) atau buat ulang repo                       |
+| #   | Keputusan                                                             | Rekomendasi                                               |
+| --- | --------------------------------------------------------------------- | --------------------------------------------------------- |
+| D1  | Track                                                                 | diputuskan 13 Nov: `games` saja                           |
+| D2  | Akun mainnet (kontrak, api, treasury, relayer) dan akun payout hadiah | tim buat sendiri                                          |
+| D3  | Dana mainnet untuk bukti                                              | ≈ $20                                                     |
+| D4  | Fallback kalau tanda tangan Privy ternyata ber-UI                     | pembelian lewat saldo di kontrak + session key (spike 03) |
+| D5  | Riwayat repo berisi string token lama sebelum dibuka publik           | bersihkan (force-push) atau buat ulang repo               |
