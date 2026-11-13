@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/purple.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* NYXERON: the night palette of the game and nyxeron.xyz, dark only. */
+.dark {
+  --color-fd-background: #090319;
+  --color-fd-foreground: #f3ecff;
+  --color-fd-muted: #120826;
+  --color-fd-muted-foreground: #a597c2;
+  --color-fd-card: #120826;
+  --color-fd-card-foreground: #f3ecff;
+  --color-fd-popover: #120826;
+  --color-fd-popover-foreground: #f3ecff;
+  --color-fd-border: #2c1f47;
+  --color-fd-primary: #dd47fc;
+  --color-fd-primary-foreground: #090319;
+  --color-fd-secondary: #160d26;
+  --color-fd-secondary-foreground: #f3ecff;
+  --color-fd-accent: #1d1232;
+  --color-fd-accent-foreground: #f3ecff;
+  --color-fd-ring: #dd47fc;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
