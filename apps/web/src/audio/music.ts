@@ -1,6 +1,7 @@
 // Club music: the lounge track outside the club, the DJ crate inside it, and the beat the venue dances to.
-// One <audio> element through Web Audio (an analyser reads the kick). Browsers only start sound after a tap, so it
-// begins on the first pointer or key press; the mute choice is remembered in this browser.
+// One <audio> element, routed through Web Audio (an analyser reads the kick) once the player has touched the page.
+// Browsers decide when sound may start: it is tried at once (a browser that trusts this site lets it play), again on
+// the first scroll, and for sure on the first pointer or key press. The mute choice is remembered in this browser.
 import { useEffect, useSyncExternalStore } from 'react'
 import { BeatTracker } from './beat.ts'
 
@@ -29,9 +30,14 @@ let bins: Uint8Array<ArrayBuffer> | undefined
 let unlocked = false
 const beat = new BeatTracker()
 const listeners = new Set<() => void>()
-let snapshot: { mode: MusicMode; muted: boolean; title: string } = { mode, muted, title: '' }
+let snapshot: { mode: MusicMode; muted: boolean; title: string; playing: boolean } = {
+  mode,
+  muted,
+  title: '',
+  playing: false,
+}
 const emit = () => {
-  snapshot = { mode, muted, title: nowPlaying() }
+  snapshot = { mode, muted, title: nowPlaying(), playing: Boolean(el && !el.paused) }
   for (const l of listeners) l()
 }
 
@@ -48,6 +54,15 @@ function setup() {
   el.addEventListener('ended', () => {
     if (mode === 'club') next()
   })
+  el.addEventListener('play', emit)
+  el.addEventListener('pause', emit)
+  return el
+}
+
+// An AudioContext made before a tap stays suspended and would silence the element routed through it, so Web Audio
+// joins only after the first tap.
+function route() {
+  if (ctx || !el) return
   try {
     ctx = new AudioContext()
     analyser = ctx.createAnalyser()
@@ -58,7 +73,6 @@ function setup() {
   } catch {
     // No Web Audio: the music still plays, the venue keeps its own clock.
   }
-  return el
 }
 
 function load(file: string, loop: boolean) {
@@ -75,8 +89,10 @@ function next() {
 }
 
 function play() {
-  if (!el || muted || !unlocked || mode === 'off') return
+  if (!el || muted || mode === 'off') return
+  if (unlocked) route()
   void ctx?.resume()
+  // Before a tap this only works where the browser already trusts the site; otherwise the tap retries it.
   void el.play().catch(() => {})
 }
 
@@ -122,19 +138,23 @@ export function useMusicState() {
       return () => listeners.delete(l)
     },
     () => snapshot,
+    () => snapshot,
   )
 }
 
-// Sound may start once the player has touched the page.
+// Sound is sure to start once the player has touched the page; a first scroll tries it too.
 if (typeof window !== 'undefined') {
   const unlock = () => {
     unlocked = true
     window.removeEventListener('pointerdown', unlock)
     window.removeEventListener('keydown', unlock)
+    window.removeEventListener('touchend', unlock)
     apply()
   }
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
+  window.addEventListener('touchend', unlock)
+  window.addEventListener('scroll', () => play(), { once: true, passive: true })
 }
 
 /** What the 3D venue reads every frame (see venue/scene3d.ts). */
