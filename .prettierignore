@@ -9,3 +9,7 @@ HACKATHON.md
 .next
 .source
 next-env.d.ts
+
+# vendored anatomy kit and the figure it generates (apps/web/scripts/bar-figure.mjs)
+apps/web/scripts/iso/
+apps/web/src/landing/bar-figure.ts

@@ -33,6 +33,26 @@
       "destination": "https://api.nyxeron.xyz/api/:path*"
     },
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "nyxeron.xyz"
+        }
+      ],
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.nyxeron.xyz"
+        }
+      ],
+      "destination": "/landing.html"
+    },
+    {
       "source": "/((?!assets/|venue/|landing/|robots.txt).*)",
       "destination": "/index.html"
     }

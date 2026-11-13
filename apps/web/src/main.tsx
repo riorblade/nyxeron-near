@@ -1,6 +1,6 @@
 import './index.css'
 import { lazy, StrictMode, Suspense } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import { MusicToggle } from './audio/MusicToggle.tsx'
 import { type MusicMode, useMusic } from './audio/music.ts'
 import { Landing } from './landing/Landing.tsx'
@@ -34,10 +34,17 @@ function Want({ mode }: { mode: MusicMode }) {
   return null
 }
 
+const onLanding = (path: string) => isLandingHost() || path.startsWith('/landing')
+
+/** The bottom-left music pill, on every screen but the landing, which has its switch in the top bar. */
+function Pill() {
+  return onLanding(usePath()) ? null : <MusicToggle />
+}
+
 function App() {
   const path = usePath()
   // nyxeron.xyz shows only the landing (vercel.json sends app paths to app.nyxeron.xyz).
-  if (isLandingHost() || path.startsWith('/landing')) return <Landing />
+  if (onLanding(path)) return <Landing />
   return (
     <Suspense fallback={null}>
       {path.startsWith('/practice') ? (
@@ -57,10 +64,14 @@ function App() {
   )
 }
 
-createRoot(document.getElementById('root')!).render(
+const tree = (
   <StrictMode>
     <App />
     <Music />
-    <MusicToggle />
-  </StrictMode>,
+    <Pill />
+  </StrictMode>
 )
+// nyxeron.xyz is served prerendered (scripts/prerender.mjs): pick up that HTML instead of painting it again.
+const root = document.getElementById('root')!
+if (root.firstElementChild && onLanding(location.pathname)) hydrateRoot(root, tree)
+else createRoot(root).render(tree)
