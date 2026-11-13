@@ -11,8 +11,11 @@ Steps 2–6 cost little on testnet with `network-config testnet` and fresh accou
 and `v1.signer-prod.testnet`. The funder was a faucet account (`near account create-account sponsor-by-faucet-service`,
 10 NEAR), and the four accounts were `c.`, `owner.`, `relayer.` and `wh.nyx-rehearse-1794409317.testnet`.
 
-- Step 1: `src` unchanged since `2be2144` (the audit). `cargo near build reproducible-wasm` at `e45d0b8` gives 345,575 bytes,
-  SHA-256 `9fa25bdb0da779e192e09c0c43b3f2435348df3c560c6f6cc8f661b2291f9e7a`.
+- Step 1: `src` unchanged since `2be2144` (the audit). `cargo near build reproducible-wasm` at `5be892e` gives 345,575
+  bytes, SHA-256 `9fa25bdb0da779e192e09c0c43b3f2435348df3c560c6f6cc8f661b2291f9e7a` (the contract's NEP-330 metadata
+  names that commit). At `e45d0b8` the same source gives `861c4d7bfac7fc646497fee2762f5b424a7047261f7179156dcf4fc91fe092a1`
+  (#122, built on macOS and on Linux). The build embeds the commit, so the hash changes with the commit even when
+  `src` doesn't: compare the chain with a build of the commit you deployed.
 - Step 3: the deployed code's SHA-256 is the same. The contract used 346.0 KB of storage (≈ 3.46 NEAR).
 - Step 4: `config()` named the USDC, the treasury and the quote key, with `paused: false`. `tokens()` was byte for byte
   `nyxeron.testnet`'s (1,180 bytes), and both accounts were registered on USDC.
