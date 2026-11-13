@@ -360,6 +360,15 @@ describe('the settlement job', () => {
   })
 })
 
+describe('the mint proof on testnet', () => {
+  it('is the synthetic swap hash once the testnet warehouse buyer exists, demo: without it', async () => {
+    const cfg = loadConfig({ PRIVY_APP_ID: 'a', PRIVY_APP_SECRET: 's' })
+    const buy = async (p: string, token: string, units: bigint) => `0xswap:${p}:${token}:${units}`
+    expect(await buySharesFor(cfg, buy)('7-1', 'tsla', 3n)).toBe('0xswap:7-1:tsla:3')
+    expect(await buySharesFor(cfg)('7-1', 'tsla', 3n)).toBe('demo:7-1:tsla:1')
+  })
+})
+
 describe('GET /api/parties/:id/settlement and the admin view', () => {
   it('says live, waiting, then shows every step with its hash', async () => {
     const t = testApp({ OWNER_ACCOUNT_ID: 'owner.testnet', OWNER_KEY: 'ed25519:x' }, fakeIdentity(), fakeQuotes)

@@ -3,6 +3,7 @@ import { run } from './db.ts'
 import { createApp } from './app.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
+import { hoodTestnet } from './hoodnet.ts'
 import { type ProofSource, shares } from './proof.ts'
 import { chainParty } from './settlement.ts'
 import { fakeIdentity, fakeQuotes } from './testing.ts'
@@ -24,8 +25,36 @@ describe('GET /api/proof (public)', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
     expect(body).toMatchObject({ network: 'testnet', contractId: 'nyxeron.testnet', demo: true, warehouse: null })
+    expect(body.hood).toMatchObject({ chainId: 4663, synthetic: false })
     expect(body.tokens).toEqual([
       expect.objectContaining({ token: 'tsla', units: '6', sharesOwed: '0.006', sharesHeld: null, backed: null }),
+    ])
+  })
+
+  it('testnet with the synthetic market: the warehouse holds synthetic stocks, labelled so, not demo', async () => {
+    const net = hoodTestnet({
+      usdg: `0x${'01'.repeat(20)}`,
+      market: `0x${'02'.repeat(20)}`,
+      tokens: Object.fromEntries(
+        ['tsla', 'nvda', 'aapl', 'googl', 'meta', 'msft', 'spy', 'qqq', 'crcl', 'mstr'].map((id, i) => [
+          id,
+          `0x${(i + 16).toString(16).repeat(20)}`,
+        ]),
+      ) as never,
+    })!
+    const held: Record<string, bigint> = { [net.tokens.tsla]: 6n * E15 }
+    const { get } = setup(
+      {},
+      {
+        supply: async (t) => (t === 'tsla' ? 6n : 0n),
+        warehouse: { address: async () => '0xabc', sharesUi: async (a) => held[a] ?? 0n, net },
+      },
+    )
+    const body = (await (await get('/api/proof')).json()) as Record<string, unknown>
+    expect(body).toMatchObject({ network: 'testnet', demo: false, warehouse: '0xabc' })
+    expect(body.hood).toMatchObject({ chainId: 46630, synthetic: true, explorer: net.explorer })
+    expect(body.tokens).toEqual([
+      expect.objectContaining({ token: 'tsla', address: net.tokens.tsla, sharesHeld: '0.006', backed: true }),
     ])
   })
 

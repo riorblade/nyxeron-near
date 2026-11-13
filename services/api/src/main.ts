@@ -14,6 +14,8 @@ import { marketQuotes } from './quotes.ts'
 import { robinhoodReader, verifyMenu } from './robinhood.ts'
 import { type BuyShares, buySharesFor, settlement } from './settlement.ts'
 import { hoodShares, type ProofSource } from './proof.ts'
+import { HOOD_MAINNET, hoodTestnet } from './hoodnet.ts'
+import { marketReader, syntheticMarket } from './market.ts'
 import { kyberSwap, robinhoodHood, warehouseBuyer } from './swap.ts'
 
 const cfg = loadConfig()
@@ -43,48 +45,61 @@ const proof: ProofSource = {
 }
 const app = createApp({ cfg, db, identity, quotes, relayer, oneclick, proof })
 
-// Mainnet: the warehouse buys the real shares (swap.ts) and the treasury keeps it in USDG and gas (fund.ts), both with
-// the warehouse account's key. Testnet keeps simulated purchases (SPEC §10).
+// Mainnet: the warehouse buys the real shares through KyberSwap (swap.ts) and the treasury keeps it in USDG and gas
+// (fund.ts), both with the warehouse account's key. Testnet: the same buyer buys synthetic stocks for test dollars on
+// Robinhood Chain testnet (hoodnet.ts, market.ts) once they are deployed; it was funded by hand when they were, so no
+// fund.ts. Without them or the key, testnet keeps simulated purchases (SPEC §10).
+const hoodNet = cfg.NEAR_NETWORK === 'mainnet' ? HOOD_MAINNET : hoodTestnet()
 let buyShares: BuyShares | undefined
 let fundTimer: ReturnType<typeof setInterval> | undefined
-if (cfg.NEAR_NETWORK === 'mainnet' && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_KEY) {
-  const hood = robinhoodHood()
+if (hoodNet && cfg.WAREHOUSE_ACCOUNT_ID && cfg.WAREHOUSE_KEY) {
+  const hood = robinhoodHood(hoodNet)
   // One Account object for the MPC requests and the deposits, so they never fight over the key's nonce.
   const account = warehouseAccount(cfg.NEAR_NETWORK, cfg.WAREHOUSE_ACCOUNT_ID, cfg.WAREHOUSE_KEY, {
     mayResign: freshDepositsOnly(cfg.USDC_CONTRACT_ID),
   })
   const signer = warehouse({
     mpc: nearMpc({ network: cfg.NEAR_NETWORK, account }),
-    chain: robinhoodChain(),
+    chain: robinhoodChain(hoodNet),
+    net: hoodNet,
   })
+  const price = (token: string) => quotes.spot(token as TokenId)
   buyShares = warehouseBuyer({
     db,
     hood,
-    kyber: kyberSwap(),
+    kyber: hoodNet.synthetic
+      ? syntheticMarket({ net: hoodNet, read: marketReader(hoodNet), signer, price, gasPrice: hood.gasPrice })
+      : kyberSwap(),
     signer,
-    price: (token) => quotes.spot(token as TokenId),
+    price,
+    net: hoodNet,
     log: console.log,
   }).buyShares
-  const funder = warehouseFunder({
-    db,
-    oneclick,
-    treasury: nearTreasury({ account, usdcId: cfg.USDC_CONTRACT_ID }),
-    chain: hood,
-    warehouse: signer.address,
-    ethPrice: dexEthPrice(),
-    usdcId: cfg.USDC_CONTRACT_ID,
-    log: console.log,
-  })
-  fundTimer = setInterval(() => {
-    void funder.tick().catch((e: unknown) => console.error('warehouse funding tick', e))
-  }, 15_000)
-  proof.warehouse = { address: signer.address, sharesUi: hoodShares(signer.address) }
+  // Mainnet only: the treasury keeps the warehouse in USDG and gas through 1Click (none on testnet).
+  if (!hoodNet.synthetic) {
+    const funder = warehouseFunder({
+      db,
+      oneclick,
+      treasury: nearTreasury({ account, usdcId: cfg.USDC_CONTRACT_ID }),
+      chain: hood,
+      warehouse: signer.address,
+      ethPrice: dexEthPrice(),
+      usdcId: cfg.USDC_CONTRACT_ID,
+      log: console.log,
+    })
+    fundTimer = setInterval(() => {
+      void funder.tick().catch((e: unknown) => console.error('warehouse funding tick', e))
+    }, 15_000)
+  }
+  proof.warehouse = { address: signer.address, sharesUi: hoodShares(signer.address, hoodNet), net: hoodNet }
   void signer.address().then(
-    (a) => console.log(`warehouse ${a} on Robinhood Chain, controlled by ${cfg.WAREHOUSE_ACCOUNT_ID}`),
+    (a) => console.log(`warehouse ${a} on Robinhood Chain ${hoodNet.name}, controlled by ${cfg.WAREHOUSE_ACCOUNT_ID}`),
     (e: unknown) => console.error('warehouse address', e),
   )
 } else if (cfg.NEAR_NETWORK === 'mainnet') {
   console.warn('no warehouse key: mainnet parties stop at their mint (not_built)')
+} else {
+  console.warn(`testnet without ${hoodNet ? 'a warehouse key' : 'the synthetic market (hood-testnet.ts)'}: demo proofs`)
 }
 
 // After each party: release its wholesale, back the owed units, settle them to the guests (one tx at a time).

@@ -6,7 +6,7 @@ import { api } from '../api.ts'
 import { explorer, nearProvider, type Network, view } from '../near/chain.ts'
 import { Link } from '../router.tsx'
 import { stepLabel } from '../city/settlement.ts'
-import { backedText, type PartySteps, proofText, type ProofView } from './proof.ts'
+import { backedText, type PartySteps, proofLink, proofText, type ProofView } from './proof.ts'
 
 type Config = { network: Network; contractId: string; usdcId: string; quoteKey: string | null }
 type Registered = [string, { symbol: string; backing: string; shares_per_unit: string }]
@@ -87,21 +87,7 @@ export function Proof() {
           </ul>
         </section>
       )}
-      <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm">
-        <h2 className="mb-2 font-semibold">On Robinhood Chain (id 4663)</h2>
-        <p className="text-muted">
-          The shares themselves are Robinhood stock tokens, held by the game's warehouse address, which a NEAR account
-          controls through Chain Signatures (no private key anywhere). The menu only uses these pinned token addresses:
-        </p>
-        <ul className="mt-2">
-          {Object.values(tokens).map((t) => (
-            <li key={t.ticker} className="tabular-nums">
-              <span className="inline-block w-14 font-semibold">{t.ticker}</span>
-              <span className="break-all text-muted">{t.address}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {proof && <Hood proof={proof} />}
       {proof === null && (
         <p className="mt-4 text-sm text-down">Couldn't read the parties right now. Try again in a minute.</p>
       )}
@@ -111,13 +97,59 @@ export function Proof() {
   )
 }
 
+/** Where the shares live: Robinhood's stock tokens on Robinhood Chain, or synthetic stand-ins on its testnet. */
+function Hood({ proof }: { proof: ProofView }) {
+  const { hood } = proof
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm">
+      <h2 className="mb-2 font-semibold">
+        On Robinhood Chain {hood.synthetic ? 'testnet ' : ''}(id {hood.chainId})
+      </h2>
+      {hood.synthetic ? (
+        <p className="text-muted">
+          Robinhood's stock tokens don't exist on its testnet, so here the game's warehouse buys{' '}
+          <span className="text-ink">synthetic stand-ins</span> (sTSLA, sNVDA, …) for test dollars, at the live market
+          price, from a small market contract. They are worth nothing; the purchase, the warehouse address (controlled
+          by a NEAR account through Chain Signatures, no private key anywhere) and the checks are the same as on
+          mainnet. The warehouse holds these token addresses:
+        </p>
+      ) : (
+        <p className="text-muted">
+          The shares themselves are Robinhood stock tokens, held by the game's warehouse address, which a NEAR account
+          controls through Chain Signatures (no private key anywhere). The menu only uses these pinned token addresses:
+        </p>
+      )}
+      <ul className="mt-2">
+        {hood.tokens.map((t) => (
+          <li key={t.token} className="tabular-nums">
+            <span className="inline-block w-14 font-semibold">
+              {hood.synthetic ? 's' : ''}
+              {t.ticker}
+            </span>
+            <a
+              className="break-all text-muted hover:text-ink"
+              href={`${hood.explorer}/address/${t.address}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t.address}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 const ticker = (id: string) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase()
 
-/** Units on the contract against the shares behind them (the warehouse's balance, read on mainnet). */
+/** Units on the contract against the shares behind them (the warehouse's balance, when it buys). */
 function Backing({ proof }: { proof: ProofView }) {
   return (
     <section className="mt-4 rounded-2xl border border-line bg-panel p-4 text-sm">
-      <h2 className="mb-2 font-semibold">Shares behind the units</h2>
+      <h2 className="mb-2 font-semibold">
+        Shares behind the units{proof.hood.synthetic && !proof.demo ? ' (synthetic, testnet)' : ''}
+      </h2>
       {proof.demo ? (
         <p className="text-muted">
           On testnet the share purchase after a party is simulated: each mint carries a <code>demo:</code> proof, and no
@@ -127,7 +159,15 @@ function Backing({ proof }: { proof: ProofView }) {
       ) : (
         proof.warehouse && (
           <p className="break-all text-muted">
-            Warehouse on Robinhood Chain: <span className="text-ink">{proof.warehouse}</span>
+            Warehouse on Robinhood Chain{proof.hood.synthetic ? ' testnet' : ''}:{' '}
+            <a
+              className="text-ink hover:underline"
+              href={`${proof.hood.explorer}/address/${proof.warehouse}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {proof.warehouse} ↗
+            </a>
           </p>
         )
       )}
@@ -224,9 +264,19 @@ function Parties({ proof, network }: { proof: ProofView; network: Network }) {
                           ) : (
                             `(${op.status})`
                           )}
-                          {'proof' in op && proofText(op.proof) && (
+                          {'proof' in op && proofText(op.proof, proof.hood) && (
                             <span className="block break-all" title={op.proof ?? undefined}>
-                              proof: {proofText(op.proof)}
+                              proof: {proofText(op.proof, proof.hood)}{' '}
+                              {proofLink(op.proof, proof.hood) && (
+                                <a
+                                  className="hover:text-ink"
+                                  href={proofLink(op.proof, proof.hood)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  swap ↗
+                                </a>
+                              )}
                             </span>
                           )}
                         </li>

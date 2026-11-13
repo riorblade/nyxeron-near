@@ -1,7 +1,7 @@
 // Buying the warehouse's shares on Robinhood Chain (SPEC §5.3 steps 3–4): a KyberSwap route USDG → the pinned stock
 // token, signed by the warehouse through Chain Signatures, broadcast, and checked by the pinned token's Transfer to the
 // warehouse in that very transaction before the swap's hash is handed back as the proof for mint_warehouse.
-import { isTokenId, SHARES_PER_UNIT, tokens } from '@nyxeron/game'
+import { isTokenId, SHARES_PER_UNIT } from '@nyxeron/game'
 import {
   type Address,
   createPublicClient,
@@ -21,9 +21,9 @@ import {
   type TransactionSerializableEIP1559,
 } from 'viem'
 import { z } from 'zod'
-import { ChainsigError, DEFAULT_LIMITS, KYBER_ROUTER, type Limits, USDG } from './chainsig.ts'
+import { ChainsigError, DEFAULT_LIMITS, type Limits, USDG } from './chainsig.ts'
 import { all, type Db, one, run, tx } from './db.ts'
-import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
+import { HOOD_MAINNET, type HoodNet } from './hoodnet.ts'
 import { type BuyShares, SettlementError } from './settlement.ts'
 
 const E18 = 10n ** 18n
@@ -128,7 +128,7 @@ const ROUTER_ABI = parseAbi([
  */
 export function checkSwapCall(
   data: Hex,
-  want: { from: Address; token: Address; amountIn: bigint; needRaw: bigint },
+  want: { from: Address; token: Address; amountIn: bigint; needRaw: bigint; usdg?: Address },
 ): bigint {
   // A wrong field in a swap call is refused for good. A call that isn't a swap at all may be a passing Kyber change,
   // so that one is retried (it counts against the job's attempts).
@@ -142,7 +142,7 @@ export function checkSwapCall(
   } catch {
     return bad('not_swap')
   }
-  if (!isAddressEqual(desc.srcToken, USDG)) bad('src_token')
+  if (!isAddressEqual(desc.srcToken, want.usdg ?? USDG)) bad('src_token')
   if (!isAddressEqual(desc.dstToken, want.token)) bad('dst_token')
   if (!isAddressEqual(desc.dstReceiver, want.from)) bad('receiver')
   if (desc.amount !== want.amountIn) bad('amount')
@@ -175,10 +175,15 @@ export function warehouseBuyer(deps: {
   price: (token: string) => Promise<number>
   limits?: SwapLimits
   gasLimits?: Limits
+  // Which Robinhood Chain: mainnet (Kyber, Robinhood's tokens) or testnet (our synthetic market). hoodnet.ts.
+  net?: HoodNet
   now?: () => number
   log?: (msg: string) => void
 }) {
   const { db, hood, kyber, signer } = deps
+  const net = deps.net ?? HOOD_MAINNET
+  const USDG_ = net.usdg
+  const ROUTER = net.router
   const limits = deps.limits ?? SWAP_LIMITS
   const gasLimits = deps.gasLimits ?? DEFAULT_LIMITS
   const now = deps.now ?? Date.now
@@ -321,12 +326,12 @@ export function warehouseBuyer(deps: {
       // Size USDG in so the minimum out (after slippage) covers what is owed.
       const keep = (out: bigint) => (out * (BPS - limits.slippageBps)) / BPS
       let amountIn = (worthMicro(needRaw) * (BPS + limits.sizingBufferBps)) / BPS + 1n
-      let route = await kyber.route(USDG, tokenAddr, amountIn)
+      let route = await kyber.route(USDG_, tokenAddr, amountIn)
       if (keep(BigInt(route.amountOut)) < needRaw) {
         const out = keep(BigInt(route.amountOut))
         if (out <= 0n) throw new SettlementError('short_quote')
         amountIn = (amountIn * needRaw * 1002n) / (out * 1000n) + 1n
-        route = await kyber.route(USDG, tokenAddr, amountIn)
+        route = await kyber.route(USDG_, tokenAddr, amountIn)
       }
       if (keep(BigInt(route.amountOut)) < needRaw) throw new SettlementError('short_quote')
 
@@ -342,9 +347,9 @@ export function warehouseBuyer(deps: {
       })
 
       const built = await kyber.build(route, from, limits.slippageBps)
-      if (!isAddressEqual(built.routerAddress, KYBER_ROUTER)) throw new SettlementError('wrong_router', true)
+      if (!isAddressEqual(built.routerAddress, ROUTER)) throw new SettlementError('wrong_router', true)
       // What the router will enforce, not Kyber's estimate, against what is owed and the 2 % rule.
-      const minOut = checkSwapCall(built.data, { from, token: tokenAddr, amountIn, needRaw })
+      const minOut = checkSwapCall(built.data, { from, token: tokenAddr, amountIn, needRaw, usdg: USDG_ })
       if (worthMicro(minOut) * BPS < amountIn * (BPS - limits.maxUnderMarketBps))
         throw new SettlementError('under_market')
 
@@ -352,7 +357,7 @@ export function warehouseBuyer(deps: {
       const swapGas = (BigInt(built.gas) * 3n) / 2n
       // Exactly this swap's amount every time: an allowance left by a swap that reverted is never more than the swap
       // checked above.
-      const approve = (await hood.usdgAllowance(from, KYBER_ROUTER)) !== amountIn
+      const approve = (await hood.usdgAllowance(from, ROUTER)) !== amountIn
       // Nothing is signed that the warehouse can't pay: a swap without the USDG reverts and still burns gas. Retryable:
       // fund.ts tops the warehouse up from the treasury.
       if ((await hood.ethBalance(from)) < (swapGas + (approve ? APPROVE_GAS : 0n)) * fee.maxFeePerGas)
@@ -362,9 +367,9 @@ export function warehouseBuyer(deps: {
       if (approve) {
         await signer.signAndSend({
           type: 'eip1559',
-          chainId: ROBINHOOD_CHAIN_ID,
-          to: USDG,
-          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [KYBER_ROUTER, amountIn] }),
+          chainId: net.chainId,
+          to: USDG_,
+          data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROUTER, amountIn] }),
           value: 0n,
           gas: APPROVE_GAS,
           ...fee,
@@ -373,7 +378,7 @@ export function warehouseBuyer(deps: {
 
       raw = await signer.sign({
         type: 'eip1559',
-        chainId: ROBINHOOD_CHAIN_ID,
+        chainId: net.chainId,
         to: built.routerAddress,
         data: built.data,
         value: 0n,
@@ -434,7 +439,7 @@ export function warehouseBuyer(deps: {
   async function buy(party: string, token: string, units: bigint): Promise<string> {
     if (!isTokenId(token)) throw new SettlementError('unknown_token', true)
     if (units <= 0n) throw new SettlementError('bad_units', true)
-    const tokenAddr = tokens[token].address as Address
+    const tokenAddr = net.tokens[token]
     const from = await signer.address()
 
     const hashes: string[] = []
@@ -469,16 +474,16 @@ export function warehouseBuyer(deps: {
 
 const STOCK_ABI = parseAbi(['function uiMultiplier() view returns (uint256)'])
 
-export function robinhoodHood(): Hood {
+export function robinhoodHood(net: HoodNet = HOOD_MAINNET): Hood {
   const client = createPublicClient({
-    transport: fallback(ROBINHOOD_RPCS.map((url) => http(url, { timeout: 15_000 }))),
+    transport: fallback(net.rpcs.map((url) => http(url, { timeout: 15_000 }))),
   })
   return {
     gasPrice: () => client.getGasPrice(),
     usdgAllowance: (owner, spender) =>
-      client.readContract({ address: USDG, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
+      client.readContract({ address: net.usdg, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] }),
     usdgBalance: (owner) =>
-      client.readContract({ address: USDG, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
+      client.readContract({ address: net.usdg, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
     ethBalance: (address) => client.getBalance({ address }),
     uiMultiplier: (token) => client.readContract({ address: token, abi: STOCK_ABI, functionName: 'uiMultiplier' }),
     minedNonce: (address) => client.getTransactionCount({ address, blockTag: 'latest' }),
