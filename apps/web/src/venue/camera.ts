@@ -1,9 +1,9 @@
-// The guest's cameras: through their own eyes, over their shoulder, or the drone (the club's orbit camera, which
-// the scene runs itself). Drag (mouse or the right half of a touch screen) turns the view.
+// The guest's cameras: through their own eyes, over their shoulder, the drone (the club's orbit camera, which
+// the scene runs itself), or the show (the scene's own cinematic shots: the DJ and the screen, the crowd, the room). Drag (mouse or the right half of a touch screen) turns the view.
 import * as THREE from 'three'
 
-export type CamMode = 'eyes' | 'behind' | 'drone'
-export const CAM_MODES: CamMode[] = ['behind', 'eyes', 'drone']
+export type CamMode = 'eyes' | 'behind' | 'drone' | 'show'
+export const CAM_MODES: CamMode[] = ['behind', 'eyes', 'drone', 'show']
 
 export class GuestCamera {
   /** Where the view looks (radians; 0 = +z) and how far up/down. */

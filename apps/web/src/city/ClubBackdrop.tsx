@@ -52,6 +52,7 @@ export function ClubBackdrop(props: {
               emote={emote}
               moves={props.moves}
               pyroAt={props.pyroAt}
+              onShowEnd={() => setCam('drone')}
             />
           )}
         </Suspense>
