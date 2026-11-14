@@ -37,8 +37,7 @@
   grid-template-columns: minmax(0, 1fr) 340px;
   align-items: start;
   gap: 20px;
-  width: min(1240px, calc(100vw - 32px));
-  margin-inline: calc(50% - min(620px, 50vw - 16px));
+  width: 100%;
 }
 .pv-wide {
   grid-column: 1 / -1;

@@ -21,10 +21,8 @@
   overflow-x: clip;
   padding: 18px var(--gutter) 72px;
 }
-/* A party keeps its old column: its own 3D club sits behind and PartyView lays itself out. */
+/* A party has its own 3D club behind and lays itself out up to 1240px, so its column takes the full width. */
 .cy.cy-in-party {
-  width: min(56rem, 100%);
-  margin: 0 auto;
   padding: 18px 16px 64px;
 }
 
@@ -322,8 +320,10 @@
   width: min(1180px, 100%);
   margin: 22px auto 0;
 }
+.cy-in-party .cy-top,
 .cy-in-party .cy-body {
-  width: 100%;
+  width: min(1240px, 100%);
+  margin-inline: auto;
 }
 .cy-alert {
   padding: 10px 14px;
