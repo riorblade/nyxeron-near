@@ -176,14 +176,14 @@ Practice mode works without any `.env`. Checks: `pnpm lint` (typecheck, ESLint, 
 
 ## Repo map
 
-| Folder                                   | What                                                              | Owner |
-| ---------------------------------------- | ----------------------------------------------------------------- | ----- |
-| [`apps/web`](apps/web)                   | Game client (Practice, City, portfolio, /proof) and back office   | Wisnu |
-| [`services/api`](services/api)           | Game server: accounts, parties, price quotes, relayer, settlement | Kiel  |
-| [`packages/game`](packages/game)         | The game as pure TS: stocks, economy numbers, party simulation    | Kiel  |
-| [`contracts/nyxeron`](contracts/nyxeron) | NEAR contract: drink payments and stock units as NEP-245          | Ghoza |
-| [`spikes`](spikes)                       | Hands-on tests behind each design choice, results in FINDINGS.md  | all   |
-| [`apps/docs`](apps/docs)                 | The docs at docs.nyxeron.xyz (Next.js, Fumadocs, MDX)             | Wisnu |
+| Folder                                   | What                                                              | Owner                                            |
+| ---------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------ |
+| [`apps/web`](apps/web)                   | Game client (Practice, City, portfolio, /proof) and back office   | [@AdityaWisnuu](https://github.com/AdityaWisnuu) |
+| [`services/api`](services/api)           | Game server: accounts, parties, price quotes, relayer, settlement | [@riorblade](https://github.com/riorblade)       |
+| [`packages/game`](packages/game)         | The game as pure TS: stocks, economy numbers, party simulation    | [@riorblade](https://github.com/riorblade)       |
+| [`contracts/nyxeron`](contracts/nyxeron) | NEAR contract: drink payments and stock units as NEP-245          | [@ghozzza](https://github.com/ghozzza)           |
+| [`spikes`](spikes)                       | Hands-on tests behind each design choice, results in FINDINGS.md  | all                                              |
+| [`apps/docs`](apps/docs)                 | The docs at docs.nyxeron.xyz (Next.js, Fumadocs, MDX)             | [@AdityaWisnuu](https://github.com/AdityaWisnuu) |
 
 Plan: [plan.md](plan.md) · design: [SPEC.md](SPEC.md) · spike results: [spikes/FINDINGS.md](spikes/FINDINGS.md) ·
 hackathon rules: [HACKATHON.md](HACKATHON.md) · how we work: [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -201,4 +201,8 @@ gasless relayer, signed drink quotes, Chain Signatures for the warehouse and the
 
 MIT, see [LICENSE](LICENSE).
 
-<!-- TODO(#39): confirm with the team before submission: other projects by team members at this hackathon (Q-015). -->
+## Other projects by the team
+
+Per Q-015: [@riorblade](https://github.com/riorblade) also takes part in this hackathon with
+[ComatoCard](https://github.com/comatocard/comatocard) (programmable payment cards for people and AI agents on NEAR), a
+separate and independent project. No code is shared between the two.
