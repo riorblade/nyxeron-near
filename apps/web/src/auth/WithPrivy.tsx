@@ -11,6 +11,8 @@ export function WithPrivy({ children }: { children: ReactNode }) {
       appId={appId}
       config={{
         loginMethods: ['google', 'email'],
+        // Dark with the gold token, so the sign-in modal belongs to the club behind it.
+        appearance: { theme: 'dark', accentColor: '#f5c451' },
         // Signing must never show a Privy screen: the player taps "buy" and the drink appears (spike 10).
         embeddedWallets: { showWalletUIs: false },
       }}

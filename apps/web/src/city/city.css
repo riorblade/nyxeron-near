@@ -771,7 +771,11 @@
 
 @media (max-width: 640px) {
   .cy {
-    padding-bottom: 64px;
+    /* Clears the global music pill fixed bottom-left, so the last card is never under it. */
+    padding-bottom: 96px;
+  }
+  .cy.cy-in-party {
+    padding-bottom: 96px;
   }
   .cy-where {
     display: none;
