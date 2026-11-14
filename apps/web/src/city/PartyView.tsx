@@ -1,8 +1,10 @@
-// One City party as a guest: the host's menu in dollars, buy a drink in one tap. The drink shows up at once and is
+// One City party as a guest: the bar's drinks as cards, buy one in a tap. The drink shows up on the tab at once and is
 // marked done when the relay confirms it; a refusal explains itself.
+import './party.css'
 import { tokens } from '@nyxeron/game'
 import type { InferResponseType } from 'hono/client'
 import { useCallback, useEffect, useState } from 'react'
+import { audio } from '../audio/music.ts'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { explorer, nearProvider } from '../near/chain.ts'
@@ -37,6 +39,8 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
   const [busy, setBusy] = useState<string>()
   const [walking, setWalking] = useState(false)
   const [settlement, setSettlement] = useState<Settlement>()
+  // The last confirmed buy, for the card's short reward animation.
+  const [won, setWon] = useState<{ key: number; token: string; ticker: string; qty: number }>()
 
   const load = useCallback(async () => {
     const r = await account.api.parties[':id'].$get({ param: { id: String(partyId) } })
@@ -102,6 +106,8 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         qty,
       )
       settle({ state: 'done', note: bought.hash, total: bought.total })
+      setWon({ key, token: row.token, ticker: row.ticker, qty })
+      audio.cash()
       rememberParty(partyId)
       void account.refreshBalance()
     } catch (e) {
@@ -113,18 +119,22 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
 
   if (error)
     return (
-      <section className="rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur">
+      <section className="pv-note">
         <p className="text-down">{error}</p>
-        <Link href="/city" className="mt-2 inline-block text-sm text-muted hover:text-ink">
+        <Link href="/city" className="pv-back">
           ← All parties
         </Link>
       </section>
     )
-  if (!party) return <p className="text-muted">Loading the party…</p>
+  if (!party) return <p className="pv-loading">Loading the party…</p>
 
   const isHost = Boolean(account.address && party.host.nearAccount === account.address)
+  const happy = party.live ? party.moves.find((m) => m.kind === 'happyHour') : undefined
+  const paid = drinks.filter((d) => d.state === 'done')
+  const owned = (ticker: string) => paid.filter((d) => d.ticker === ticker).reduce((n, d) => n + d.qty, 0)
+  const time = (ms: number) => new Date(ms).toLocaleTimeString([], { timeStyle: 'short' })
   return (
-    <div className="grid gap-4 md:grid-cols-[1fr_18rem]">
+    <div className="pv">
       <ClubBackdrop
         level={CLUB_LEVEL}
         moves={party.live ? party.moves.map((m) => m.kind) : []}
@@ -132,7 +142,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         walk={walking ? { name: account.profile?.name || 'Guest', onExit: () => setWalking(false) } : undefined}
       />
       {isHost && party.live && !walking && (
-        <div className="md:col-span-2">
+        <div className="pv-wide">
           <HostPrices
             account={account}
             partyId={partyId}
@@ -142,7 +152,7 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         </div>
       )}
       {isHost && party.live && !walking && (
-        <div className="md:col-span-2">
+        <div className="pv-wide">
           <HostMoves
             account={account}
             partyId={partyId}
@@ -152,129 +162,163 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
           />
         </div>
       )}
-      <section className={`rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur ${walking ? 'hidden' : ''}`}>
-        <div className="flex items-center justify-between gap-2">
-          <Link href="/city" className="text-xs text-muted hover:text-ink">
+      <section className="pv-main" hidden={walking}>
+        <header className="pv-head">
+          <Link href="/city" className="pv-back">
             ← All parties
           </Link>
-          <button
-            onClick={() => setWalking(true)}
-            className="rounded-full border border-neon/50 px-3 py-1 text-xs font-semibold text-neon hover:bg-neon/10"
-          >
-            Walk in the club
-          </button>
-        </div>
-        <h2 className="text-xl font-bold">{party.title}</h2>
-        <p className="text-sm text-muted">
-          {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
-          {party.live ? `until ${new Date(party.endsAt).toLocaleTimeString([], { timeStyle: 'short' })}` : 'not open'}
-        </p>
-        {party.live && party.moves.some((m) => m.kind === 'happyHour') && (
-          <p className="mt-2 rounded-lg bg-gold/15 px-3 py-1.5 text-sm font-semibold text-gold">
-            Happy hour: 20 % off every drink until{' '}
-            {new Date(party.moves.find((m) => m.kind === 'happyHour')!.until).toLocaleTimeString([], {
-              timeStyle: 'short',
-            })}
+          <div className="pv-marquee">
+            <span className={party.live ? 'pv-open' : 'pv-shut'}>{party.live ? 'Open' : 'Closed'}</span>
+            <h2 className="pv-title">{party.title}</h2>
+          </div>
+          <p className="pv-host">
+            {isHost ? 'Your party' : `Hosted by ${party.host.name || 'a host'}`} ·{' '}
+            {party.live ? `until ${time(party.endsAt)}` : 'not open'}
           </p>
-        )}
-        <ul className="mt-3 divide-y divide-line">
-          {party.menu.map((row) => (
-            <li key={row.token} className="flex items-center justify-between gap-3 py-2">
-              <div className="flex items-center gap-3">
-                <StockLogo id={row.token} size={36} />
-                <div>
-                  <div className="font-semibold">{row.ticker}</div>
-                  <div className="text-xs text-muted">
-                    {tokens[row.token as keyof typeof tokens]?.name ?? row.name} · 0.001 share
+          {happy && (
+            <p className="pv-happy">
+              <b>Happy hour</b> 20% off every drink until {time(happy.until)}
+            </p>
+          )}
+        </header>
+        <ul className="pv-bar" aria-label="The bar">
+          {party.menu.map((row) => {
+            const count = owned(row.ticker)
+            const pouring = busy === row.token
+            const reward = won?.token === row.token ? won : undefined
+            return (
+              <li key={row.token} className={`pv-drink${pouring ? ' is-pouring' : ''}${reward ? ' is-won' : ''}`}>
+                <div className="pv-face">
+                  <StockLogo id={row.token} size={44} />
+                  <div className="pv-id">
+                    <div className="pv-ticker">{row.ticker}</div>
+                    <div className="pv-name">{tokens[row.token as keyof typeof tokens]?.name ?? row.name}</div>
                   </div>
+                  {count > 0 && (
+                    <span key={count} className="pv-count" aria-label={`${count} bought here`}>
+                      ×{count}
+                    </span>
+                  )}
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {row.price < row.listPrice && (
-                  <span className="text-xs text-muted tabular-nums line-through">{usd(row.listPrice)}</span>
-                )}
-                <span className="font-semibold tabular-nums">{usd(row.price)}</span>
-                {[1, 3].map((qty) => (
-                  <button
-                    key={qty}
-                    disabled={!party.live || !account.canPay || busy !== undefined}
-                    onClick={() => void buy(row, qty)}
-                    className="rounded-lg bg-neon px-3 py-1.5 text-sm font-bold text-night disabled:opacity-40"
+                <div className="pv-price">
+                  <b>{pouring ? 'Pouring…' : usd(row.price)}</b>
+                  {row.price < row.listPrice && <s>{usd(row.listPrice)}</s>}
+                </div>
+                <div className="pv-share">0.001 share</div>
+                <div className="pv-buy">
+                  {[1, 3].map((qty) => (
+                    <button
+                      key={qty}
+                      disabled={!party.live || !account.canPay || busy !== undefined}
+                      onClick={() => void buy(row, qty)}
+                      aria-label={`Buy ${qty} ${row.ticker}`}
+                      className={qty === 1 ? 'pv-btn is-gold' : 'pv-btn'}
+                    >
+                      {qty === 1 ? 'Buy' : `×${qty}`}
+                    </button>
+                  ))}
+                </div>
+                {reward && (
+                  <div
+                    key={reward.key}
+                    className="pv-won"
+                    role="status"
+                    onAnimationEnd={(e) => {
+                      if (e.target === e.currentTarget) setWon((w) => (w?.key === reward.key ? undefined : w))
+                    }}
                   >
-                    {qty === 1 ? 'Buy' : `×${qty}`}
-                  </button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {!account.canPay && <p className="mt-3 text-xs text-muted">Setting up your account…</p>}
-        {!party.live && settlement && (
-          <p className="mt-3 text-sm">
-            <span className="text-muted">Shares: </span>
-            {settlementNote(settlement.status).text}{' '}
-            {settleHash(settlement) && account.config && (
-              <a
-                className="text-xs text-muted hover:text-ink"
-                href={`${explorer(account.config.network)}/txns/${settleHash(settlement)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                delivery receipt ↗
-              </a>
-            )}
-          </p>
-        )}
-        {!party.live && settlement && settlement.ops.length > 0 && account.config && (
-          <ol className="mt-2 list-decimal pl-5 text-xs text-muted">
-            {settlement.ops.map((op, i) => (
-              <li key={i}>
-                {stepLabel(op, (id) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase())}{' '}
-                {op.hash ? (
-                  <a
-                    className="hover:text-ink"
-                    href={`${explorer(account.config!.network)}/txns/${op.hash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    tx ↗
-                  </a>
-                ) : (
-                  `(${op.status})`
+                    <StockLogo id={row.token} size={30} />+{(reward.qty * 0.001).toFixed(3)} {reward.ticker}
+                  </div>
                 )}
               </li>
-            ))}
-          </ol>
-        )}
-      </section>
-      <section className={`rounded-2xl border border-line bg-panel/80 p-4 backdrop-blur ${walking ? 'hidden' : ''}`}>
-        <h3 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Your drinks</h3>
-        {drinks.length === 0 && <p className="text-sm text-muted">Nothing yet. Every drink is a slice of a share.</p>}
-        <ul className="space-y-2 text-sm">
-          {drinks.map((d) => (
-            <li
-              key={d.key}
-              className={d.state === 'failed' ? 'text-down' : d.state === 'done' ? 'text-up' : 'text-ink'}
-            >
-              <span className="font-semibold">
-                {d.qty} × {d.ticker}
-              </span>{' '}
-              {usd(d.total)} · {d.state === 'pending' ? 'paying…' : d.state === 'done' ? 'paid' : 'not paid'}
-              {d.state === 'failed' && d.note && <div className="text-xs">{d.note}</div>}
-              {d.state === 'done' && d.note && account.config && (
+            )
+          })}
+        </ul>
+        {!account.canPay && <p className="pv-wait">Setting up your account…</p>}
+        {!party.live && settlement && (
+          <div className="pv-settle">
+            <p>
+              <span className="text-muted">Shares: </span>
+              {settlementNote(settlement.status).text}{' '}
+              {settleHash(settlement) && account.config && (
                 <a
-                  className="ml-1 text-xs text-muted hover:text-ink"
-                  href={`${explorer(account.config.network)}/txns/${d.note}`}
+                  className="text-xs text-muted hover:text-ink"
+                  href={`${explorer(account.config.network)}/txns/${settleHash(settlement)}`}
                   target="_blank"
                   rel="noreferrer"
                 >
-                  receipt ↗
+                  delivery receipt ↗
                 </a>
               )}
-            </li>
-          ))}
-        </ul>
+            </p>
+            {settlement.ops.length > 0 && account.config && (
+              <ol className="mt-2 list-decimal pl-5 text-xs text-muted">
+                {settlement.ops.map((op, i) => (
+                  <li key={i}>
+                    {stepLabel(op, (id) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase())}{' '}
+                    {op.hash ? (
+                      <a
+                        className="hover:text-ink"
+                        href={`${explorer(account.config!.network)}/txns/${op.hash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        tx ↗
+                      </a>
+                    ) : (
+                      `(${op.status})`
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
       </section>
+      <aside className="pv-side" hidden={walking}>
+        <button onClick={() => setWalking(true)} className="pv-walk">
+          <img src="/landing/door-city.webp" alt="" />
+          <span className="pv-walk-tag">As your avatar</span>
+          <span className="pv-walk-name">Walk in the club</span>
+          <span className="pv-walk-go" aria-hidden>
+            Enter
+          </span>
+        </button>
+        <section className="pv-tab" aria-label="Your drinks">
+          <div className="pv-tab-hd">
+            <b>Your drinks</b>
+            <span>{party.title}</span>
+          </div>
+          {drinks.length === 0 && <p className="pv-tab-empty">Nothing yet. Every drink is a slice of a share.</p>}
+          <ul>
+            {drinks.map((d) => (
+              <li key={d.key} className={`pv-ln is-${d.state}`}>
+                <div className="pv-ln-row">
+                  <span>
+                    {d.qty} × {d.ticker}
+                  </span>
+                  <span>{usd(d.total)}</span>
+                </div>
+                <div className="pv-ln-st">
+                  {d.state === 'pending' ? 'paying…' : d.state === 'done' ? 'paid' : 'not paid'}
+                  {d.state === 'done' && d.note && account.config && (
+                    <a href={`${explorer(account.config.network)}/txns/${d.note}`} target="_blank" rel="noreferrer">
+                      receipt ↗
+                    </a>
+                  )}
+                </div>
+                {d.state === 'failed' && d.note && <div className="pv-ln-why">{d.note}</div>}
+              </li>
+            ))}
+          </ul>
+          {paid.length > 0 && (
+            <div className="pv-tab-tot">
+              <span>Paid</span>
+              <span>{usd(paid.reduce((n, d) => n + d.total, 0))}</span>
+            </div>
+          )}
+        </section>
+      </aside>
     </div>
   )
 }

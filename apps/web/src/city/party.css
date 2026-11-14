@@ -1,0 +1,1038 @@
+/* A City party as a game screen (PartyView, HostParty, HostPrices, HostMoves): the club behind, the bar's drinks as
+   cards, the tab as a printed receipt, the host's controls as a desk. Neon for mood, gold only for buying and money. */
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+@font-face {
+  font-family: 'NX Display';
+  src: url('/landing/fonts/big-shoulders-display.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.pv,
+.pv-note,
+.pv-loading,
+.hp {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --edge: color-mix(in srgb, var(--color-ink) 14%, transparent);
+  --glass: color-mix(in srgb, var(--color-night) 72%, transparent);
+}
+.pv [hidden],
+.hp [hidden] {
+  display: none !important;
+}
+.pv :focus-visible,
+.hp :focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+/* ---------- the party screen ---------- */
+/* Wider than City's page column: the bar reads as a screen, not a column of text. */
+.pv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: 20px;
+  width: min(1240px, calc(100vw - 32px));
+  margin-inline: calc(50% - min(620px, 50vw - 16px));
+}
+.pv-wide {
+  grid-column: 1 / -1;
+}
+.pv-loading,
+.pv-note {
+  font: 500 14px/1.4 var(--mono);
+  color: var(--color-muted);
+}
+.pv-note {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-panel) 85%, transparent);
+}
+.pv-back {
+  width: fit-content;
+  font: 500 12px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pv-back:hover {
+  color: var(--color-ink);
+}
+
+.pv-main {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.pv-head {
+  display: grid;
+  gap: 10px;
+}
+.pv-marquee {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.pv-title {
+  min-width: 0;
+  font: 900 clamp(40px, 5.4vw, 76px) / 0.9 var(--display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+  color: #fff4fd;
+  text-shadow:
+    0 0 6px var(--color-neon),
+    0 0 24px color-mix(in srgb, var(--color-neon) 70%, transparent);
+}
+/* The bar's neon OPEN sign, the same tube as the app home; lights once. */
+.pv-open,
+.pv-shut {
+  flex: none;
+  padding: 3px 11px 4px;
+  border: 2px solid var(--color-neon);
+  border-radius: 10px;
+  font: 900 20px/1 var(--display);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffe3f8;
+  text-shadow: 0 0 8px var(--color-neon);
+  box-shadow:
+    0 0 12px var(--color-neon),
+    inset 0 0 8px color-mix(in srgb, var(--color-neon) 60%, transparent);
+  animation: pv-tube 1.2s steps(1) 0.3s both;
+}
+.pv-shut {
+  border-color: var(--edge);
+  color: var(--color-muted);
+  text-shadow: none;
+  box-shadow: none;
+  animation: none;
+}
+@keyframes pv-tube {
+  0%,
+  18%,
+  40% {
+    opacity: 0.25;
+    box-shadow: none;
+  }
+  10%,
+  28%,
+  56%,
+  100% {
+    opacity: 1;
+  }
+}
+.pv-host {
+  font: 500 13px/1.4 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pv-happy {
+  width: fit-content;
+  padding: 8px 14px;
+  border: 2px solid var(--color-gold);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-gold) 14%, var(--glass));
+  font-size: 15px;
+  color: var(--color-ink);
+}
+.pv-happy b {
+  margin-right: 8px;
+  font: 900 20px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+/* The bar: one card per drink, like VA-11 Hall-A's drink list. */
+.pv-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+}
+.pv-drink {
+  position: relative;
+  display: grid;
+  align-content: start;
+  padding: 14px 14px 12px;
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-violet) 16%, transparent), transparent 55%), var(--glass);
+  backdrop-filter: blur(6px);
+  transition:
+    transform 0.3s var(--ease),
+    border-color 0.2s;
+}
+.pv-drink:hover,
+.pv-drink:focus-within {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--color-neon) 70%, transparent);
+}
+.pv-drink.is-pouring {
+  border-color: var(--color-gold);
+}
+.pv-drink.is-won {
+  animation: pv-bump 0.5s var(--ease);
+}
+@keyframes pv-bump {
+  30% {
+    transform: translateY(-6px) scale(1.04);
+  }
+}
+.pv-face {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.pv-id {
+  min-width: 0;
+}
+.pv-count {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--color-neon);
+  color: var(--color-night);
+  font: 900 18px/1 var(--display);
+  letter-spacing: 0.04em;
+  animation: pv-tick 0.45s var(--ease);
+}
+@keyframes pv-tick {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+.pv-ticker {
+  font: 900 26px/0.95 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.pv-name {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 14px;
+  color: var(--color-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pv-share {
+  margin: 4px 0 12px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pv-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+}
+.pv-price b {
+  font: 800 30px/1 var(--display);
+  letter-spacing: 0.02em;
+  color: var(--color-gold);
+  font-variant-numeric: tabular-nums;
+}
+.pv-price s {
+  font: 500 13px/1 var(--mono);
+  color: var(--color-muted);
+}
+.pv-buy {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+/* A push button: a solid lip under the face, pressed down on tap. */
+.pv-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 2px solid var(--edge);
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  box-shadow: 0 4px 0 var(--color-night);
+  font: 900 20px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  transition:
+    transform 0.12s var(--ease),
+    box-shadow 0.12s var(--ease);
+}
+.pv-btn.is-gold {
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+  color: var(--color-night);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-gold) 45%, #000);
+}
+.pv-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.pv-btn:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 transparent;
+}
+.pv-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* The buy moment: the shares rise off the card and fade, about a second. */
+.pv-won {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 8px;
+  border: 2px solid var(--color-gold);
+  border-radius: 12px;
+  background: var(--color-night);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--color-gold) 35%, transparent);
+  font: 900 24px/1 var(--display);
+  letter-spacing: 0.03em;
+  color: var(--color-gold);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: pv-rise 1.5s var(--ease) both;
+}
+@keyframes pv-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1.08);
+  }
+  30% {
+    transform: translate(-50%, -10px) scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -70px) scale(1);
+  }
+}
+
+.pv-wait,
+.pv-settle {
+  font-size: 14px;
+}
+.pv-wait {
+  font-family: var(--mono);
+  color: var(--color-muted);
+}
+.pv-settle {
+  padding: 14px 16px;
+  border: 2px solid var(--edge);
+  border-radius: 14px;
+  background: var(--glass);
+}
+
+/* ---------- the side: walk in, then the tab ---------- */
+.pv-side {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 18px;
+}
+.pv-walk {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: end;
+  justify-items: start;
+  height: 190px;
+  padding: 16px 18px;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 2px solid var(--color-neon);
+  background: var(--color-panel);
+  text-align: left;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--color-neon) 30%, transparent);
+  transition: transform 0.3s var(--ease);
+}
+.pv-walk img {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+  transition: transform 0.6s var(--ease);
+}
+.pv-walk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent 25%, color-mix(in srgb, var(--color-night) 88%, transparent) 85%);
+}
+.pv-walk:hover {
+  transform: translateY(-3px);
+}
+.pv-walk:hover img {
+  transform: scale(1.06);
+}
+.pv-walk:active {
+  transform: scale(0.98);
+}
+.pv-walk-tag {
+  font: 500 11px/1.2 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffd2f4;
+}
+.pv-walk-name {
+  margin-top: 4px;
+  font: 900 34px/0.92 var(--display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pv-walk-go {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-neon);
+  color: var(--color-night);
+  font: 900 15px/1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* The tab: a thermal receipt from the bar printer, like Practice's. */
+.pv-tab {
+  --paper: #ecebf2;
+  --paper-ink: #1d1626;
+  --paper-dim: #6b6178;
+  padding: 20px 20px 34px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  font: 400 13px/1.5 var(--mono);
+  border-radius: 4px 4px 0 0;
+  -webkit-mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x;
+  mask: radial-gradient(circle 7px at 50% 100%, transparent 98%, #000) 0 0 / 18px 100% repeat-x;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.6));
+}
+.pv-tab-hd {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1.5px dashed #9d94ad;
+  text-align: center;
+}
+.pv-tab-hd b {
+  font: 800 28px/1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pv-tab-hd span {
+  font-size: 12px;
+  color: var(--paper-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.pv-tab-empty {
+  padding: 8px 0;
+  color: var(--paper-dim);
+}
+.pv-tab ul {
+  display: grid;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.pv-ln-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 600;
+}
+.pv-ln-st {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+.pv-ln-st a {
+  text-transform: none;
+  letter-spacing: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pv-ln-st a:hover {
+  color: var(--paper-ink);
+}
+.pv-ln.is-pending .pv-ln-row {
+  color: var(--paper-dim);
+}
+.pv-ln.is-failed .pv-ln-row,
+.pv-ln.is-failed .pv-ln-st {
+  color: #b3243a;
+  text-decoration: line-through;
+}
+.pv-ln-why {
+  font-size: 12px;
+  color: #b3243a;
+}
+.pv-tab-tot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1.5px dashed #9d94ad;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .pv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* One column: the walk-in card first, the tab after the bar. */
+  .pv-side {
+    display: contents;
+  }
+  .pv-wide {
+    order: -2;
+  }
+  .pv-walk {
+    order: -1;
+    height: 120px;
+  }
+}
+@media (max-width: 760px) {
+  .pv-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .pv-drink {
+    padding: 12px;
+  }
+  .pv-ticker {
+    font-size: 22px;
+  }
+  .pv-price b {
+    font-size: 26px;
+  }
+  .pv-face svg {
+    width: 36px;
+    height: 36px;
+  }
+  .pv-won {
+    gap: 6px;
+    padding: 6px 10px 6px 6px;
+    font-size: 18px;
+  }
+  .pv-won svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv-open,
+  .pv-drink.is-won,
+  .pv-count {
+    animation: none;
+  }
+  .pv-won {
+    animation: pv-fade 1.5s linear both;
+    transform: translateX(-50%);
+  }
+  .pv-drink,
+  .pv-walk,
+  .pv-walk img {
+    transition: none;
+  }
+}
+@keyframes pv-fade {
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- the host's screens ---------- */
+.hp {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(16px, 2.4vw, 26px);
+  border: 2px solid var(--edge);
+  border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+}
+.hp-kicker {
+  font: 500 12px/1.3 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.hp-title {
+  margin-top: 4px;
+  font: 900 clamp(40px, 5vw, 64px) / 0.9 var(--display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.hp-title.is-small {
+  font-size: clamp(30px, 3.4vw, 40px);
+}
+.hp-error {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--color-down);
+}
+/* The one gold action on a host screen, bottom-right like a game's PLAY. */
+.hp-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 12px;
+  background: var(--color-gold);
+  color: var(--color-night);
+  box-shadow:
+    0 5px 0 color-mix(in srgb, var(--color-gold) 45%, #000),
+    0 0 26px color-mix(in srgb, var(--color-gold) 40%, transparent);
+  font: 900 26px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 0.15s var(--ease);
+}
+.hp-go span {
+  font: 600 0.7em/1 var(--mono);
+}
+.hp-go.is-small {
+  min-height: 44px;
+  font-size: 22px;
+}
+.hp-go:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+.hp-go:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+.hp-go:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Set up your night: the club's door on the right, the form over the dark side. */
+.hp-night {
+  min-height: 340px;
+  border-color: color-mix(in srgb, var(--color-gold) 45%, transparent);
+}
+.hp-night-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 70% 50%;
+  opacity: 0.55;
+  mask-image: linear-gradient(90deg, transparent 20%, #000 75%);
+}
+.hp-night-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 24px;
+  align-items: end;
+  margin-top: 22px;
+}
+.hp-field {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  max-width: 520px;
+}
+.hp-step {
+  font: 500 12px/1.2 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.hp-name {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 2px solid var(--edge);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-night) 85%, transparent);
+  font: 800 30px/1 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+.hp-name::placeholder {
+  color: color-mix(in srgb, var(--color-muted) 55%, transparent);
+}
+.hp-name:focus {
+  outline: none;
+  border-color: var(--color-neon);
+}
+.hp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hp-chip {
+  min-width: 56px;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 2px solid var(--edge);
+  background: color-mix(in srgb, var(--color-night) 85%, transparent);
+  font: 900 24px/1 var(--display);
+  color: var(--color-muted);
+  transition:
+    transform 0.15s var(--ease),
+    border-color 0.15s;
+}
+.hp-chip:hover {
+  color: var(--color-ink);
+}
+.hp-chip.is-on {
+  border-color: var(--color-neon);
+  background: color-mix(in srgb, var(--color-neon) 18%, var(--color-night));
+  color: var(--color-ink);
+  transform: translateY(-2px);
+}
+.hp-hint {
+  max-width: 420px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+/* Prices as a mixing desk: one channel strip per drink, the fader is the price. */
+.hp-desk {
+  border-color: color-mix(in srgb, var(--color-gold) 45%, transparent);
+}
+.hp-desk-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hp-desk-scale {
+  font: 500 12px/1.2 var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.hp-strips {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.hp-strip {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 12px 6px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: color-mix(in srgb, var(--color-night) 80%, transparent);
+}
+.hp-strip.is-moved {
+  border-color: color-mix(in srgb, var(--color-neon) 60%, transparent);
+}
+.hp-strip-id {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+.hp-strip-id b {
+  font: 900 18px/1 var(--display);
+  letter-spacing: 0.04em;
+}
+.hp-strip-read {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.hp-strip-read b {
+  font: 800 20px/1 var(--display);
+  color: var(--color-gold);
+  font-variant-numeric: tabular-nums;
+}
+.hp-strip-read i {
+  font: 500 11px/1 var(--mono);
+  font-style: normal;
+  color: var(--color-muted);
+}
+/* A vertical fader: a slot with a cap you pull up. Bottom is wholesale, top is 3×. */
+.hp-fader {
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 34px;
+  height: 150px;
+  background: linear-gradient(90deg, transparent 14px, #05030a 14px 20px, transparent 20px);
+  cursor: grab;
+}
+.hp-fader::-webkit-slider-runnable-track {
+  width: 34px;
+  background: transparent;
+}
+.hp-fader::-webkit-slider-thumb {
+  appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #000;
+  background: linear-gradient(180deg, #e9e4f5 0 44%, var(--color-gold) 44% 56%, #b9b1cc 56%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+}
+.hp-fader::-moz-range-thumb {
+  width: 34px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #000;
+  background: linear-gradient(180deg, #e9e4f5 0 44%, var(--color-gold) 44% 56%, #b9b1cc 56%);
+}
+.hp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+/* The CEO's moves: big pictured buttons, one per move. */
+.hp-moves {
+  border-color: color-mix(in srgb, var(--color-gold) 45%, transparent);
+}
+.hp-move-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.hp-move {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  align-content: end;
+  justify-items: start;
+  min-height: 170px;
+  padding: 14px;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 2px solid var(--edge);
+  background:
+    radial-gradient(120% 90% at 70% 10%, color-mix(in srgb, var(--color-violet) 35%, transparent), transparent),
+    var(--color-night);
+  box-shadow: 0 5px 0 #05030a;
+  text-align: left;
+  transition:
+    transform 0.2s var(--ease),
+    border-color 0.2s,
+    box-shadow 0.2s var(--ease);
+}
+.hp-move-art {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  z-index: -1;
+  height: 92%;
+  max-width: 70%;
+  object-fit: contain;
+  object-position: right bottom;
+  opacity: 0.8;
+  transition: transform 0.4s var(--ease);
+}
+.hp-move.is-pyro .hp-move-art {
+  right: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 100%;
+  opacity: 0.85;
+}
+.hp-move::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--color-night) 92%, transparent) 88%);
+}
+.hp-move:not(:disabled):hover {
+  transform: translateY(-3px);
+  border-color: var(--color-neon);
+}
+.hp-move:not(:disabled):hover .hp-move-art {
+  transform: scale(1.05);
+}
+.hp-move:not(:disabled):active {
+  transform: translateY(5px);
+  box-shadow: none;
+}
+.hp-move:disabled {
+  cursor: default;
+}
+.hp-move.is-on {
+  border-color: var(--color-neon);
+  box-shadow:
+    0 5px 0 #05030a,
+    0 0 24px color-mix(in srgb, var(--color-neon) 40%, transparent);
+}
+.hp-move.is-spent {
+  opacity: 0.45;
+}
+.hp-move-name {
+  font: 900 30px/0.95 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.hp-move-note {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--color-muted);
+}
+.hp-move-on,
+.hp-move-used {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 2px 9px 3px;
+  border: 2px solid var(--color-neon);
+  border-radius: 8px;
+  font: 900 18px/1 var(--display);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffe3f8;
+  text-shadow: 0 0 8px var(--color-neon);
+  box-shadow: 0 0 10px var(--color-neon);
+}
+.hp-move-used {
+  border-color: var(--edge);
+  color: var(--color-muted);
+  text-shadow: none;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .hp-night-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hp-night-art {
+    mask-image: linear-gradient(180deg, transparent 30%, #000 100%);
+    opacity: 0.35;
+  }
+  .hp-go {
+    width: 100%;
+  }
+  .hp-foot .hp-go {
+    width: auto;
+  }
+  .hp-move-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hp-move {
+    min-height: 140px;
+  }
+  .hp-move-name {
+    font-size: 24px;
+  }
+  /* On a phone the desk turns: one row per drink, the fader runs left to right. */
+  .hp-strips {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .hp-strip {
+    grid-template-columns: 64px minmax(0, 1fr) 64px;
+    justify-items: stretch;
+    align-items: center;
+    padding: 8px 10px;
+  }
+  .hp-strip-id {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+  }
+  .hp-strip-id svg {
+    width: 24px;
+    height: 24px;
+  }
+  .hp-strip-id b {
+    font-size: 16px;
+  }
+  .hp-strip-read {
+    justify-items: end;
+  }
+  .hp-fader {
+    writing-mode: horizontal-tb;
+    direction: ltr;
+    width: 100%;
+    height: 34px;
+    background: linear-gradient(180deg, transparent 14px, #05030a 14px 20px, transparent 20px);
+  }
+  .hp-fader::-webkit-slider-runnable-track {
+    width: auto;
+    height: 34px;
+  }
+  .hp-fader::-webkit-slider-thumb {
+    width: 20px;
+    height: 34px;
+    background: linear-gradient(90deg, #e9e4f5 0 44%, var(--color-gold) 44% 56%, #b9b1cc 56%);
+  }
+  .hp-fader::-moz-range-thumb {
+    width: 20px;
+    height: 34px;
+    background: linear-gradient(90deg, #e9e4f5 0 44%, var(--color-gold) 44% 56%, #b9b1cc 56%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-go,
+  .hp-chip,
+  .hp-move,
+  .hp-move-art {
+    transition: none;
+  }
+}

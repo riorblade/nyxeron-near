@@ -1,3 +1,4 @@
+import './party.css'
 import { useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { navigate } from '../router.tsx'
@@ -29,47 +30,50 @@ export function HostParty({ account }: { account: Account }) {
   }
 
   return (
-    <section className="rounded-2xl border border-line bg-panel p-4">
-      <h2 className="mb-2 text-sm font-semibold tracking-wide text-muted uppercase">Host a party</h2>
+    <section className="hp hp-night">
+      <img className="hp-night-art" src="/landing/stairs.webp" alt="" />
+      <div className="hp-kicker">Tonight you're the CEO</div>
+      <h2 className="hp-title">Set up your night</h2>
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="hp-night-form"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
         }}
       >
-        <label className="flex min-w-48 flex-1 flex-col text-xs text-muted">
-          Name
+        <label className="hp-field">
+          <span className="hp-step">1 · Name the party</span>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={40}
             placeholder="Friday Night"
-            className="mt-1 rounded-lg border border-line bg-night px-3 py-2 text-sm text-ink"
+            className="hp-name"
           />
         </label>
-        <label className="flex flex-col text-xs text-muted">
-          Minutes
-          <select
-            value={minutes}
-            onChange={(e) => setMinutes(Number(e.target.value))}
-            className="mt-1 rounded-lg border border-line bg-night px-3 py-2 text-sm text-ink"
-          >
+        <div className="hp-field" role="radiogroup" aria-label="Minutes">
+          <span className="hp-step">2 · How long, in minutes</span>
+          <div className="hp-chips">
             {[5, 10, 15, 30, 60].map((m) => (
-              <option key={m} value={m}>
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={minutes === m}
+                onClick={() => setMinutes(m)}
+                className={`hp-chip${minutes === m ? ' is-on' : ''}`}
+              >
                 {m}
-              </option>
+              </button>
             ))}
-          </select>
-        </label>
-        <button
-          disabled={busy || !account.canPay}
-          className="rounded-xl bg-gold px-4 py-2 font-bold text-night disabled:opacity-40"
-        >
-          Open it
+          </div>
+        </div>
+        <p className="hp-hint">Every drink starts at 1.5× wholesale. You tune the prices once it's open.</p>
+        <button disabled={busy || !account.canPay} className="hp-go">
+          Open the doors <span aria-hidden>↵</span>
         </button>
       </form>
-      {error && <p className="mt-2 text-sm text-down">{error}</p>}
+      {error && <p className="hp-error">{error}</p>}
     </section>
   )
 }

@@ -1,14 +1,20 @@
 // The CEO's moves at a live party. The api checks who may and how often; every guest's club shows them.
+import './party.css'
 import { useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { playerMessage } from './errors.ts'
 
 type Kind = 'happyHour' | 'anthem' | 'mcHype' | 'pyro'
-const MOVES: { kind: Kind; label: string; note: string }[] = [
-  { kind: 'happyHour', label: 'Happy hour', note: '20 % off every drink for 5 min, once a party' },
-  { kind: 'anthem', label: 'Anthem', note: 'the DJ drops the big one, 2 min' },
-  { kind: 'mcHype', label: 'MC hype', note: 'the MC works the floor, 1 min' },
-  { kind: 'pyro', label: 'Pyro', note: 'flames and CO₂ now' },
+const MOVES: { kind: Kind; label: string; note: string; art: string }[] = [
+  {
+    kind: 'happyHour',
+    label: 'Happy hour',
+    note: '20% off every drink for 5 min, once a party',
+    art: '/venue/sprites/bartender-1.webp',
+  },
+  { kind: 'anthem', label: 'Anthem', note: 'The DJ drops the big one, 2 min', art: '/venue/sprites/dj-deck.webp' },
+  { kind: 'mcHype', label: 'MC hype', note: 'The MC works the floor, 1 min', art: '/venue/sprites/mc.webp' },
+  { kind: 'pyro', label: 'Pyro', note: 'Flames and CO₂ now', art: '' },
 ]
 
 export function HostMoves(props: {
@@ -38,9 +44,9 @@ export function HostMoves(props: {
     }
   }
   return (
-    <section className="rounded-2xl border border-gold/40 bg-panel/80 p-4 backdrop-blur">
-      <h3 className="mb-2 text-sm font-semibold tracking-wide text-gold uppercase">Work the crowd</h3>
-      <div className="grid gap-2 sm:grid-cols-4">
+    <section className="hp hp-moves">
+      <div className="hp-kicker">Work the crowd</div>
+      <div className="hp-move-row">
         {MOVES.map((m) => {
           const on = props.active.includes(m.kind)
           const spent = m.kind === 'happyHour' && props.happyHourUsed && !on
@@ -49,15 +55,30 @@ export function HostMoves(props: {
               key={m.kind}
               disabled={busy !== undefined || on || spent}
               onClick={() => void send(m.kind)}
-              className="flex flex-col rounded-xl border border-line bg-night p-3 text-left hover:border-gold disabled:opacity-50"
+              className={`hp-move is-${m.kind}${on ? ' is-on' : ''}${spent ? ' is-spent' : ''}`}
             >
-              <span className="font-bold">{on ? `${m.label} · on` : spent ? `${m.label} · used` : m.label}</span>
-              <span className="text-xs text-muted">{m.note}</span>
+              {m.art ? (
+                <img className="hp-move-art" src={m.art} alt="" />
+              ) : (
+                <video
+                  className="hp-move-art"
+                  src="/venue/effect/fire.webm"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  aria-hidden
+                />
+              )}
+              {on && <span className="hp-move-on">On</span>}
+              {spent && <span className="hp-move-used">Used</span>}
+              <span className="hp-move-name">{m.label}</span>
+              <span className="hp-move-note">{m.note}</span>
             </button>
           )
         })}
       </div>
-      {msg && <p className="mt-2 text-sm text-down">{msg}</p>}
+      {msg && <p className="hp-error">{msg}</p>}
     </section>
   )
 }

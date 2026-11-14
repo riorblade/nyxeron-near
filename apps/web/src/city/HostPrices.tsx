@@ -1,5 +1,6 @@
 // The host's menu: one price per drink between wholesale and 3× wholesale, saved together. The api checks the same
 // bounds against today's market, and the contract checks them again on every purchase.
+import './party.css'
 import { useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
@@ -36,43 +37,46 @@ export function HostPrices(props: { account: Account; partyId: number; menu: Row
   }
 
   return (
-    <section className="rounded-2xl border border-gold/40 bg-panel/80 p-4 backdrop-blur">
-      <h3 className="mb-1 text-sm font-semibold tracking-wide text-gold uppercase">You're the host · your prices</h3>
-      <ul className="divide-y divide-line">
+    <section className="hp hp-desk">
+      <div className="hp-desk-top">
+        <div>
+          <div className="hp-kicker">You're the host</div>
+          <h3 className="hp-title is-small">Your prices</h3>
+        </div>
+        <span className="hp-desk-scale">Wholesale 1× to 3×</span>
+      </div>
+      <ul className="hp-strips">
         {props.menu.map((row) => {
           const value = draft[row.token] ?? row.price
           return (
-            <li key={row.token} className="grid grid-cols-[4rem_1fr_6rem] items-center gap-3 py-2 text-sm">
-              <span className="flex items-center gap-2 font-semibold">
-                <StockLogo id={row.token} size={22} />
-                {row.ticker}
+            <li key={row.token} className={`hp-strip${row.token in draft ? ' is-moved' : ''}`}>
+              <span className="hp-strip-id">
+                <StockLogo id={row.token} size={34} />
+                <b>{row.ticker}</b>
               </span>
               <input
                 type="range"
                 aria-label={`${row.ticker} price`}
-                className="accent-gold"
+                className="hp-fader"
                 min={row.wholesale}
                 max={row.maxPrice}
                 step={CENT}
                 value={value}
                 onChange={(e) => setDraft((d) => ({ ...d, [row.token]: Number(e.target.value) }))}
               />
-              <span className="text-right tabular-nums">
-                {usd(value)} <span className="text-xs text-muted">{(value / row.wholesale).toFixed(2)}×</span>
+              <span className="hp-strip-read">
+                <b>{usd(value)}</b>
+                <i>{(value / row.wholesale).toFixed(2)}×</i>
               </span>
             </li>
           )
         })}
       </ul>
-      <div className="mt-2 flex items-center gap-3">
-        <button
-          disabled={!changed}
-          onClick={() => void save()}
-          className="rounded-xl bg-gold px-4 py-2 text-sm font-bold text-night disabled:opacity-40"
-        >
+      <div className="hp-foot">
+        {msg && <span className={msg.ok ? 'text-up' : 'text-down'}>{msg.text}</span>}
+        <button disabled={!changed} onClick={() => void save()} className="hp-go is-small">
           Save prices
         </button>
-        {msg && <span className={`text-sm ${msg.ok ? 'text-up' : 'text-down'}`}>{msg.text}</span>}
       </div>
     </section>
   )
