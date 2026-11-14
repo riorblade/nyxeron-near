@@ -196,12 +196,12 @@ lalu dikirim ke `/api/relay`. Saldo dalam dolar; kata NEAR/Robinhood hanya di `/
 
 ## 10. Lingkungan testnet (juri)
 
-| Bagian                          | Testnet                                                                                                                  | Mainnet              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| Akun, relayer, kontrak, NEP-245 | asli (NEAR testnet)                                                                                                      | asli                 |
-| USDC                            | USDC testnet Circle, atau token NEP-141 kita sendiri dengan tombol "Get test dollars"                                    | USDC asli            |
-| Top-up/cash-out                 | tombol faucet; quote 1Click asli ditampilkan sebagai dry run                                                             | 1Click asli          |
-| Saham                           | Chain Signatures testnet MPC asli; pembelian saham disimulasikan, unit dicetak dengan proof `demo:<id>` dan diberi label | Robinhood Chain asli |
+| Bagian                          | Testnet                                                                                                                        | Mainnet              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Akun, relayer, kontrak, NEP-245 | asli (NEAR testnet)                                                                                                            | asli                 |
+| USDC                            | USDC testnet Circle, atau token NEP-141 kita sendiri dengan tombol "Get test dollars"                                          | USDC asli            |
+| Top-up/cash-out                 | tombol faucet; quote 1Click asli ditampilkan sebagai dry run                                                                   | 1Click asli          |
+| Saham                           | Chain Signatures testnet MPC asli; gudang membeli saham sintetis (sTSLA, …) di Robinhood Chain testnet, hash swap = proof mint | Robinhood Chain asli |
 
 Bukti mainnet di README: satu top-up, satu pembelian minuman, satu swap saham gudang, satu `settle`, satu cash-out.
 

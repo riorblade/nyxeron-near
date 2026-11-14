@@ -36,11 +36,13 @@ The menu only buys these Robinhood Chain token addresses:
 
 [Proof](https://app.nyxeron.xyz/proof) shows the same list, live.
 
-## Testnet: the purchase is simulated
+## Testnet: synthetic stocks on Robinhood Chain testnet
 
-Robinhood Chain's stock tokens and NEAR Intents exist on mainnet only. On testnet, everything else is real: the payment, the contract's split, the release, the mint and the delivery are all testnet transactions you can open on the explorer. Only the purchase is simulated: a testnet mint carries a `demo:` proof instead of a swap hash, and Proof labels it as a "simulated purchase (testnet)".
+Robinhood's stock tokens exist on mainnet only, so on testnet the warehouse buys **synthetic stand-ins** (`sTSLA`, `sCRCL`, …, 18 decimals with `balanceOfUI` like the real ones) for test dollars (`tUSDG`) from a small market on **Robinhood Chain testnet** (chain 46630). Everything else is the same code as mainnet: the warehouse is a Robinhood Chain address controlled by the NEAR account `nyx-warehouse.testnet` through Chain Signatures, the api checks the swap call, the exact approve, the minimum out and the token's `Transfer` to the warehouse, and the swap's hash is the mint's proof on NEAR.
 
-The mainnet purchase is built and waits for its first mainnet run.
+A real example, party `dfec4462-20` (2 × CRCL): the warehouse bought 0.002 sCRCL in [this swap](https://explorer.testnet.chain.robinhood.com/tx/0x09056919ca56003a5eb33eb29ddddce30ef2c17ef1466c0651f266d2c31f2d76), then the contract minted the units with that hash as proof and settled them to the guest. Proof labels these holdings "synthetic (testnet)".
+
+NEAR Intents has no testnet, so Add money and Cash out show real 1Click quotes as dry runs.
 
 ## Check it on Proof
 
