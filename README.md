@@ -7,9 +7,18 @@ pop-up and no gas.
 
 Built at NEAR HACKATHON (1–14 Nov 2026).
 
-<!-- TODO(#39): tracks, open decision D1 in SPEC §12 (proposed: `games`, `defi`, `open`). -->
+**Tracks: `games` + `defi` + `open`.**
 
-**Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Repo: https://github.com/riorblade/nyxeron-near
+- **Games With Real Economies (`games`)**, the lead: the game loop comes first (price a menu, read the crowd, keep
+  the margin). The economy is real (every drink is a slice of a real share), and players never notice the chain:
+  Google sign-in, no gas, no pop-up, shares as NEP-245 tokens.
+- **Unstoppable DeFi (`defi`)**: our own contract takes each USDC payment and splits it between the host's margin and
+  the wholesale cost, money comes in and goes out from any chain through NEAR Intents (1Click), and the stock tokens
+  are bought by an address a NEAR account controls through Chain Signatures.
+- **Open Innovation (`open`)**: a full product on NEAR: NEP-366 meta-transactions, NEP-245 units, NEAR accounts made
+  through Privy, our own contract and api.
+
+**Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Docs: https://docs.nyxeron.xyz · Repo: https://github.com/riorblade/nyxeron-near
 
 <!-- TODO(#40): X post link and demo video. -->
 
