@@ -1359,6 +1359,11 @@ body:has(.game) {
   align-items: center;
   font-size: 12px;
 }
+.shelf .tk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .shelf .s b {
   text-align: right;
   font: 400 14px var(--display);

@@ -9,6 +9,7 @@ import { Link } from '../router.tsx'
 import { type Owed, owedTo, shares, unitsByToken } from './holdings.ts'
 import { type Settlement, settleHash, settlementNote } from './settlement.ts'
 import { visitedParties } from './visited.ts'
+import { StockLogo } from '../stock/StockLogo.tsx'
 
 // The parties a player is shown at most (newest first): each one costs an api call and a chain read.
 const MAX_PARTIES = 10
@@ -96,7 +97,10 @@ export function Portfolio({ account }: { account: Account }) {
             <ul className="text-sm">
               {held.map(([id, units]) => (
                 <li key={id} className="flex justify-between tabular-nums">
-                  <span>{ticker(id)}</span>
+                  <span className="flex items-center gap-2">
+                    <StockLogo id={id} size={20} />
+                    {ticker(id)}
+                  </span>
                   <span>
                     {shares(units)} share{' '}
                     <span className="text-muted">

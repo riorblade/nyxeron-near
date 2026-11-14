@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { playerMessage } from './errors.ts'
+import { StockLogo } from '../stock/StockLogo.tsx'
 
 type Row = { token: string; ticker: string; price: number; wholesale: number; maxPrice: number }
 const CENT = 10_000
@@ -42,7 +43,10 @@ export function HostPrices(props: { account: Account; partyId: number; menu: Row
           const value = draft[row.token] ?? row.price
           return (
             <li key={row.token} className="grid grid-cols-[4rem_1fr_6rem] items-center gap-3 py-2 text-sm">
-              <span className="font-semibold">{row.ticker}</span>
+              <span className="flex items-center gap-2 font-semibold">
+                <StockLogo id={row.token} size={22} />
+                {row.ticker}
+              </span>
               <input
                 type="range"
                 aria-label={`${row.ticker} price`}

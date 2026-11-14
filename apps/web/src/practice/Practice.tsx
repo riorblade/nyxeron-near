@@ -25,6 +25,7 @@ import { useMusic } from '../audio/music.ts'
 import { navigate } from '../router.tsx'
 import { Icon, Mark, Star } from './icons.tsx'
 import { type Career, usePractice } from './usePractice.ts'
+import { StockLogo } from '../stock/StockLogo.tsx'
 
 // three.js is big: the club loads with this screen, not with the landing page.
 const Venue = lazy(() => import('../venue/Venue.tsx').then((m) => ({ default: m.Venue })))
@@ -545,18 +546,6 @@ function Window(props: {
   )
 }
 
-function Bottle({ c }: { c: string }) {
-  return (
-    <span className="bottle" style={{ '--c': c } as CSSProperties}>
-      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
-        <path d="M6 4h12l-1.5 15a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" fill={c} />
-        <path d="M6.6 9h10.8" stroke="#fff" strokeOpacity=".7" strokeWidth="1.5" />
-        <path d="M8.5 11.5v6" stroke="#fff" strokeOpacity=".45" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    </span>
-  )
-}
-
 // A price is sent to the game when the slider is let go, so dragging doesn't flood the night with changes.
 function MenuRow({ night, id, onPrice }: { night: Night; id: TokenId; onPrice: (id: TokenId, micro: number) => void }) {
   const item = night.menu[id]!
@@ -569,7 +558,7 @@ function MenuRow({ night, id, onPrice }: { night: Night; id: TokenId; onPrice: (
   }
   return (
     <div className="drink slot">
-      <Bottle c={drinkColor(id)} />
+      <StockLogo id={id} size={40} />
       <div className="nm">
         <b>{tokens[id].ticker}</b>
         <small className={change >= 0 ? 'good' : 'bad'}>
@@ -742,7 +731,10 @@ function NightView(props: {
               const units = n.sales[id]?.units ?? 0
               return (
                 <div className="s" key={id}>
-                  <span>{tokens[id].ticker}</span>
+                  <span className="tk">
+                    <StockLogo id={id} size={16} />
+                    {tokens[id].ticker}
+                  </span>
                   <span className="tube">
                     <i style={{ width: `${(units / most) * 100}%`, '--c': drinkColor(id) } as CSSProperties} />
                   </span>
