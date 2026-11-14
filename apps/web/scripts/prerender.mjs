@@ -1,7 +1,8 @@
 // After `vite build`: renders the landing to HTML once and writes dist/landing.html, which vercel.json serves at the
 // root of nyxeron.xyz. Crawlers, link previews and AI screeners then read the landing's text without running JS;
-// main.tsx hydrates it in the browser. The app host keeps the plain index.html.
-import { readFileSync, writeFileSync } from 'node:fs'
+// main.tsx hydrates it in the browser. The app shell moves to dist/app.html: Vercel serves an existing file before it
+// applies rewrites, so a dist/index.html would always answer `/` and the landing host would never get landing.html.
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { createElement } from 'react'
 import { renderToString } from 'react-dom/server'
@@ -25,7 +26,8 @@ try {
     .replace('<div id="root"></div>', `<div id="root">${body}</div>`)
   if (page === html || !page.includes('<h1')) throw new Error('prerender: the landing did not render into index.html')
   writeFileSync(`${root}dist/landing.html`, page)
-  console.log(`prerender: dist/landing.html (${(page.length / 1024).toFixed(1)} KB)`)
+  renameSync(`${root}dist/index.html`, `${root}dist/app.html`)
+  console.log(`prerender: dist/landing.html (${(page.length / 1024).toFixed(1)} KB), app shell at dist/app.html`)
 } finally {
   await vite.close()
 }
