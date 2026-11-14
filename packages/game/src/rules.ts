@@ -12,6 +12,20 @@ export const VENUES = [
   { level: 4, capacity: 150, reputation: 75 },
 ] as const
 
+/** Staff the CEO hires for a night. Bartenders pour (each serves this many drinks a minute, the rest of the orders
+ * wait and pass); security works the door (each lets this many guests in a minute). Both are paid for the night. */
+export const STAFF = {
+  bartender: { min: 1, max: 6, perMinute: 3, wageUsd: 4 },
+  security: { min: 1, max: 5, perMinute: 2, wageUsd: 3 },
+} as const
+/** The crew a venue level opens with (enough for its room on a normal night). */
+export const STAFF_BY_LEVEL = [
+  { bartender: 1, security: 1 },
+  { bartender: 2, security: 1 },
+  { bartender: 2, security: 2 },
+  { bartender: 4, security: 3 },
+] as const
+
 /** Guests trying to get in per minute: a base plus more for a better reputation. */
 export const ARRIVALS_BASE = 0.6
 export const ARRIVALS_PER_REPUTATION = 0.02

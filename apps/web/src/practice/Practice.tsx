@@ -13,6 +13,7 @@ import {
   priceNow,
   report,
   rules,
+  staffCost,
   SHARES_PER_UNIT,
   type TokenId,
   tokenIds,
@@ -131,7 +132,7 @@ function useKeys(handler: (key: string) => void) {
   }, [])
 }
 
-type Win = 'menu' | 'dj' | null
+type Win = 'menu' | 'dj' | 'staff' | null
 
 export function Practice() {
   const p = usePractice()
@@ -201,7 +202,13 @@ export function Practice() {
             {p.phase === 'report' && <Report night={night} nights={career.nights} onNext={p.nextNight} />}
             {win && (
               <Window kind={win} onClose={() => setWin(null)} onTab={setWin}>
-                {win === 'menu' ? <MenuView night={night} onPrice={p.price} /> : <DjView night={night} onDj={p.dj} />}
+                {win === 'menu' ? (
+                  <MenuView night={night} onPrice={p.price} />
+                ) : win === 'dj' ? (
+                  <DjView night={night} onDj={p.dj} />
+                ) : (
+                  <StaffView night={night} onStaff={p.staff} />
+                )}
               </Window>
             )}
             {p.week && <WeekResult reports={p.week} onClose={p.closeWeek} />}
@@ -483,7 +490,8 @@ function Day(props: {
     if (props.busy) return
     if (k === '1') props.openWin('menu')
     else if (k === '2') props.openWin('dj')
-    else if (k === '3') props.onWeek()
+    else if (k === '3') props.openWin('staff')
+    else if (k === '4') props.onWeek()
     else if (k === 'ArrowLeft') go(-1)
     else if (k === 'ArrowRight') go(1)
     else if (k === 'Enter' && !locked && !(document.activeElement instanceof HTMLButtonElement)) props.onOpen()
@@ -604,8 +612,17 @@ function Day(props: {
           <Icon k="phones" />
           DJ
         </button>
-        <button className="dockbtn" style={{ '--c': 'var(--violet)' } as CSSProperties} onClick={props.onWeek}>
+        <button
+          className="dockbtn"
+          style={{ '--c': 'var(--gold)' } as CSSProperties}
+          onClick={() => props.openWin('staff')}
+        >
           <kbd>3</kbd>
+          <Icon k="door" />
+          Staff
+        </button>
+        <button className="dockbtn" style={{ '--c': 'var(--violet)' } as CSSProperties} onClick={props.onWeek}>
+          <kbd>4</kbd>
           <Icon k="zap" />
           Week
         </button>
@@ -638,6 +655,13 @@ const WINDOWS: Record<Exclude<Win, null>, { name: string; desc: string; icon: st
     c: 'var(--house)',
     key: '2',
   },
+  staff: {
+    name: 'The crew',
+    desc: 'Bartenders pour the drinks, security works the door. More hands, more sales, more wages.',
+    icon: 'door',
+    c: 'var(--gold)',
+    key: '3',
+  },
 }
 
 function Window(props: {
@@ -650,7 +674,8 @@ function Window(props: {
   useKeys((k) => {
     if (k === 'Escape') props.onClose()
     else if (k === '1') props.onTab('menu')
-    else if (k === '2' && props.kind === 'menu') props.onTab('dj')
+    else if (k === '2') props.onTab('dj')
+    else if (k === '3') props.onTab('staff')
   })
   return (
     <div className="modal" onClick={(e) => e.target === e.currentTarget && props.onClose()}>
@@ -782,6 +807,54 @@ function DjView({ night, onDj }: { night: Night; onDj: (g: Genre) => void }) {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+const CREW = {
+  bartender: { name: 'Bartenders', line: 'drinks poured a minute' },
+  security: { name: 'Security', line: 'guests let in a minute' },
+} as const
+
+/** Hire the night's crew: a stepper per role, with what it does and what it costs. */
+function StaffView({ night, onStaff }: { night: Night; onStaff: (s: Night['staff']) => void }) {
+  return (
+    <div className="crew">
+      {(['bartender', 'security'] as const).map((k) => {
+        const r = rules.STAFF[k]
+        const n = night.staff[k]
+        const set = (v: number) => onStaff({ ...night.staff, [k]: Math.min(r.max, Math.max(r.min, v)) })
+        return (
+          <div key={k} className="crewrow">
+            <div className="crewname">
+              <b>{CREW[k].name}</b>
+              <small>
+                {n * r.perMinute} {CREW[k].line} · {usd(n * r.wageUsd * 1_000_000)} a night
+              </small>
+            </div>
+            <div className="stepper" role="group" aria-label={CREW[k].name}>
+              <button
+                aria-label={`Fewer ${CREW[k].name.toLowerCase()}`}
+                disabled={n <= r.min}
+                onClick={() => set(n - 1)}
+              >
+                −
+              </button>
+              <output aria-live="polite">{n}</output>
+              <button
+                aria-label={`More ${CREW[k].name.toLowerCase()}`}
+                disabled={n >= r.max}
+                onClick={() => set(n + 1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )
+      })}
+      <p className="crewtotal">
+        Wages tonight: <b>{usd(staffCost(night.staff))}</b>, paid out of the margin
+      </p>
     </div>
   )
 }
@@ -1104,10 +1177,18 @@ function Report({ night, nights, onNext }: { night: Night; nights: number; onNex
           <span>Shares bought (cost)</span>
           <span>{usd(-r.wholesale)}</span>
         </div>
-        <hr />
-        <div className="ln tot">
+        <div className="ln">
           <span>Margin</span>
           <span>{usd(r.margin)}</span>
+        </div>
+        <div className="ln minus">
+          <span>Staff wages</span>
+          <span>{usd(-r.staffCost)}</span>
+        </div>
+        <hr />
+        <div className="ln tot">
+          <span>Profit</span>
+          <span>{usd(r.profit)}</span>
         </div>
         <div className="ft">
           {r.guestsCame} guests, {r.units} drinks

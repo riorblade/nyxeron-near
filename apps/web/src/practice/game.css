@@ -2284,3 +2284,57 @@ body:has(.game) {
 .star.on {
   filter: drop-shadow(0 0 6px var(--neon)) drop-shadow(0 0 16px color-mix(in srgb, var(--neon) 60%, transparent));
 }
+
+/* The crew window: one row per role, a stepper on the right, the night's wages under them. */
+.crew {
+  display: grid;
+  gap: 12px;
+}
+.crewrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.crewname {
+  display: grid;
+  gap: 4px;
+}
+.crewname b {
+  font-size: 22px;
+}
+.crewname small {
+  opacity: 0.75;
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.stepper button {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--c);
+  color: #0b0716;
+  font-size: 26px;
+  font-weight: 800;
+}
+.stepper button:disabled {
+  opacity: 0.35;
+}
+.stepper output {
+  min-width: 36px;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.crewtotal {
+  margin-top: 4px;
+  opacity: 0.85;
+}

@@ -11,6 +11,8 @@ import {
   type Result,
   rules,
   setDj,
+  setStaff,
+  type Staff,
   setPrice,
   startHappyHour,
   startNight,
@@ -33,6 +35,7 @@ export const REFUSALS: Record<Refusal, string> = {
   above_cap: 'Three times wholesale is the most you can charge.',
   already_used: 'Happy hour is once a night.',
   night_over: 'The night is over.',
+  bad_staff: 'A crew is 1 to 6 bartenders and 1 to 5 security.',
 }
 
 function loadCareer(): Career {
@@ -55,8 +58,8 @@ function saveCareer(c: Career) {
 const newSeed = () => Math.floor(Math.random() * 2 ** 31)
 
 /** A fresh night with the CEO's saved markups and DJ applied through the game's own actions. */
-function openingNight(source: MarketSource, career: Career, dj: Genre, level?: number): Night {
-  let n = startNight({ seed: newSeed(), reputation: career.reputation, market: source.market, dj, level })
+function openingNight(source: MarketSource, career: Career, dj: Genre, level?: number, staff?: Staff): Night {
+  let n = startNight({ seed: newSeed(), reputation: career.reputation, market: source.market, dj, level, staff })
   for (const id of tokenIds) {
     const item = n.menu[id]
     const markup = career.markups[id]
@@ -131,7 +134,7 @@ export function usePractice() {
     }
     setCareer(next)
     saveCareer(next)
-    setNight(openingNight(source, next, night.dj))
+    setNight(openingNight(source, next, night.dj, undefined, night.staff))
     setPhase('club')
   }
 
@@ -141,7 +144,7 @@ export function usePractice() {
     setWeek(
       fastForward(
         { seed: newSeed(), reputation: career.reputation, market: source.market, nights: 7 },
-        { prices, dj: night.dj },
+        { prices, dj: night.dj, staff: night.staff },
       ),
     )
   }
@@ -167,10 +170,11 @@ export function usePractice() {
     setSpeed,
     price,
     dj: (g: Genre) => night && apply(setDj(night, g)),
+    staff: (st: Staff) => night && apply(setStaff(night, st)),
     happyHour: () => night && apply(startHappyHour(night)),
     // Doors open in the venue the CEO picked (the game caps it at what the reputation unlocked).
     open: (level: number) => {
-      if (night && source) setNight(openingNight(source, career, night.dj, level))
+      if (night && source) setNight(openingNight(source, career, night.dj, level, night.staff))
       setPhase('party')
     },
     finishNight,
