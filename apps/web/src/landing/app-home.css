@@ -1,0 +1,333 @@
+/* The app home (AppHome.tsx): a mode-select screen. One accent (neon) for the mood, gold only for the action. */
+@font-face {
+  font-family: 'NX Display';
+  src: url('/landing/fonts/big-shoulders-display.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
+}
+
+.ah {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --beat: 0;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: 20px max(16px, 4vw) 0;
+}
+
+.ah-crowd,
+.ah-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+}
+.ah-crowd {
+  object-fit: cover;
+  opacity: 0.6;
+  filter: saturate(1.15);
+  transform: scale(calc(1.04 + var(--beat) * 0.025));
+}
+.ah-shade {
+  z-index: -1;
+  background:
+    radial-gradient(80% 70% at 50% 35%, transparent, var(--color-night) 95%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-night) 35%, transparent), var(--color-night) 97%);
+}
+
+.ah-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ah-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 800 18px/1 var(--display);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.ah-sign {
+  margin-top: clamp(28px, 6vh, 72px);
+  text-align: center;
+  font: 900 clamp(44px, 8vw, 112px) / 0.9 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff4fd;
+  text-shadow:
+    0 0 6px var(--color-neon),
+    0 0 calc(18px + var(--beat) * 22px) var(--color-neon),
+    0 0 60px color-mix(in srgb, var(--color-neon) 55%, transparent);
+  animation: ah-tube 1.4s steps(1) both;
+}
+@keyframes ah-tube {
+  0%,
+  18%,
+  40% {
+    opacity: 0.25;
+    text-shadow: none;
+  }
+  10%,
+  28%,
+  56%,
+  100% {
+    opacity: 1;
+  }
+}
+
+.ah-doors {
+  align-self: end;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  align-items: end;
+  gap: clamp(12px, 2vw, 28px);
+  width: min(1180px, 100%);
+  margin: 32px auto 0;
+}
+.ah-door {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: clamp(260px, 42vh, 440px);
+  padding: clamp(16px, 2vw, 26px);
+  overflow: hidden;
+  border-radius: 18px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+  background: var(--color-panel);
+  transition:
+    transform 0.35s var(--ease),
+    border-color 0.25s,
+    box-shadow 0.35s;
+}
+.ah-door.is-lead {
+  height: clamp(300px, 50vh, 520px);
+}
+.ah-door.is-picked {
+  transform: translateY(-10px);
+  border-color: var(--color-gold);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-gold) 22%, transparent),
+    0 24px 60px color-mix(in srgb, var(--color-neon) 28%, transparent);
+}
+.ah-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  transform: scale(1.04);
+  transition:
+    transform 0.6s var(--ease),
+    opacity 0.3s;
+}
+.ah-door::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-night) 70%, transparent) 55%,
+    var(--color-night) 82%
+  );
+}
+.ah-art-door-proof {
+  object-position: 50% 100%;
+}
+.ah-door.is-picked .ah-art {
+  opacity: 0.95;
+  transform: scale(1.1);
+}
+.ah-tag {
+  font:
+    500 12px/1.3 'IBM Plex Mono',
+    ui-monospace,
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+.ah-name {
+  margin-top: 4px;
+  font: 900 clamp(38px, 4.4vw, 64px) / 0.92 var(--display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.ah-line {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.ah-key {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+  background: color-mix(in srgb, var(--color-night) 70%, transparent);
+  font:
+    600 13px/1 'IBM Plex Mono',
+    ui-monospace,
+    monospace;
+}
+
+/* A bar's neon OPEN sign: an outlined tube that lights once, then hums with the kick. */
+.ah-open {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 3px 12px 4px;
+  border: 2px solid var(--color-neon);
+  border-radius: 10px;
+  font: 900 22px/1 var(--display);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffe3f8;
+  text-shadow: 0 0 8px var(--color-neon);
+  box-shadow:
+    0 0 calc(8px + var(--beat) * 14px) var(--color-neon),
+    inset 0 0 8px color-mix(in srgb, var(--color-neon) 60%, transparent);
+  animation: ah-tube 1.2s steps(1) 0.6s both;
+}
+
+.ah-go {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  width: fit-content;
+  margin: 28px 0 22px;
+  padding: 14px 26px;
+  border-radius: 12px;
+  background: var(--color-gold);
+  color: var(--color-night);
+  font: 900 clamp(22px, 2.2vw, 30px) / 1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 calc(22px + var(--beat) * 18px) color-mix(in srgb, var(--color-gold) 50%, transparent);
+  transition: transform 0.2s var(--ease);
+}
+.ah-go:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.ah-go:active {
+  transform: scale(0.97);
+}
+.ah-go span {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.7em;
+}
+
+.ah-ticker {
+  margin: 0 calc(-1 * max(16px, 4vw));
+  overflow: hidden;
+  border-top: 1px solid var(--color-line);
+  background: color-mix(in srgb, var(--color-night) 85%, transparent);
+  padding-left: 180px;
+  mask-image: linear-gradient(90deg, transparent 150px, #000 240px);
+  font:
+    500 14px/44px 'IBM Plex Mono',
+    ui-monospace,
+    monospace;
+  white-space: nowrap;
+}
+.ah-run {
+  display: flex;
+  width: max-content;
+  animation: ah-run 40s linear infinite;
+}
+.ah-set {
+  display: flex;
+  gap: 40px;
+  padding-right: 40px;
+  padding-left: 40px;
+}
+.ah-q b {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.ah-q i {
+  font-style: normal;
+}
+.ah-q .up {
+  color: var(--color-up);
+}
+.ah-q .down {
+  color: var(--color-down);
+}
+@keyframes ah-run {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ah :focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .ah-ticker {
+    padding-left: 0;
+    margin-bottom: 56px;
+    mask-image: none;
+  }
+  .ah-doors {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .ah-door,
+  .ah-door.is-lead {
+    height: 150px;
+  }
+  .ah-door.is-lead {
+    order: -1;
+    height: 190px;
+  }
+  .ah-door.is-picked {
+    transform: none;
+  }
+  .ah-key {
+    display: none;
+  }
+  .ah-ticker {
+    padding-left: 0;
+    mask-image: none;
+    margin-bottom: 52px;
+  }
+  .ah-go {
+    justify-self: stretch;
+    width: auto;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ah-sign,
+  .ah-open,
+  .ah-run {
+    animation: none;
+  }
+  .ah-run {
+    flex-wrap: wrap;
+  }
+  .ah-set[aria-hidden='true'] {
+    display: none;
+  }
+}

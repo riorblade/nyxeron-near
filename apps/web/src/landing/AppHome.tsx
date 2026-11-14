@@ -1,52 +1,150 @@
-// app.nyxeron.xyz's home: pick how to play.
+// app.nyxeron.xyz's home, built like a game's mode select: the crowd behind, three doors, one gold button.
+import './app-home.css'
+import { tokenIds, tokens } from '@nyxeron/game'
+import { useEffect, useRef, useState } from 'react'
+import { audio } from '../audio/music.ts'
 import { Mark } from '../Mark.tsx'
-import { Link } from '../router.tsx'
+import { loadMarket, type MarketSource } from '../practice/market.ts'
+import { Link, navigate } from '../router.tsx'
 
-const CARDS = [
+const DOORS = [
   {
     href: '/practice',
-    title: 'Practice',
-    tag: 'No sign-in',
-    text: 'Run The Basement for a night with play money and live stock prices. Fast-forward a week to test your menu.',
+    key: '1',
+    name: 'Practice',
+    tag: 'Free · no sign-in',
+    line: 'Run The Basement',
+    art: 'door-practice',
   },
   {
     href: '/city',
-    title: 'City',
-    tag: 'Real dollars · testnet',
-    text: 'Sign in as a CEO to throw a party and keep the margin, or as a guest to buy drinks that are slices of real shares.',
+    key: '2',
+    name: 'City',
+    tag: 'Real shares · testnet',
+    line: 'Join a party, buy the drinks',
+    art: 'door-city',
   },
-  {
-    href: '/proof',
-    title: 'Proof',
-    tag: 'On chain',
-    text: 'The contract, the dollar token and every stock the menu sells, checked on chain.',
-  },
-]
+  { href: '/proof', key: '3', name: 'Proof', tag: 'On chain', line: 'Check every share', art: 'door-proof' },
+] as const
+
+const usd = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const pct = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)}%`
+
+/** The kick of whatever is playing, as a CSS variable the scene breathes with; still when there is no sound. */
+function useBeat(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let raf = 0
+    let level = 0
+    const tick = () => {
+      level = Math.max(audio.pulse(), level * 0.86)
+      ref.current?.style.setProperty('--beat', level.toFixed(3))
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [ref])
+}
 
 export function AppHome() {
+  const root = useRef<HTMLElement>(null)
+  const [pick, setPick] = useState(1)
+  const [market, setMarket] = useState<MarketSource>()
+  useBeat(root)
+
+  useEffect(() => {
+    void loadMarket().then(setMarket)
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const n = DOORS.findIndex((d) => d.key === e.key)
+      if (n >= 0) setPick(n)
+      else if (e.key === 'ArrowRight') setPick((p) => (p + 1) % DOORS.length)
+      else if (e.key === 'ArrowLeft') setPick((p) => (p + DOORS.length - 1) % DOORS.length)
+      else if (e.key === 'Enter' && !(e.target instanceof HTMLAnchorElement)) navigate(DOORS[pick]!.href)
+    }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [pick])
+
+  const chosen = DOORS[pick]!
+  const quotes = market ? tokenIds.filter((id) => market.market[id]) : []
+
   return (
-    <main className="mx-auto flex min-h-dvh max-w-4xl flex-col justify-center px-4 py-12">
-      <a
-        href="https://nyxeron.xyz"
-        className="flex items-center gap-3 text-sm font-semibold tracking-[0.3em] text-neon uppercase"
-      >
-        <Mark className="size-8 text-ink" />
-        Nyxeron
-      </a>
-      <h1 className="mt-4 text-3xl font-bold sm:text-4xl">Where to tonight?</h1>
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {CARDS.map((c) => (
+    <main ref={root} className="ah">
+      <video
+        className="ah-crowd"
+        src="/landing/intro.mp4"
+        poster="/landing/intro.webp"
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-hidden
+      />
+      <div className="ah-shade" aria-hidden />
+
+      <header className="ah-top">
+        <a href="https://nyxeron.xyz" className="ah-brand">
+          <Mark className="size-7" />
+          <span>Nyxeron</span>
+        </a>
+      </header>
+
+      <h1 className="ah-sign">Where to tonight?</h1>
+
+      <nav className="ah-doors" aria-label="Choose how to play">
+        {DOORS.map((d, i) => (
           <Link
-            key={c.href}
-            href={c.href}
-            className="flex flex-col rounded-2xl border border-line bg-panel p-5 transition hover:border-gold"
+            key={d.href}
+            href={d.href}
+            className={`ah-door${i === pick ? ' is-picked' : ''}${d.name === 'City' ? ' is-lead' : ''}`}
+            onMouseEnter={() => setPick(i)}
+            onFocus={() => setPick(i)}
           >
-            <span className="text-xs font-semibold tracking-wide text-gold uppercase">{c.tag}</span>
-            <span className="mt-1 text-xl font-bold">{c.title}</span>
-            <span className="mt-2 text-sm text-muted">{c.text}</span>
+            <img className={`ah-art ah-art-${d.art}`} src={`/landing/${d.art}.webp`} alt="" />
+            <span className="ah-key" aria-hidden>
+              {d.key}
+            </span>
+            {d.name === 'City' && (
+              <span className="ah-open" aria-label="Open now">
+                Open
+              </span>
+            )}
+            <span className="ah-tag">{d.tag}</span>
+            <span className="ah-name">{d.name}</span>
+            <span className="ah-line">{d.line}</span>
           </Link>
         ))}
-      </div>
+      </nav>
+
+      <Link href={chosen.href} className="ah-go">
+        Enter {chosen.name}
+        <span aria-hidden>↵</span>
+      </Link>
+
+      {market && quotes.length > 0 && (
+        <div className="ah-ticker" aria-label={market.live ? 'Live stock prices' : 'Stock prices from 5 Nov 2026'}>
+          <div className="ah-run">
+            {[0, 1].map((copy) => (
+              <span key={copy} className="ah-set" aria-hidden={copy === 1}>
+                {quotes.map((id) => {
+                  const q = market.market[id]!
+                  return (
+                    <span key={id} className="ah-q">
+                      <b>{tokens[id].ticker}</b> {usd(q.priceUsd)}{' '}
+                      <i className={q.change24h >= 0 ? 'up' : 'down'}>{pct(q.change24h)}</i>
+                    </span>
+                  )
+                })}
+                {!market.live && <span className="ah-q">prices from 5 Nov 2026</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
