@@ -14,6 +14,7 @@ import { HostMoves } from './HostMoves.tsx'
 import { HostPrices } from './HostPrices.tsx'
 import { type Settlement, settleHash, settlementNote, stepLabel } from './settlement.ts'
 import { rememberParty } from './visited.ts'
+import { StockLogo } from '../stock/StockLogo.tsx'
 
 // The club level behind the party. The api doesn't carry the host's venue level yet, so every party is The Basement.
 const CLUB_LEVEL = 1
@@ -179,10 +180,13 @@ export function PartyView({ account, partyId }: { account: Account; partyId: num
         <ul className="mt-3 divide-y divide-line">
           {party.menu.map((row) => (
             <li key={row.token} className="flex items-center justify-between gap-3 py-2">
-              <div>
-                <div className="font-semibold">{row.ticker}</div>
-                <div className="text-xs text-muted">
-                  {tokens[row.token as keyof typeof tokens]?.name ?? row.name} · 0.001 share
+              <div className="flex items-center gap-3">
+                <StockLogo id={row.token} size={36} />
+                <div>
+                  <div className="font-semibold">{row.ticker}</div>
+                  <div className="text-xs text-muted">
+                    {tokens[row.token as keyof typeof tokens]?.name ?? row.name} · 0.001 share
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
