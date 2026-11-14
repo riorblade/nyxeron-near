@@ -53,12 +53,13 @@ export const Icon = ({ k, className }: { k: string; className?: string }): React
 
 export const Mark = () => <BrandMark className="mark" />
 
+/** A neon tube star: lit (white-hot, magenta glow from game.css) or a dark, unplugged one. */
 export const Star = ({ on }: { on: boolean }) => (
-  <svg viewBox="0 0 24 24" aria-hidden>
+  <svg viewBox="0 0 24 24" className={on ? 'star on' : 'star'} aria-hidden>
     <path
       d="m12 2.5 2.9 6 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z"
-      fill={on ? '#ffcc33' : '#3a2f5c'}
-      stroke={on ? '#fff3c2' : '#5b4c8a'}
+      fill={on ? '#fff4fd' : '#22183a'}
+      stroke={on ? '#ff2bd6' : '#4a3a72'}
       strokeWidth={1.5}
       strokeLinejoin="round"
     />
