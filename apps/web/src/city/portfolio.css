@@ -242,6 +242,7 @@
 }
 .pf-m-sign {
   max-width: 14ch;
+  margin-bottom: clamp(12px, 4vh, 40px);
   font: 900 clamp(44px, 8vw, 104px) / 0.9 var(--display);
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -352,6 +353,10 @@
 }
 
 @media (max-width: 760px) {
+  /* Room under the panel so the fixed music pill never covers its last link. */
+  .pf {
+    margin-bottom: 56px;
+  }
   .pf-m-go {
     left: 16px;
     right: 16px;
