@@ -4,7 +4,7 @@ import { CAM_MODES, type CamMode } from './camera.ts'
 import { type Emote, EMOTES } from './moves.ts'
 import { stick } from './stick.ts'
 
-const CAM_LABEL: Record<CamMode, string> = { behind: 'Behind', eyes: 'Eyes', drone: 'Drone' }
+const CAM_LABEL: Record<CamMode, string> = { behind: 'Behind', eyes: 'Eyes', drone: 'Drone', show: 'Show' }
 const EMOTE_LABEL: Record<Emote, string> = {
   bounce: 'Bounce',
   pump: 'Pump',

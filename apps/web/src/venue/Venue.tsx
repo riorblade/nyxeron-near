@@ -18,6 +18,7 @@ export function Venue({
   emote = null,
   moves,
   pyroAt,
+  onShowEnd,
   className,
 }: {
   level: number
@@ -31,6 +32,8 @@ export function Venue({
   moves?: string[]
   /** When the host last fired the pyro (ms): fires once in this club when it changes. */
   pyroAt?: number | null
+  /** The player took the camera back from the show (a click, a drag or the wheel). */
+  onShowEnd?: () => void
   className?: string
 }) {
   const host = useRef<HTMLDivElement>(null)
@@ -48,8 +51,8 @@ export function Venue({
     pyroSeen.current = pyroAt
     if (!first || Date.now() - pyroAt < 15_000) scene.current?.pyro('both')
   }, [pyroAt])
-  const walk = useRef({ me, cam, emote })
-  walk.current = { me, cam, emote }
+  const walk = useRef({ me, cam, emote, onShowEnd })
+  walk.current = { me, cam, emote, onShowEnd }
   const live = night !== null
   const liveRef = useRef(live)
   liveRef.current = live
@@ -66,6 +69,7 @@ export function Venue({
         // Fire and fog on the kick while a night is live; the picker's preview stays calm.
         v.setPyroAuto(liveRef.current)
         v.update(latest.current)
+        v.onCinematicEnd = () => walk.current.onShowEnd?.()
         applyWalk(v, walk.current)
       })
       .catch((e: unknown) => {
@@ -105,7 +109,11 @@ export function Venue({
 function applyWalk(v: VenueScene, w: { me?: unknown; cam: CamMode; emote: Emote | null }) {
   v.setMe(w.me ? 'me' : '')
   v.setControl(Boolean(w.me))
-  if (w.me) v.setCameraMode(w.cam)
+  if (w.me) {
+    // The show is the drone camera flown by the scene's own cinematic shots.
+    v.setCameraMode(w.cam === 'show' ? 'drone' : w.cam)
+    v.setCinematic(w.cam === 'show')
+  }
   v.setEmote(w.emote)
 }
 
