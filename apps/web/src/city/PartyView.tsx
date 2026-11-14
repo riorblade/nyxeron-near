@@ -18,8 +18,9 @@ import { type Settlement, settleHash, settlementNote, stepLabel } from './settle
 import { rememberParty } from './visited.ts'
 import { StockLogo } from '../stock/StockLogo.tsx'
 
-// The club level behind the party. The api doesn't carry the host's venue level yet, so every party is The Basement.
-const CLUB_LEVEL = 1
+// The club behind a City party: the top room, the superclub with its pool deck (Practice is where you climb the levels;
+// a real party gets the full room). The api doesn't carry a host's venue level.
+const CLUB_LEVEL = 4
 
 type Party = InferResponseType<Account['api']['parties'][':id']['$get'], 200>
 type MenuRow = Party['menu'][number]
