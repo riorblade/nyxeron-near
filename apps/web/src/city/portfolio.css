@@ -1,0 +1,374 @@
+/* The portfolio (Portfolio.tsx): a game inventory. Neon for the mood, gold only for money and the one button. */
+.pf {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  padding: 16px;
+  border: 2px solid var(--color-line);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-violet) 9%, transparent), transparent 140px),
+    var(--color-panel);
+  box-shadow:
+    0 5px 0 #05030a,
+    inset 0 1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.pf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pf-title {
+  font: 900 26px/1 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pf-chain,
+.pf-receipt {
+  font: 500 11px/1.4 var(--mono);
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.pf-chain:hover,
+.pf-receipt:hover {
+  color: var(--color-ink);
+}
+
+.pf-label {
+  font: 500 11px/1.3 var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pf-sub {
+  display: flex;
+  justify-content: space-between;
+  margin: 18px 0 8px;
+}
+.pf-sub span {
+  color: var(--color-ink);
+}
+.pf-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.pf-cash {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-night) 70%, transparent);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.pf-money {
+  font: 900 30px/1 var(--display);
+  letter-spacing: 0.03em;
+  color: var(--color-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The collection: one card per stock, empty slots to fill. */
+.pf-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.pf-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 10px;
+  align-items: center;
+  min-height: 92px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-neon) 10%, var(--color-night)),
+    var(--color-night)
+  );
+}
+.pf-card svg {
+  grid-row: 1 / 3;
+}
+.pf-tick {
+  font: 900 22px/1 var(--display);
+  letter-spacing: 0.04em;
+}
+.pf-shares {
+  font: 600 13px/1.2 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.pf-shares small {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.pf-drinks {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--color-line);
+  font: 500 11px/1 var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pf-card.is-empty {
+  min-height: 56px;
+  border: 1px dashed var(--color-line);
+  background: color-mix(in srgb, var(--color-night) 55%, transparent);
+}
+
+/* A delivery as a ticket with three lamps. */
+.pf-tickets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pf-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border-left: 3px solid var(--color-violet);
+  background: color-mix(in srgb, var(--color-night) 70%, transparent);
+}
+.pf-ticket.is-home {
+  border-left-color: var(--color-up);
+}
+.pf-ticket.is-late {
+  border-left-color: var(--color-down);
+}
+.pf-party {
+  font: 800 18px/1.1 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pf-party:hover {
+  color: var(--color-neon);
+}
+.pf-owed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  font: 600 13px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+.pf-owed li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pf-lamps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.pf-lamps li {
+  padding-top: 5px;
+  border-top: 3px solid var(--color-line);
+  font: 500 10px/1 var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pf-lamps li.is-lit {
+  border-top-color: var(--color-neon);
+  color: var(--color-ink);
+}
+.pf-ticket.is-home .pf-lamps li.is-lit {
+  border-top-color: var(--color-up);
+}
+.pf-ticket.is-late .pf-lamps li:nth-child(3) {
+  border-top-color: var(--color-down);
+}
+
+/* "Your shares are home": the reward screen. */
+.pf-moment {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vh, 28px);
+  padding: 24px 16px 96px;
+  overflow: hidden;
+  background: var(--color-night);
+  text-align: center;
+  animation: pf-in 0.35s var(--ease) both;
+}
+.pf-moment::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(70% 60% at 50% 45%, transparent, var(--color-night) 90%);
+}
+.pf-m-crowd {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+  transform: scale(1.06);
+  animation: pf-zoom 1.6s var(--ease) both;
+}
+.pf-m-tag {
+  font:
+    500 13px/1.3 'IBM Plex Mono',
+    ui-monospace,
+    monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pf-m-sign {
+  max-width: 14ch;
+  margin-bottom: clamp(12px, 4vh, 40px);
+  font: 900 clamp(44px, 8vw, 104px) / 0.9 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff4fd;
+  text-shadow:
+    0 0 6px var(--color-neon),
+    0 0 22px var(--color-neon),
+    0 0 60px color-mix(in srgb, var(--color-neon) 55%, transparent);
+  animation: pf-tube 1s steps(1) both;
+}
+.pf-m-stocks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 48px);
+}
+.pf-m-stocks li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: pf-pop 0.6s var(--ease) both;
+}
+.pf-m-stocks svg {
+  margin-bottom: 6px;
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--color-neon) 35%, transparent);
+}
+.pf-m-stocks b {
+  font: 900 28px/1 var(--display);
+  letter-spacing: 0.06em;
+}
+.pf-m-count {
+  font: 900 clamp(40px, 6vw, 64px) / 1 var(--display);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gold);
+}
+.pf-m-stocks small {
+  font:
+    500 12px/1 'IBM Plex Mono',
+    ui-monospace,
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.pf-m-go {
+  position: absolute;
+  right: max(16px, 4vw);
+  bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 30px;
+  border-radius: 12px;
+  background: var(--color-gold);
+  color: var(--color-night);
+  font: 900 clamp(22px, 2.2vw, 30px) / 1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--color-gold) 45%, transparent);
+  transition: transform 0.2s var(--ease);
+}
+.pf-m-go:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.pf-m-go:active {
+  transform: scale(0.97);
+}
+.pf-m-go span {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.7em;
+}
+.pf :focus-visible,
+.pf-moment :focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+@keyframes pf-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pf-zoom {
+  from {
+    transform: scale(1.18);
+  }
+}
+@keyframes pf-pop {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.6);
+  }
+}
+@keyframes pf-tube {
+  0%,
+  20%,
+  45% {
+    opacity: 0.25;
+    text-shadow: none;
+  }
+  10%,
+  32%,
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Room under the panel so the fixed music pill never covers its last link. */
+  .pf {
+    margin-bottom: 56px;
+  }
+  .pf-m-go {
+    left: 16px;
+    right: 16px;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-moment,
+  .pf-m-crowd,
+  .pf-m-sign,
+  .pf-m-stocks li {
+    animation: none;
+  }
+}
