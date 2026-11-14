@@ -60,182 +60,201 @@ export function Proof() {
       </p>
       {error && <p className="pv-err">{error}</p>}
 
-      <div className="pv-grid">
-        {(config || proof) && (
-          <section className="pv-panel pv-keys">
-            <h2 className="pv-h">The keys</h2>
-            {config && (
-              <>
-                <h3 className="pv-chain">On NEAR ({config.network})</h3>
-                <dl className="pv-dl">
-                  <dt>Game contract</dt>
-                  <dd>
-                    <a
-                      className="pv-link"
-                      href={`${near}/address/${config.contractId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {config.contractId} ↗
-                    </a>
-                  </dd>
-                  <dt>Dollars (USDC)</dt>
-                  <dd>
-                    <a className="pv-link" href={`${near}/address/${config.usdcId}`} target="_blank" rel="noreferrer">
-                      {config.usdcId} ↗
-                    </a>
-                  </dd>
-                  <dt>Price signing key</dt>
-                  <dd>{config.quoteKey ?? 'not set'}</dd>
-                </dl>
-                <p className="pv-note">Stock units are NEP-245 tokens on the game contract: 1 unit = 0.001 share.</p>
-              </>
-            )}
-            {proof && <Hood proof={proof} />}
-          </section>
-        )}
-        {(config || proof) && (
-          <Stocks registry={registry} proof={proof ?? undefined} loading={Boolean(config) && !registry} />
-        )}
-      </div>
+      <ol className="pv-path" aria-label="Where a drink's money goes">
+        <li>
+          <b>You pay on NEAR</b>
+          <span>USDC to the game contract</span>
+          {config && <Addr href={`${near}/address/${config.contractId}`} value={config.contractId} />}
+        </li>
+        <li>
+          <b>The warehouse buys the share</b>
+          <span>
+            {proof?.hood.synthetic ? 'Robinhood Chain testnet' : 'Robinhood Chain'} · via NEAR Chain Signatures
+          </span>
+          {proof?.warehouse && (
+            <Addr href={`${proof.hood.explorer}/address/${proof.warehouse}`} value={proof.warehouse} />
+          )}
+        </li>
+        <li>
+          <b>Units land in your account</b>
+          <span>NEP-245 · 1 unit = 0.001 share</span>
+        </li>
+      </ol>
+
+      {(config || proof) && (
+        <Stocks registry={registry} proof={proof ?? undefined} loading={Boolean(config) && !registry} />
+      )}
       {proof === null && <p className="pv-err">Couldn't read the parties right now. Try again in a minute.</p>}
       {proof && config && <Parties proof={proof} network={config.network} />}
+      {(config || proof) && <Keys config={config} proof={proof ?? undefined} near={near} />}
     </main>
   )
 }
 
-/** Where the shares live: Robinhood's stock tokens on Robinhood Chain, or synthetic stand-ins on its testnet. */
-function Hood({ proof }: { proof: ProofView }) {
-  const { hood } = proof
+/** 0x1234…abcd, the full value on hover. */
+const short = (v: string) => (v.length > 18 ? `${v.slice(0, 8)}…${v.slice(-6)}` : v)
+function Addr({ href, value }: { href?: string; value: string }) {
+  const text = short(value.replace(/^robinhood:/, ''))
+  return href ? (
+    <a className="pv-addr" href={href} target="_blank" rel="noreferrer" title={value}>
+      {text} ↗
+    </a>
+  ) : (
+    <code className="pv-addr" title={value}>
+      {text}
+    </code>
+  )
+}
+
+/** Everything else on chain, for whoever wants to check by hand: folded away by default. */
+function Keys({ config, proof, near }: { config?: Config; proof?: ProofView; near: string }) {
   return (
-    <>
-      <h3 className="pv-chain">
-        On Robinhood Chain {hood.synthetic ? 'testnet ' : ''}(id {hood.chainId})
-      </h3>
-      {!proof.demo && proof.warehouse && (
-        <dl className="pv-dl">
-          <dt>Warehouse</dt>
-          <dd>
-            <a
-              className="pv-link"
-              href={`${hood.explorer}/address/${proof.warehouse}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {proof.warehouse} ↗
-            </a>
-          </dd>
-        </dl>
-      )}
-      {hood.synthetic ? (
+    <details className="pv-panel pv-keys">
+      <summary>
+        <h2 className="pv-h">Keys and addresses</h2>
+        <span className="pv-chev" aria-hidden>
+          ▾
+        </span>
+      </summary>
+      <dl className="pv-dl">
+        {config && (
+          <>
+            <dt>Game contract · NEAR {config.network}</dt>
+            <dd>
+              <Addr href={`${near}/address/${config.contractId}`} value={config.contractId} />
+            </dd>
+            <dt>Dollars (USDC)</dt>
+            <dd>
+              <Addr href={`${near}/address/${config.usdcId}`} value={config.usdcId} />
+            </dd>
+            <dt>Price signing key</dt>
+            <dd>{config.quoteKey ? <Addr value={config.quoteKey} /> : 'not set'}</dd>
+          </>
+        )}
+        {proof?.warehouse && !proof.demo && (
+          <>
+            <dt>
+              Warehouse · Robinhood Chain {proof.hood.synthetic ? 'testnet ' : ''}(id {proof.hood.chainId})
+            </dt>
+            <dd>
+              <Addr href={`${proof.hood.explorer}/address/${proof.warehouse}`} value={proof.warehouse} />
+            </dd>
+          </>
+        )}
+      </dl>
+      {proof?.hood.synthetic && (
         <p className="pv-note">
-          Robinhood's stock tokens don't exist on its testnet, so here the game's warehouse buys{' '}
-          <b>synthetic stand-ins</b> (sTSLA, sNVDA, …) for test dollars, at the live market price, from a small market
-          contract. They are worth nothing; the purchase, the warehouse address (controlled by a NEAR account through
-          Chain Signatures, no private key anywhere) and the checks are the same as on mainnet. Each stock card lists
-          the token address the warehouse holds.
-        </p>
-      ) : (
-        <p className="pv-note">
-          The shares themselves are Robinhood stock tokens, held by the game's warehouse address, which a NEAR account
-          controls through Chain Signatures (no private key anywhere). The menu only uses the pinned token addresses on
-          the stock cards.
-        </p>
-      )}
-      {proof.demo && (
-        <p className="pv-note">
-          On testnet the share purchase after a party is simulated: each mint carries a <code>demo:</code> proof, and no
-          real share stands behind these units. On mainnet the warehouse buys the shares first, and the cards show what
-          it holds.
+          Robinhood's stock tokens don't exist on its testnet, so here the warehouse buys <b>synthetic stand-ins</b>{' '}
+          (sTSLA, sNVDA, …) at the live price. Same purchase, same Chain Signatures, same checks as mainnet.
         </p>
       )}
-    </>
+      {proof?.demo && (
+        <p className="pv-note">
+          On testnet the share purchase after a party is simulated: no real share stands behind these units.
+        </p>
+      )}
+    </details>
   )
 }
 
 const ticker = (id: string) => tokens[id as keyof typeof tokens]?.ticker ?? id.toUpperCase()
 const name = (id: string) => tokens[id as keyof typeof tokens]?.name
 
-/** One card per stock: its units on NEAR, its token on Robinhood Chain, and the shares behind the units. */
+/** Stocks guests own: what the units stand for against what the warehouse holds. Then the rest of the menu, small. */
 function Stocks({ registry, proof, loading }: { registry?: Registered[]; proof?: ProofView; loading: boolean }) {
   const reg = new Map(registry ?? [])
   const hood = new Map((proof?.hood.tokens ?? []).map((t) => [t.token, t]))
-  const backing = new Map((proof?.tokens ?? []).map((t) => [t.token, t]))
-  const ids = [...new Set([...reg.keys(), ...hood.keys(), ...backing.keys()])]
+  const owned = proof?.tokens ?? []
+  const rest = [...new Set([...reg.keys(), ...hood.keys()])].filter((id) => !owned.some((t) => t.token === id))
   const synthetic = proof?.hood.synthetic
+  const link = (id: string) => {
+    const h = hood.get(id)
+    return h && proof ? `${proof.hood.explorer}/address/${h.address}` : undefined
+  }
   return (
     <section className="pv-stocks">
       <div className="pv-stocks-head">
-        <h2 className="pv-h">The stocks</h2>
-        <span className="pv-count">
-          {reg.size} registered on chain{proof && ` · ${proof.tokens.length} with units minted`}
-        </span>
+        <h2 className="pv-h">Owned by guests</h2>
+        <span className="pv-count">{reg.size} stocks on the menu</span>
       </div>
       {loading && <p className="pv-note">Reading the chain…</p>}
-      {registry?.length === 0 && <p className="pv-note">No stock registered yet.</p>}
-      {proof && proof.tokens.length === 0 && <p className="pv-note">No units minted yet.</p>}
-      <ul className="pv-cards">
-        {ids.map((id) => {
-          const info = reg.get(id)
-          const h = hood.get(id)
-          const t = backing.get(id)
-          const b = t && backedText(t)
+      {proof && owned.length === 0 && <p className="pv-note">No units minted yet.</p>}
+      <ul className="pv-owned">
+        {owned.map((t) => {
+          const b = backedText(t)
+          const href = link(t.token)
           return (
-            <li key={id} className={`pv-card${t ? ' has-units' : ''}`}>
+            <li key={t.token} className="pv-card">
               <div className="pv-card-top">
-                <StockLogo id={id} size={44} />
+                <StockLogo id={t.token} size={44} />
                 <div>
-                  <b className="pv-tick">{info?.symbol ?? ticker(id)}</b>
-                  <span className="pv-name">{name(id)}</span>
+                  <b className="pv-tick">{reg.get(t.token)?.symbol ?? ticker(t.token)}</b>
+                  <span className="pv-name">{name(t.token)}</span>
                 </div>
-                {info && <span className="pv-per">{info.shares_per_unit} share per unit</span>}
+                {b && <span className={`pv-badge ${b.ok ? 'is-ok' : 'is-short'}`}>{b.ok ? '✓ backed' : 'short'}</span>}
               </div>
-              {t && (
-                <dl className="pv-units">
+              <dl className="pv-units">
+                <div>
+                  <dt>Units</dt>
+                  <dd>{t.units}</dd>
+                </div>
+                <div>
+                  <dt>Shares owed</dt>
+                  <dd>{t.sharesOwed}</dd>
+                </div>
+                {!proof?.demo && (
                   <div>
-                    <dt>Units</dt>
-                    <dd>
-                      {t.units}
-                      {t.simulatedUnits !== '0' && <small> ({t.simulatedUnits} simulated earlier)</small>}
-                    </dd>
+                    <dt>Held</dt>
+                    <dd title={t.sharesHeld ?? undefined}>{t.sharesHeld ? roundShares(t.sharesHeld) : '…'}</dd>
                   </div>
-                  <div>
-                    <dt>Shares owed</dt>
-                    <dd>{t.sharesOwed}</dd>
-                  </div>
-                  {!proof?.demo && (
-                    <div>
-                      <dt>Shares held{synthetic ? ' (synthetic)' : ''}</dt>
-                      <dd>
-                        <span title={t.sharesHeld ?? undefined}>{t.sharesHeld ? roundShares(t.sharesHeld) : '…'}</span>{' '}
-                        {b && <span className={b.ok ? 'text-up' : 'text-down'}>{b.text}</span>}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-              <dl className="pv-addr">
-                {info && (
-                  <>
-                    <dt>Backed by (NEAR)</dt>
-                    <dd>{info.backing}</dd>
-                  </>
-                )}
-                {h && proof && (
-                  <>
-                    <dt>{synthetic ? `s${h.ticker} on Robinhood Chain testnet` : `${h.ticker} on Robinhood Chain`}</dt>
-                    <dd>
-                      <a href={`${proof.hood.explorer}/address/${h.address}`} target="_blank" rel="noreferrer">
-                        {h.address} ↗
-                      </a>
-                    </dd>
-                  </>
                 )}
               </dl>
+              <div className="pv-card-foot">
+                {t.simulatedUnits !== '0' && <span>{t.simulatedUnits} units from the early simulated run</span>}
+                {href && (
+                  <a
+                    className="pv-addr"
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={hood.get(t.token)?.address}
+                  >
+                    {synthetic ? 's' : ''}
+                    {ticker(t.token)} token ↗
+                  </a>
+                )}
+              </div>
             </li>
           )
         })}
       </ul>
+      {rest.length > 0 && (
+        <>
+          <h3 className="pv-sub">Also on the menu</h3>
+          <ul className="pv-menu">
+            {rest.map((id) => {
+              const href = link(id)
+              const inner = (
+                <>
+                  <StockLogo id={id} size={24} />
+                  <b>{reg.get(id)?.symbol ?? ticker(id)}</b>
+                </>
+              )
+              return (
+                <li key={id}>
+                  {href ? (
+                    <a href={href} target="_blank" rel="noreferrer" title={hood.get(id)?.address}>
+                      {inner}
+                    </a>
+                  ) : (
+                    <span>{inner}</span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </section>
   )
 }
@@ -259,11 +278,6 @@ function Parties({ proof, network }: { proof: ProofView; network: Network }) {
         <h2 className="pv-h">Party by party</h2>
         <span className="pv-count">The ledger</span>
       </div>
-      <ol className="pv-flow" aria-label="After a party ends">
-        <li>Its money is released for the shares</li>
-        <li>The shares are bought and minted as units</li>
-        <li>The units are delivered to the guests</li>
-      </ol>
       {proof.recent.length === 0 && <p className="pv-note">No party has settled yet.</p>}
       <ul className="pv-rows">
         {proof.recent.map((p) => {
