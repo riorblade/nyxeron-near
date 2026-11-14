@@ -1,4 +1,31 @@
-# NYXERON
+<p align="center">
+  <img src="apps/web/public/brand/icon.svg" alt="NYXERON" width="88" height="88">
+</p>
+
+<h1 align="center">NYXERON</h1>
+
+<p align="center"><b>Run the club. Throw the party. Every drink is a slice of a real share.</b></p>
+
+<p align="center">
+  <a href="https://github.com/riorblade/nyxeron-near/actions/workflows/ci.yml"><img src="https://github.com/riorblade/nyxeron-near/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="#on-chain"><img src="https://img.shields.io/badge/NEAR-testnet-00ec97" alt="NEAR testnet"></a>
+  <a href="https://app.nyxeron.xyz"><img src="https://img.shields.io/badge/demo-live-ff3fd8" alt="Live demo"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  <a href="https://x.com/nyxeron_xyz/status/2121707372079141215">Demo video</a> ·
+  <a href="https://app.nyxeron.xyz">App</a> ·
+  <a href="https://nyxeron.xyz">Website</a> ·
+  <a href="https://docs.nyxeron.xyz">Docs</a> ·
+  <a href="https://app.nyxeron.xyz/proof">Proof (on chain)</a> ·
+  <a href="JUDGE.md">JUDGE.md</a>
+</p>
+
+<p align="center"><img src="docs/media/cover-1280x720.jpg" alt="The superclub on a live night: the crowd, the DJ, the pool and the stock menu" width="860"></p>
+
+> **Judges and screeners:** [JUDGE.md](JUDGE.md) checks every claim with `curl` and `jq` alone: no wallet, no funds,
+> no build, each step with the result to expect. Everything runs on NEAR testnet; no real money moves.
 
 A nightclub game on NEAR where every drink on the menu is a real stock. A host opens a party, guests buy drinks, and
 each drink holds 0.001 of a real share (Tesla, NVIDIA, S&P 500, …) that the guest owns afterwards. Players sign in
