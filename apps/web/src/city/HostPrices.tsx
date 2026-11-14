@@ -39,34 +39,33 @@ export function HostPrices(props: { account: Account; partyId: number; menu: Row
   return (
     <section className="hp hp-desk">
       <div className="hp-desk-top">
-        <div>
-          <div className="hp-kicker">You're the host</div>
-          <h3 className="hp-title is-small">Your prices</h3>
-        </div>
-        <span className="hp-desk-scale">Wholesale 1× to 3×</span>
+        <h3 className="hp-title is-small">Your prices</h3>
+        <p className="hp-desk-note">Set what each drink costs. Everything above wholesale is yours.</p>
       </div>
-      <ul className="hp-strips">
+      <ul className="hp-rows">
         {props.menu.map((row) => {
           const value = draft[row.token] ?? row.price
+          const fill = ((value - row.wholesale) / (row.maxPrice - row.wholesale || 1)) * 100
           return (
-            <li key={row.token} className={`hp-strip${row.token in draft ? ' is-moved' : ''}`}>
-              <span className="hp-strip-id">
-                <StockLogo id={row.token} size={34} />
-                <b>{row.ticker}</b>
-              </span>
+            <li key={row.token} className={`hp-row${row.token in draft ? ' is-moved' : ''}`}>
+              <StockLogo id={row.token} size={40} />
+              <b className="hp-row-tick">{row.ticker}</b>
+              <span className="hp-row-price">{usd(value)}</span>
+              <span className="hp-row-keep">you keep {usd(value - row.wholesale)} a drink</span>
               <input
                 type="range"
                 aria-label={`${row.ticker} price`}
-                className="hp-fader"
+                className="hp-slider"
+                style={{ '--fill': `${fill}%` } as React.CSSProperties}
                 min={row.wholesale}
                 max={row.maxPrice}
                 step={CENT}
                 value={value}
                 onChange={(e) => setDraft((d) => ({ ...d, [row.token]: Number(e.target.value) }))}
               />
-              <span className="hp-strip-read">
-                <b>{usd(value)}</b>
-                <i>{(value / row.wholesale).toFixed(2)}×</i>
+              <span className="hp-row-ends">
+                <i>wholesale {usd(row.wholesale)}</i>
+                <i>max {usd(row.maxPrice)}</i>
               </span>
             </li>
           )
