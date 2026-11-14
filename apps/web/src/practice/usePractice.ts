@@ -35,6 +35,7 @@ export const REFUSALS: Record<Refusal, string> = {
   above_cap: 'Three times wholesale is the most you can charge.',
   already_used: 'Happy hour is once a night.',
   night_over: 'The night is over.',
+  bad_staff: 'A crew is 1 to 6 bartenders and 1 to 5 security.',
 }
 
 function loadCareer(): Career {
