@@ -35,16 +35,16 @@ Open https://nyxeron.xyz and tap **Launch app** (or go straight to https://app.n
 | #   | Do                                                                                                                                           | See                                                                                                                                                                                                 |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Tap **Practice**, then **Play** on the title screen                                                                                          | Practice mode: your 3D club (The Basement) and a menu of real stocks at live market prices                                                                                                          |
-| 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; then **Open club** (bottom right)                                    | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                                                                                                               |
-| 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                                                    | The night report: margin, reputation, goals, "Why it went this way" and a receipt of what sold                                                                                                      |
+| 2   | In the dock, open **Menu** and move a drink's price slider; try **DJ**; open **Staff** and hire bartenders and security; then **Open club**  | The night starts: guests walk in and buy at the bar, with "+$0.84" floating over them                                                                                                               |
+| 3   | During the night, try **5×** or **20×** and **Happy hour**, then **Skip**                                                                    | The night report: margin, staff wages, profit, reputation, goals, "Why it went this way" and a receipt of what sold                                                                                 |
 | 4   | Tap **Next night**, then **Week** in the dock                                                                                                | Seven nights simulated at once, with each night's guests, drinks, margin and reputation                                                                                                             |
 | 5   | Go back to the start, tap **City · sign in**, pick **Go out as a guest**, sign in with Google or email                                       | A NEAR account is made for you (shown in the bar, linked to the explorer), balance in dollars                                                                                                       |
 | 6   | Tap **Get test dollars**                                                                                                                     | "$3.00 on the way." and the balance goes to $3.00: test USDC in your own account (testnet only, once a day)                                                                                         |
 | 7   | Open **House Party** (_always on_, top of the list) and tap **×3** next to TSLA                                                              | No pop-up and no gas: "3 × TSLA $… · paid" with a receipt link to the transaction on the NEAR explorer                                                                                              |
-| 8   | On the party page tap **Walk in the club**; walk with WASD or the arrows (a touch stick on a phone), try a dance, then **← Back to the bar** | Your own avatar in the 3D club among the crowd, with Behind / Eyes / Drone cameras and dances                                                                                                       |
+| 8   | On the party page tap **Walk in the club**; walk with WASD or the arrows (a touch stick on a phone), try a dance, then **← Back to the bar** | Your own avatar in the 3D club (the superclub) among the crowd, with Behind / Eyes / Drone / Show cameras and dances                                                                                |
 | 9   | When the party ends (a House Party lasts 10 minutes), look at **Collect shares** in your portfolio                                           | "Delivering your shares…", then "Delivered to your portfolio." and a delivery receipt; "TSLA 0.003 share" under **Shares you hold**                                                                 |
 | 10  | Tap **Add money**, keep USDC on Base, type any address for the refund field, tap **Get a quote**                                             | "You send 10.0 USDC on Base. You get about $9.99… here": a live NEAR Intents quote; on testnet nothing is sent                                                                                      |
-| 11  | Tap **Switch to CEO**, then **Host a party**: give it a name and a length, tap **Open it**                                                   | Your party page with **Your prices**: move a slider and tap **Save prices** (wholesale up to 3× wholesale); you keep the margin                                                                     |
+| 11  | Tap **Switch to CEO**, then **Host a party**: give it a name and a length, tap **Open it**                                                   | Your party page with **Your prices** (move a slider, **Save prices**: wholesale up to 3×, you keep the margin) and **Work the crowd**: Happy hour, Anthem, MC hype, Pyro                            |
 | 12  | Open https://app.nyxeron.xyz/proof and tap a party under **Party by party** (one where drinks were bought)                                   | The contract, USDC and price key on NEAR; units against the shares behind them (testnet: synthetic stand-ins on Robinhood Chain testnet); each party's release → swap → mint → settle with tx links |
 
 ## How it uses NEAR
@@ -115,16 +115,21 @@ Tests: `cd contracts/nyxeron && cargo test` runs 78 unit tests and 10 sandbox te
 
 ## On chain
 
-| Network | What                    | Account                                                                    |
-| ------- | ----------------------- | -------------------------------------------------------------------------- |
-| testnet | Game contract (NEP-245) | [`nyxeron.testnet`](https://testnet.nearblocks.io/address/nyxeron.testnet) |
-| testnet | Dollars (Circle USDC)   | `3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af`         |
+| Network | What                                 | Account                                                                                                                      |
+| ------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| testnet | Game contract (NEP-245)              | [`nyxeron.testnet`](https://testnet.nearblocks.io/address/nyxeron.testnet)                                                   |
+| testnet | Dollars (Circle USDC)                | [`3e2210e1…afcb8af`](https://testnet.nearblocks.io/address/3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af) |
+| testnet | Owner / api (settles parties)        | [`nyxeron-api.testnet`](https://testnet.nearblocks.io/address/nyxeron-api.testnet)                                           |
+| testnet | Relayer (pays gas, NEP-366)          | [`nyx-relayer-mw1s6vvb.testnet`](https://testnet.nearblocks.io/address/nyx-relayer-mw1s6vvb.testnet)                         |
+| testnet | Warehouse account (Chain Signatures) | [`nyx-warehouse.testnet`](https://testnet.nearblocks.io/address/nyx-warehouse.testnet)                                       |
+| testnet | MPC signer                           | [`v1.signer-prod.testnet`](https://testnet.nearblocks.io/address/v1.signer-prod.testnet)                                     |
 
-| Network                 | What                                                                   | Address                                                                                                                  |
-| ----------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Robinhood Chain testnet | Warehouse (controlled by `nyx-warehouse.testnet` via Chain Signatures) | [`0xa7175f62…d74323`](https://explorer.testnet.chain.robinhood.com/address/0xa7175f62675ec1B780577944E545047df0d74323)   |
-| Robinhood Chain testnet | Market (synthetic stocks for test dollars)                             | [`0xa7dcd7d0…dd0c26e1`](https://explorer.testnet.chain.robinhood.com/address/0xa7dcd7d0494d046dfb1a99d1587574d9dd0c26e1) |
-| Robinhood Chain testnet | Test dollars (tUSDG) and the ten synthetic stocks                      | `services/api/src/hood-testnet.ts`                                                                                       |
+| Network                 | What                                                                               | Address                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Robinhood Chain testnet | Warehouse (controlled by `nyx-warehouse.testnet` via Chain Signatures)             | [`0xa7175f62…d74323`](https://explorer.testnet.chain.robinhood.com/address/0xa7175f62675ec1B780577944E545047df0d74323)   |
+| Robinhood Chain testnet | Market (synthetic stocks for test dollars)                                         | [`0xa7dcd7d0…dd0c26e1`](https://explorer.testnet.chain.robinhood.com/address/0xa7dcd7d0494d046dfb1a99d1587574d9dd0c26e1) |
+| Robinhood Chain testnet | Test dollars (tUSDG)                                                               | [`0x7bcdb2de…3db2ac9`](https://explorer.testnet.chain.robinhood.com/address/0x7bcdb2de027efb565b01d42a28fb95b9a3db2ac9)  |
+| Robinhood Chain testnet | sTSLA, one of the ten synthetic stocks (all in `services/api/src/hood-testnet.ts`) | [`0x24eab92d…eaa9b2c`](https://explorer.testnet.chain.robinhood.com/address/0x24eab92d2196526402117e9b5962af90feaa9b2c)  |
 
 One party end to end on testnet (party `dfec4462-20`, 2 × CRCL):
 
@@ -134,6 +139,19 @@ One party end to end on testnet (party `dfec4462-20`, 2 × CRCL):
 | Warehouse buys 0.002 sCRCL for 0.122312 tUSDG        | Robinhood Chain testnet | [`0x09056919…`](https://explorer.testnet.chain.robinhood.com/tx/0x09056919ca56003a5eb33eb29ddddce30ef2c17ef1466c0651f266d2c31f2d76) |
 | `mint_warehouse`, with that swap's hash as the proof | NEAR testnet            | [`E7x9MBBS…`](https://testnet.nearblocks.io/txns/E7x9MBBScoNoEL8t9WLtjmU6Ko9j2pC6bQf2w1DoVYvs)                                      |
 | `settle`: the units move to the guests               | NEAR testnet            | [`J8hCx249…`](https://testnet.nearblocks.io/txns/J8hCx249genMPmEbW5aAupXhzZxB5pWf4dNZEcNAfi8X)                                      |
+
+A second party, the one in the demo video (party `dfec4462-25`, 3 × TSLA):
+
+| Step                                                                            | Chain                   | Transaction                                                                                                                         |
+| ------------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `release_wholesale`                                                             | NEAR testnet            | [`Ee81fGfw…`](https://testnet.nearblocks.io/txns/Ee81fGfwefaDE3uBr2jtoEjUtVCGVULwapfNXbxuyyRT)                                      |
+| Warehouse buys 0.003 sTSLA for 1.178922 tUSDG (signed through Chain Signatures) | Robinhood Chain testnet | [`0xe78270ba…`](https://explorer.testnet.chain.robinhood.com/tx/0xe78270ba1053fe919cd01a2724707acd72c5434c6b617fcfabf386d7b915e7aa) |
+| `mint_warehouse`, with that swap's hash as the proof                            | NEAR testnet            | [`75vB3Ygj…`](https://testnet.nearblocks.io/txns/75vB3YgjNoUt2jw64KBpfNzkPp8VvnoYQR2XUKgesjSn)                                      |
+| `settle`: 0.003 TSLA to the guest                                               | NEAR testnet            | [`8us4JGfo…`](https://testnet.nearblocks.io/txns/8us4JGfoMTZmyvtGG6nrQkyB7uuuHML7KDQ9Fe8BWERB)                                      |
+
+A guest's drink payment, gasless: the player signs a NEP-366 delegate action, the relayer submits it, and USDC
+`ft_transfer_call` pays the contract with the signed quote (3 × TSLA):
+[`3jhukG2L…`](https://testnet.nearblocks.io/txns/3jhukG2LiiRSACLktNF4M8MFwidjTeJSmdEaR1NZA28u). Every party's steps, live: https://app.nyxeron.xyz/proof.
 
 Known risk: Robinhood's token issuer can block, pause or burn its tokens, and the Robinhood Chain sequencer can filter
 transactions. Purchases are kept small and the warehouse can be paused.
