@@ -20,7 +20,7 @@ Built at NEAR HACKATHON (1–14 Nov 2026).
 
 **Live demo: https://nyxeron.xyz** (landing) → **Launch app** → https://app.nyxeron.xyz (NEAR testnet). Docs: https://docs.nyxeron.xyz · Repo: https://github.com/riorblade/nyxeron-near
 
-<!-- TODO(#40): X post link and demo video. -->
+**Demo video (X post):** https://x.com/nyxeron_xyz/status/2121707372079141215
 
 ## The problem
 
