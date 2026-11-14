@@ -14,6 +14,12 @@ import { backedText, type PartySteps, proofLink, proofText, type ProofView } fro
 type Config = { network: Network; contractId: string; usdcId: string; quoteKey: string | null }
 type Registered = [string, { symbol: string; backing: string; shares_per_unit: string }]
 
+// A held balance read from chain can carry 14+ decimals; six are plenty for 0.001-share units (the full value is the title).
+const roundShares = (s: string) => {
+  const n = Number(s)
+  return Number.isFinite(n) ? n.toFixed(6).replace(/\.?0+$/, '') : s
+}
+
 export function Proof() {
   const [config, setConfig] = useState<Config>()
   const [registry, setRegistry] = useState<Registered[]>()
@@ -201,7 +207,8 @@ function Stocks({ registry, proof, loading }: { registry?: Registered[]; proof?:
                     <div>
                       <dt>Shares held{synthetic ? ' (synthetic)' : ''}</dt>
                       <dd>
-                        {t.sharesHeld ?? '…'} {b && <span className={b.ok ? 'text-up' : 'text-down'}>{b.text}</span>}
+                        <span title={t.sharesHeld ?? undefined}>{t.sharesHeld ? roundShares(t.sharesHeld) : '…'}</span>{' '}
+                        {b && <span className={b.ok ? 'text-up' : 'text-down'}>{b.text}</span>}
                       </dd>
                     </div>
                   )}

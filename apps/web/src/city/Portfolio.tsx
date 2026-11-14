@@ -117,26 +117,27 @@ export function Portfolio({ account }: { account: Account }) {
       (p) => p.settlement?.status === 'done' && settleHash(p.settlement) && !seen.includes(p.id),
     )
     if (!fresh.length) return
-    // The shares that came home: what we saw owed, else what the player now holds of the stocks the party bought.
-    const sum: Record<string, number> = {}
-    for (const p of fresh) {
-      const owed = owedSeen.current[p.id]
-      for (const [id, units] of Object.entries(owed ?? {})) sum[id] = (sum[id] ?? 0) + units
-    }
-    for (const p of fresh.filter((p) => !owedSeen.current[p.id])) {
-      for (const o of p.settlement?.ops ?? []) {
-        const held = o.kind === 'mint' && o.token ? state.units[o.token] : undefined
-        if (held) sum[o.token!] = Math.max(sum[o.token!] ?? 0, held)
+    // The shares that came home: what we saw owed, else the player's paid drinks at that party.
+    void (async () => {
+      const sum: Record<string, number> = {}
+      for (const p of fresh) {
+        let owed: Record<string, number> | undefined = owedSeen.current[p.id]
+        if (!owed) {
+          const r = await account.api.parties[':id'].mine.$get({ param: { id: String(p.id) } })
+          owed = {}
+          if (r.ok) for (const d of (await r.json()).drinks) owed[d.token] = (owed[d.token] ?? 0) + d.qty
+        }
+        for (const [id, units] of Object.entries(owed)) sum[id] = (sum[id] ?? 0) + units
       }
-    }
-    const units = Object.entries(sum)
-    if (!units.length) return
-    markSeen(fresh.map((p) => p.id))
-    setMoment({
-      title: fresh.length === 1 ? fresh[0]!.title : `${fresh.length} parties`,
-      units,
-    })
-  }, [state])
+      const units = Object.entries(sum)
+      if (!units.length) return
+      markSeen(fresh.map((p) => p.id))
+      setMoment({
+        title: fresh.length === 1 ? fresh[0]!.title : `${fresh.length} parties`,
+        units,
+      })
+    })()
+  }, [state, account.api])
 
   const held = Object.entries(state?.units ?? {})
   const empty = Math.max(0, MIN_SLOTS - held.length, held.length % 2)
