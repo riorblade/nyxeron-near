@@ -6,8 +6,7 @@ export const BEACON_PROXY_CODEHASH = '0x6c1fdd40002dcb440c7fff6a84171404d279ccb0
 export const BEACON = '0xe10b6f6b275de231345c20d14ab812db62151b00'
 const BEACON_SLOT = '0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50' // EIP-1967
 
-// Robinhood's own RPC domain is ISP-blocked in Indonesia (spike 15); these public ones answer.
-export const ROBINHOOD_RPCS = ['https://robinhood-rpc.publicnode.com', 'https://robinhood.drpc.org']
+import { ROBINHOOD_RPCS } from './hoodnet.ts'
 
 export type ChainReader = {
   getCode(address: Address): Promise<Hex | undefined>
@@ -42,4 +41,4 @@ export async function verifyMenu(reader: ChainReader): Promise<{ ok: TokenId[]; 
   }
 }
 
-export { ROBINHOOD_CHAIN_ID }
+export { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS }

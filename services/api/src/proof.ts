@@ -7,14 +7,15 @@ import { z } from 'zod'
 import type { Config } from './config.ts'
 import { all, type Db, one } from './db.ts'
 import { AppError, validate } from './http.ts'
-import { ROBINHOOD_RPCS } from './robinhood.ts'
+import { HOOD_MAINNET, type HoodNet } from './hoodnet.ts'
 import { chainParty, settlementView } from './settlement.ts'
 
 export type ProofSource = {
   /** Units of `token` on the contract (NEP-245 `mt_supply`). */
   supply(token: TokenId): Promise<bigint>
-  /** Mainnet only: the warehouse's Robinhood Chain address and its `balanceOfUI` (18 decimals) of a stock. */
-  warehouse?: { address(): Promise<string>; sharesUi(token: string): Promise<bigint> }
+  /** When a warehouse buys: its Robinhood Chain address and its `balanceOfUI` (18 decimals) of a stock, on `net`
+   * (mainnet by default; testnet = synthetic stocks). */
+  warehouse?: { address(): Promise<string>; sharesUi(token: string): Promise<bigint>; net?: HoodNet }
 }
 
 const CACHE_MS = 30_000
@@ -28,22 +29,38 @@ export function proofRoutes(deps: { cfg: Config; db: Db; proof?: ProofSource; no
 
   const build = async () => {
     const src = deps.proof
-    const demo = cfg.NEAR_NETWORK === 'testnet' // testnet mints carry `demo:` proofs: no real share behind them
+    // Testnet without a warehouse buyer: mints carry `demo:` proofs, no share (not even a synthetic one) behind them.
+    const demo = cfg.NEAR_NETWORK === 'testnet' && !src?.warehouse
+    const net = src?.warehouse?.net ?? HOOD_MAINNET
     const warehouse = src?.warehouse ? await src.warehouse.address().catch(() => null) : null
+    // Units minted with `demo:` proofs (testnet, before a warehouse bought anything): nothing stands behind them, so the
+    // warehouse is held only to the rest.
+    const simulated = new Map<string, bigint>()
+    for (const o of all<{ payload: string }>(
+      db,
+      "SELECT payload FROM chain_ops WHERE kind = 'mint' AND status = 'done'",
+    )) {
+      const p = JSON.parse(o.payload) as { token: string; units: string; proof?: string }
+      if (p.proof?.startsWith('demo:')) simulated.set(p.token, (simulated.get(p.token) ?? 0n) + BigInt(p.units))
+    }
     const rows = await Promise.all(
       tokenIds.map(async (id) => {
         const units = src ? await src.supply(id).catch(() => null) : null
         const sharesUi =
-          warehouse && src?.warehouse ? await src.warehouse.sharesUi(tokens[id].address).catch(() => null) : null
+          warehouse && src?.warehouse ? await src.warehouse.sharesUi(net.tokens[id]).catch(() => null) : null
         return {
           token: id,
           ticker: tokens[id].ticker,
-          address: tokens[id].address,
+          address: net.tokens[id],
           units: units?.toString() ?? null,
           // What the units stand for, and what the warehouse holds, both in shares (decimal strings).
           sharesOwed: units === null ? null : shares(units * UNIT),
           sharesHeld: sharesUi === null ? null : shares(sharesUi),
-          backed: units === null || sharesUi === null ? null : sharesUi >= units * UNIT,
+          simulatedUnits: (simulated.get(id) ?? 0n).toString(),
+          backed:
+            units === null || sharesUi === null
+              ? null
+              : sharesUi >= (units > (simulated.get(id) ?? 0n) ? units - (simulated.get(id) ?? 0n) : 0n) * UNIT,
         }
       }),
     )
@@ -57,6 +74,13 @@ export function proofRoutes(deps: { cfg: Config; db: Db; proof?: ProofSource; no
       contractId: cfg.CONTRACT_ID,
       demo,
       warehouse,
+      // Where the shares live: Robinhood Chain mainnet, or its testnet with synthetic stocks.
+      hood: {
+        chainId: net.chainId,
+        explorer: net.explorer,
+        synthetic: net.synthetic,
+        tokens: tokenIds.map((id) => ({ token: id, ticker: tokens[id].ticker, address: net.tokens[id] })),
+      },
       tokens: rows.filter((r) => r.units !== null && r.units !== '0'),
       recent,
       at: now(),
@@ -109,9 +133,9 @@ export function shares(v: bigint): string {
 }
 
 /** A stock's `balanceOfUI` (shares, 18 decimals) of `owner` on Robinhood Chain. */
-export function hoodShares(owner: () => Promise<string>) {
+export function hoodShares(owner: () => Promise<string>, net: HoodNet = HOOD_MAINNET) {
   const client = createPublicClient({
-    transport: fallback(ROBINHOOD_RPCS.map((url) => http(url, { timeout: 15_000 }))),
+    transport: fallback(net.rpcs.map((url) => http(url, { timeout: 15_000 }))),
   })
   const abi = parseAbi(['function balanceOfUI(address) view returns (uint256)'])
   return async (token: string) =>

@@ -36,3 +36,23 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+  hood-testnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Contracts
+        working-directory: contracts/hood-testnet
+        run: |
+          forge fmt --check
+          forge build
+          forge test
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # A testnet purchase end to end on anvil (skipped in the ts job, which has no Foundry).
+      - run: pnpm vitest run services/api/src/market.anvil.test.ts

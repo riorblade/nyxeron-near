@@ -79,13 +79,15 @@ export function chainParty(db: Db, partyId: number): string {
   return `${install}-${partyId}`
 }
 
-/** Testnet (SPEC §10): the purchase is simulated, and the proof says so. Mainnet: the warehouse's real swap (swap.ts),
- * or `not_built` when the api has no warehouse account. */
-export function buySharesFor(cfg: Config, mainnet?: BuyShares): BuyShares {
+/** With a warehouse buyer, its swap hash is the proof (mainnet shares, or testnet's synthetic ones). Without one: on
+ * testnet a simulated purchase whose proof says so (SPEC §10), on mainnet `not_built`. */
+export function buySharesFor(cfg: Config, buyer?: BuyShares): BuyShares {
   return async (party, token, units) => {
+    // The warehouse buyer: real shares on mainnet, synthetic ones on Robinhood Chain testnet (hoodnet.ts).
+    if (buyer) return buyer(party, token, units)
+    // Testnet without the synthetic market deployed or the warehouse key set: a simulated purchase, labelled.
     if (cfg.NEAR_NETWORK === 'testnet') return `demo:${party}:${token}:1`
-    if (!mainnet) throw new SettlementError('not_built', true)
-    return mainnet(party, token, units)
+    throw new SettlementError('not_built', true)
   }
 }
 

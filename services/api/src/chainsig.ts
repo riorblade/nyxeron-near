@@ -19,15 +19,15 @@ import {
 import { publicKeyToAddress } from 'viem/accounts'
 import type { Config } from './config.ts'
 import { type MayResign, nearProvider } from './near.ts'
-import { ROBINHOOD_CHAIN_ID, ROBINHOOD_RPCS } from './robinhood.ts'
+import { HOOD_MAINNET, type HoodNet } from './hoodnet.ts'
 
 export const WAREHOUSE_PATH = 'nyxeron-warehouse-hood'
 const DOMAIN_SECP256K1 = 0
 export const MPC_BY_NETWORK = { testnet: 'v1.signer-prod.testnet', mainnet: 'v1.signer' } as const
 
-// KyberSwap's router on Robinhood Chain (its /routes answer, 2026-11-05) and Robinhood's USDG, what we pay with.
-export const KYBER_ROUTER: Address = '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5'
-export const USDG: Address = '0x5fc5360d0400a0fd4f2af552add042d716f1d168'
+// KyberSwap's router on Robinhood Chain and Robinhood's USDG, what we pay with (mainnet; testnet: hoodnet.ts).
+export const KYBER_ROUTER: Address = HOOD_MAINNET.router
+export const USDG: Address = HOOD_MAINNET.usdg
 
 export const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n
 
@@ -90,12 +90,12 @@ function lowS(sig: { r: Hex; s: Hex; yParity: 0 | 1 }) {
 }
 
 // The warehouse only calls the router, and only approves USDG for the router. Nothing else gets a signature.
-function check(tx: TransactionSerializableEIP1559, limits: Limits, routers: readonly Address[]) {
+function check(tx: TransactionSerializableEIP1559, limits: Limits, routers: readonly Address[], net: HoodNet) {
   const fail = (code: string, why: string) => {
     throw new ChainsigError(code, why)
   }
   if (tx.type !== 'eip1559') fail('not_eip1559', `type ${String(tx.type)}`)
-  if (tx.chainId !== ROBINHOOD_CHAIN_ID) fail('wrong_chain', `chain ${tx.chainId}`)
+  if (tx.chainId !== net.chainId) fail('wrong_chain', `chain ${tx.chainId}`)
   if (tx.value !== undefined && tx.value !== 0n) fail('value_not_zero', `value ${tx.value}`)
   if (tx.gas === undefined || tx.gas > limits.maxGas) fail('gas_too_high', `gas ${tx.gas}`)
   const fee = tx.maxFeePerGas
@@ -106,7 +106,7 @@ function check(tx: TransactionSerializableEIP1559, limits: Limits, routers: read
   if (!to) return fail('wrong_target', 'no recipient')
   const isRouter = (a: Address) => routers.some((r) => isAddressEqual(r, a))
   if (isRouter(to)) return
-  if (isAddressEqual(to, USDG)) {
+  if (isAddressEqual(to, net.usdg)) {
     let call: ReturnType<typeof decodeFunctionData<typeof erc20Abi>> | undefined
     try {
       call = decodeFunctionData({ abi: erc20Abi, data: tx.data ?? '0x' })
@@ -129,10 +129,12 @@ export function warehouse(deps: {
   limits?: Limits
   routers?: readonly Address[]
   path?: string
+  net?: HoodNet
 }) {
   const { mpc, chain } = deps
+  const net = deps.net ?? HOOD_MAINNET
   const limits = deps.limits ?? DEFAULT_LIMITS
-  const routers = deps.routers ?? [KYBER_ROUTER]
+  const routers = deps.routers ?? [net.router]
   const path = deps.path ?? WAREHOUSE_PATH
   let cached: Address | undefined
 
@@ -146,7 +148,7 @@ export function warehouse(deps: {
 
   // Checks, signs through the MPC and verifies the signer. Returns the signed raw transaction, not yet sent.
   async function sign(input: TransactionSerializableEIP1559): Promise<Hex> {
-    check(input, limits, routers)
+    check(input, limits, routers, net)
     const from = await address()
     const tx = { ...input, nonce: input.nonce ?? (await chain.getTransactionCount(from)) }
     const sig = lowS(parseMpcSignature(await mpc.sign(keccak256(serializeTransaction(tx)), path)))
@@ -201,9 +203,9 @@ export function nearMpc(opts: { network: Config['NEAR_NETWORK']; account: Accoun
   }
 }
 
-export function robinhoodChain(): EvmChain {
+export function robinhoodChain(net: HoodNet = HOOD_MAINNET): EvmChain {
   const client = createPublicClient({
-    transport: fallback(ROBINHOOD_RPCS.map((url) => http(url, { timeout: 15_000 }))),
+    transport: fallback(net.rpcs.map((url) => http(url, { timeout: 15_000 }))),
   })
   return {
     getTransactionCount: (address) => client.getTransactionCount({ address, blockTag: 'pending' }),

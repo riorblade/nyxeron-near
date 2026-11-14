@@ -3,6 +3,7 @@ import { run } from './db.ts'
 import { createApp } from './app.ts'
 import { loadConfig } from './config.ts'
 import { openDb } from './db.ts'
+import { hoodTestnet } from './hoodnet.ts'
 import { type ProofSource, shares } from './proof.ts'
 import { chainParty } from './settlement.ts'
 import { fakeIdentity, fakeQuotes } from './testing.ts'
@@ -24,8 +25,81 @@ describe('GET /api/proof (public)', () => {
     expect(res.status).toBe(200)
     const body = (await res.json()) as Record<string, unknown>
     expect(body).toMatchObject({ network: 'testnet', contractId: 'nyxeron.testnet', demo: true, warehouse: null })
+    expect(body.hood).toMatchObject({ chainId: 4663, synthetic: false })
     expect(body.tokens).toEqual([
       expect.objectContaining({ token: 'tsla', units: '6', sharesOwed: '0.006', sharesHeld: null, backed: null }),
+    ])
+  })
+
+  it('testnet with the synthetic market: the warehouse holds synthetic stocks, labelled so, not demo', async () => {
+    const net = hoodTestnet({
+      usdg: `0x${'01'.repeat(20)}`,
+      market: `0x${'02'.repeat(20)}`,
+      tokens: Object.fromEntries(
+        ['tsla', 'nvda', 'aapl', 'googl', 'meta', 'msft', 'spy', 'qqq', 'crcl', 'mstr'].map((id, i) => [
+          id,
+          `0x${(i + 16).toString(16).repeat(20)}`,
+        ]),
+      ) as never,
+    })!
+    const held: Record<string, bigint> = { [net.tokens.tsla]: 6n * E15 }
+    const { get } = setup(
+      {},
+      {
+        supply: async (t) => (t === 'tsla' ? 6n : 0n),
+        warehouse: { address: async () => '0xabc', sharesUi: async (a) => held[a] ?? 0n, net },
+      },
+    )
+    const body = (await (await get('/api/proof')).json()) as Record<string, unknown>
+    expect(body).toMatchObject({ network: 'testnet', demo: false, warehouse: '0xabc' })
+    expect(body.hood).toMatchObject({ chainId: 46630, synthetic: true, explorer: net.explorer })
+    expect(body.tokens).toEqual([
+      expect.objectContaining({ token: 'tsla', address: net.tokens.tsla, sharesHeld: '0.006', backed: true }),
+    ])
+  })
+
+  it('testnet: units minted earlier with demo: proofs are counted apart, not held against the warehouse', async () => {
+    const net = hoodTestnet({
+      usdg: `0x${'01'.repeat(20)}`,
+      market: `0x${'02'.repeat(20)}`,
+      tokens: Object.fromEntries(
+        ['tsla', 'nvda', 'aapl', 'googl', 'meta', 'msft', 'spy', 'qqq', 'crcl', 'mstr'].map((id, i) => [
+          id,
+          `0x${(i + 16).toString(16).repeat(20)}`,
+        ]),
+      ) as never,
+    })!
+    const t = setup(
+      {},
+      {
+        supply: async (tok) => (tok === 'tsla' ? 10n : 0n),
+        warehouse: { address: async () => '0xabc', sharesUi: async () => 6n * E15, net },
+      },
+    )
+    run(t.db, "INSERT INTO users (id, created_at, last_seen) VALUES ('h', 0, 0)")
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (1, 'h', 'P', 1, 0, 0, 0)",
+    )
+    run(
+      t.db,
+      "INSERT INTO parties (id, host_id, title, seed, starts_at, ends_at, created_at) VALUES (2, 'h', 'Q', 1, 0, 0, 0)",
+    )
+    const mint = (party: number, units: number, proof: string, status = 'done') =>
+      run(
+        t.db,
+        `INSERT INTO chain_ops (id, party_id, seq, kind, payload, status, next_at, updated_at)
+         VALUES (?, ?, 2, 'mint', ?, ?, 0, 0)`,
+        `mint:${party}:tsla`,
+        party,
+        JSON.stringify({ token: 'tsla', units: String(units), proof }),
+        status,
+      )
+    mint(1, 4, 'demo:x-1:tsla:1')
+    mint(2, 6, `0x${'ab'.repeat(32)}`)
+    const body = (await (await t.get('/api/proof')).json()) as { tokens: object[] }
+    expect(body.tokens).toEqual([
+      expect.objectContaining({ token: 'tsla', units: '10', simulatedUnits: '4', sharesHeld: '0.006', backed: true }),
     ])
   })
 
