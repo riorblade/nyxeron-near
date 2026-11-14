@@ -219,7 +219,7 @@ Bukti mainnet di README: satu top-up, satu pembelian minuman, satu swap saham gu
 
 | #   | Keputusan                                                             | Rekomendasi                                               |
 | --- | --------------------------------------------------------------------- | --------------------------------------------------------- |
-| D1  | Track                                                                 | diputuskan 13 Nov: `games` saja                           |
+| D1  | Track                                                                 | diputuskan 13 Nov: `games` + `defi` + `open`              |
 | D2  | Akun mainnet (kontrak, api, treasury, relayer) dan akun payout hadiah | tim buat sendiri                                          |
 | D3  | Dana mainnet untuk bukti                                              | ≈ $20                                                     |
 | D4  | Fallback kalau tanda tangan Privy ternyata ber-UI                     | pembelian lewat saldo di kontrak + session key (spike 03) |
