@@ -62,7 +62,7 @@ curl https://app.nyxeron.xyz/api/health
 | Field                   | Meaning                                                                                                                                 |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `network`, `contractId` | Where the units live                                                                                                                    |
-| `demo`                  | `true` on testnet: mints carry `demo:` proofs (the purchase is simulated)                                                               |
+| `demo`                  | `false` when the warehouse buys (testnet: synthetic stocks on Robinhood Chain testnet); `true` only without a buyer (`demo:` proofs)    |
 | `warehouse`             | The warehouse's Robinhood Chain address (mainnet), else `null`                                                                          |
 | `tokens[]`              | Per stock: `units` in circulation, `sharesOwed` they stand for, `sharesHeld` by the warehouse and `backed` (mainnet; `null` on testnet) |
 | `recent[]`              | Recent parties: `chainParty`, `title`, `endsAt`, `status`                                                                               |

@@ -49,14 +49,14 @@ Open https://nyxeron.xyz and tap **Launch app** (or go straight to https://app.n
 
 ## How it uses NEAR
 
-| Part              | NEAR feature                                                                                                                                     | Where                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                                           | `apps/web/src/auth`                                         |
-| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit                                      | `apps/web/src/near`, `services/api/src/relay.ts`            |
-| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money                            | `contracts/nyxeron`, `services/api/src/parties.ts`          |
-| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                                                        | `contracts/nyxeron`                                         |
-| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures (mainnet; simulated on testnet) | `services/api/src/chainsig.ts`, `swap.ts`                   |
-| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                                              | `services/api/src/intents.ts`, `apps/web/src/city/money.ts` |
+| Part              | NEAR feature                                                                                                                                                               | Where                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Sign-in           | Google or email sign-in gives each player a NEAR implicit account through Privy's embedded NEAR wallet                                                                     | `apps/web/src/auth`                                         |
+| No gas            | NEP-366 meta transactions: the player signs a delegate action, our relayer pays gas and the 1 yocto deposit                                                                | `apps/web/src/near`, `services/api/src/relay.ts`            |
+| Paying for drinks | USDC `ft_transfer_call` to our contract with a server-signed price quote; the contract checks it and splits the money                                                      | `contracts/nyxeron`, `services/api/src/parties.ts`          |
+| Owning shares     | Stock units as NEP-245 multi tokens on our contract, 1 unit = 0.001 share                                                                                                  | `contracts/nyxeron`                                         |
+| Real stocks       | Robinhood stock tokens on Robinhood Chain, bought by an address a NEAR account controls through Chain Signatures (testnet: synthetic stand-ins on Robinhood Chain testnet) | `services/api/src/chainsig.ts`, `swap.ts`                   |
+| Money in and out  | NEAR Intents (1Click) top-up and cash-out from any chain, straight to and from the player's account                                                                        | `services/api/src/intents.ts`, `apps/web/src/city/money.ts` |
 
 The server can never move a player's dollars: only the player signs a payment. The relayer accepts one action to our
 contract or to USDC, with at most 1 yocto attached, and nothing else.
@@ -73,10 +73,13 @@ contract or to USDC, with at most 1 yocto attached, and nothing else.
                                  └─► mint_warehouse + settle ─► NEP-245 units in each guest's account
 ```
 
-Status: on testnet (the live demo) the share purchase after a party is simulated and labelled so
-(`buySharesFor` in `services/api/src/settlement.ts`); the release, mint and settle are real testnet transactions. The
-mainnet purchase (a Kyber swap the warehouse signs through Chain Signatures, `services/api/src/swap.ts`) is built and
-waits for its first mainnet run.
+Status: on testnet (the live demo) the whole chain runs for real. After a party the warehouse, a Robinhood Chain
+address controlled by the NEAR account `nyx-warehouse.testnet` through Chain Signatures (`v1.signer-prod.testnet`),
+buys **synthetic stock tokens** (`sTSLA`, `sCRCL`, …) for test dollars on **Robinhood Chain testnet** (chain 46630),
+because Robinhood's real stock tokens exist on mainnet only. That swap's hash is the mint's proof on NEAR. Example, party
+`dfec4462-20` (2 × CRCL): [swap on Robinhood Chain testnet](https://explorer.testnet.chain.robinhood.com/tx/0x09056919ca56003a5eb33eb29ddddce30ef2c17ef1466c0651f266d2c31f2d76), then mint and settle on NEAR testnet. The same code
+buys the real tokens through KyberSwap on mainnet (`services/api/src/swap.ts`, `contracts/hood-testnet` for the
+stand-ins).
 
 Prices: wholesale = token price × 0.001 × 1.01 (swap fee buffer), rounded up to the cent. A host may charge up to 3×
 wholesale; the contract refuses anything above it and refunds the payment in full.
@@ -103,9 +106,9 @@ What it enforces on its own:
   units and hosts can still claim margin.
 
 What it trusts the api for: the contract can't read Robinhood Chain, so the owner key decides that a mint is backed.
-That key is a function-call key limited to this contract's owner methods. On mainnet, `/proof` compares the units in
-circulation (`mt_supply`) with the shares the warehouse holds; on testnet the share purchase is simulated, so it shows
-the units without that column.
+That key is a function-call key limited to this contract's owner methods. `/proof` compares the units in
+circulation (`mt_supply`) with the shares the warehouse holds: on testnet its synthetic stand-ins on Robinhood Chain
+testnet, labelled "synthetic (testnet)".
 
 Tests: `cd contracts/nyxeron && cargo test` runs 78 unit tests and 10 sandbox tests against a real NEP-141 token
 (two more are gas probes, run with `--ignored`). CI also runs `cargo fmt --check` and `cargo clippy`.
