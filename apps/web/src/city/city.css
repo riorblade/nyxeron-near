@@ -1,0 +1,866 @@
+/* The City entry (City.tsx, AccountBar, MoneyPanel): game screens over the club, in the app home's idiom.
+   Neon for the mood, gold only for money and the one main action. */
+@font-face {
+  font-family: 'NX Display';
+  src: url('/landing/fonts/big-shoulders-display.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: block;
+}
+
+.cy {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --beat: 0;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --gutter: max(16px, 4vw);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  overflow-x: clip;
+  padding: 18px var(--gutter) 72px;
+}
+/* A party keeps its old column: its own 3D club sits behind and PartyView lays itself out. */
+.cy.cy-in-party {
+  width: min(56rem, 100%);
+  margin: 0 auto;
+  padding: 18px 16px 64px;
+}
+
+.cy-crowd,
+.cy-shade {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+}
+.cy-crowd {
+  object-fit: cover;
+  opacity: 0.55;
+  filter: saturate(1.15);
+  transform: scale(calc(1.04 + var(--beat) * 0.025));
+}
+.cy-shade {
+  z-index: -1;
+  background:
+    radial-gradient(80% 70% at 50% 35%, transparent, var(--color-night) 95%),
+    linear-gradient(180deg, color-mix(in srgb, var(--color-night) 40%, transparent), var(--color-night) 97%);
+}
+.cy-club-shade {
+  background:
+    radial-gradient(90% 70% at 50% 45%, transparent 30%, color-mix(in srgb, var(--color-night) 80%, transparent)),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-night) 70%, transparent),
+      transparent 35%,
+      transparent 60%,
+      var(--color-night)
+    );
+}
+
+.cy-loading {
+  margin: auto;
+  font: 800 clamp(28px, 4vw, 44px) / 1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Top bar */
+.cy-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.cy-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 800 17px/1 var(--display);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.cy-where {
+  padding-left: 18px;
+  border-left: 1px solid var(--color-line);
+  font: 800 17px/1 var(--display);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.cy-where b {
+  font-weight: 800;
+  color: var(--color-neon);
+}
+.cy-nav {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.cy-nav a,
+.cy-nav button {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font:
+    500 12px/1 var(--mono),
+    monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+.cy-nav a:hover,
+.cy-nav button:hover {
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+/* Neon sign title */
+.cy-sign {
+  text-align: center;
+  font: 900 clamp(40px, 7vw, 104px) / 0.92 var(--display);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff4fd;
+  text-shadow:
+    0 0 6px var(--color-neon),
+    0 0 calc(18px + var(--beat) * 22px) var(--color-neon),
+    0 0 60px color-mix(in srgb, var(--color-neon) 55%, transparent);
+  animation: cy-tube 1.4s steps(1) both;
+}
+@keyframes cy-tube {
+  0%,
+  18%,
+  40% {
+    opacity: 0.25;
+    text-shadow: none;
+  }
+  10%,
+  28%,
+  56%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Picture cards: the role pick and the party stage select share them */
+.cy-role,
+.cy-party {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  overflow: hidden;
+  padding: clamp(16px, 2vw, 26px);
+  border-radius: 18px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+  background: var(--color-panel);
+  text-align: left;
+  transition:
+    transform 0.35s var(--ease),
+    border-color 0.25s,
+    box-shadow 0.35s;
+}
+.cy-role.is-picked,
+.cy-party.is-picked {
+  transform: translateY(-8px);
+  border-color: var(--color-gold);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--color-gold) 22%, transparent),
+    0 24px 60px color-mix(in srgb, var(--color-neon) 28%, transparent);
+}
+.cy-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.7;
+  transform: scale(1.04);
+  transition:
+    transform 0.6s var(--ease),
+    opacity 0.3s;
+}
+.cy-role::after,
+.cy-party::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    transparent 20%,
+    color-mix(in srgb, var(--color-night) 70%, transparent) 58%,
+    var(--color-night) 88%
+  );
+}
+.cy-art-mono {
+  filter: sepia(1) hue-rotate(225deg) saturate(2.2) brightness(0.75);
+}
+.is-picked > .cy-art {
+  opacity: 0.95;
+  transform: scale(1.1);
+}
+.cy-tag {
+  font:
+    500 12px/1.3 var(--mono),
+    monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-neon);
+}
+.cy-name {
+  margin-top: 4px;
+  font: 900 clamp(34px, 4vw, 60px) / 0.92 var(--display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.cy-name small {
+  font-size: 0.5em;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+.cy-line {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.cy-key {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+  background: color-mix(in srgb, var(--color-night) 70%, transparent);
+  font:
+    600 13px/1 var(--mono),
+    monospace;
+}
+
+/* Role pick */
+.cy-pick {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: min(1060px, 100%);
+  margin: clamp(24px, 6vh, 64px) auto 0;
+}
+.cy-roles {
+  display: grid;
+  grid-template-columns: 1fr 1.18fr;
+  align-items: end;
+  gap: clamp(14px, 2vw, 28px);
+  margin-top: auto;
+  padding-top: 36px;
+}
+.cy-role {
+  height: clamp(280px, 44vh, 440px);
+}
+.cy-role.is-lead {
+  height: clamp(320px, 52vh, 520px);
+}
+.cy-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+}
+.cy-hint {
+  font:
+    500 13px/1.4 var(--mono),
+    monospace;
+  color: var(--color-muted);
+}
+
+/* The one gold action */
+.cy-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 14px 26px;
+  border-radius: 12px;
+  background: var(--color-gold);
+  color: var(--color-night);
+  font: 900 clamp(22px, 2.2vw, 30px) / 1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 0 calc(22px + var(--beat) * 18px) color-mix(in srgb, var(--color-gold) 50%, transparent);
+  transition: transform 0.2s var(--ease);
+}
+.cy-go:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.cy-go:active {
+  transform: scale(0.97);
+}
+.cy-go span {
+  font-family: var(--mono);
+  font-size: 0.7em;
+}
+
+/* Signed-in home */
+.cy-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(1180px, 100%);
+  margin: 22px auto 0;
+}
+.cy-in-party .cy-body {
+  width: 100%;
+}
+.cy-alert {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-down) 45%, transparent);
+  background: color-mix(in srgb, var(--color-down) 12%, var(--color-night));
+  font-size: 14px;
+  color: var(--color-down);
+}
+
+/* Account HUD: who, the purse, and the money moves */
+.cy-hud {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 12px 14px 12px 12px;
+  border-radius: 18px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+  background: color-mix(in srgb, var(--color-panel) 88%, transparent);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--color-night) 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+.cy-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.cy-face {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  border: 2px solid var(--color-neon);
+  background: color-mix(in srgb, var(--color-neon) 16%, var(--color-night));
+  font: 900 24px/1 var(--display);
+  color: #ffe3f8;
+}
+.cy-player {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cy-addr {
+  font:
+    500 11px/1.6 var(--mono),
+    monospace;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+.cy-addr:hover {
+  color: var(--color-ink);
+}
+.cy-purse {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 20px 4px 0;
+  border-right: 1px solid var(--color-line);
+}
+.cy-purse-label {
+  font:
+    500 11px/1 var(--mono),
+    monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.cy-purse-value {
+  margin-top: 4px;
+  font: 900 40px/0.9 var(--display);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-gold);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--color-gold) 35%, transparent);
+}
+.cy-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Game buttons: chunky, pressable, display face */
+.cy-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+  background: color-mix(in srgb, var(--color-night) 60%, transparent);
+  font: 800 18px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-ink);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-night) 80%, black);
+  transition:
+    transform 0.15s var(--ease),
+    box-shadow 0.15s var(--ease),
+    border-color 0.2s;
+}
+.cy-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+}
+.cy-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-night) 80%, black);
+}
+.cy-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.cy-btn-gold {
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+  color: var(--color-night);
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--color-gold) 45%, black);
+}
+.cy-btn-gold:hover:not(:disabled) {
+  border-color: var(--color-gold);
+}
+.cy-btn-neon {
+  border-color: color-mix(in srgb, var(--color-neon) 70%, transparent);
+  color: #ffe3f8;
+}
+.cy-btn-sub {
+  margin-top: 3px;
+  font:
+    500 10px/1 var(--mono),
+    monospace;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+.cy-btn-wide {
+  width: 100%;
+  min-height: 52px;
+  font-size: 22px;
+}
+.cy-btn-small {
+  min-height: 40px;
+  font-size: 14px;
+}
+.cy-signout {
+  padding: 8px 6px;
+  font:
+    500 11px/1 var(--mono),
+    monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.cy-signout:hover {
+  color: var(--color-ink);
+}
+.cy-faucet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.cy-faucet-note {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.cy-faucet-note.is-ok {
+  color: var(--color-up);
+}
+
+/* Party stage select */
+.cy-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-top: 10px;
+}
+.cy-h {
+  font: 900 clamp(28px, 3vw, 40px) / 1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cy-err {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--color-down);
+}
+.cy-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: clamp(12px, 1.6vw, 20px);
+  margin-top: 22px;
+}
+.cy-stages > li.is-lead {
+  grid-column: span 2;
+}
+.cy-party {
+  height: 280px;
+}
+.cy-party .cy-name {
+  font-size: clamp(30px, 3vw, 44px);
+}
+.is-lead > .cy-party .cy-name {
+  font-size: clamp(38px, 4vw, 60px);
+}
+/* A bar's neon OPEN sign: an outlined tube that lights once, then hums with the kick. */
+.cy-open {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 3px 12px 4px;
+  border: 2px solid var(--color-neon);
+  border-radius: 10px;
+  font: 900 20px/1 var(--display);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffe3f8;
+  text-shadow: 0 0 8px var(--color-neon);
+  box-shadow:
+    0 0 calc(8px + var(--beat) * 14px) var(--color-neon),
+    inset 0 0 8px color-mix(in srgb, var(--color-neon) 60%, transparent);
+  animation: cy-tube 1.2s steps(1) 0.6s both;
+}
+/* Sticky, so the one action stays in reach however long the list gets. */
+.cy-stage > .cy-go {
+  position: sticky;
+  bottom: 20px;
+  z-index: 2;
+  align-self: flex-end;
+  margin-top: 24px;
+}
+.cy-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 44px 16px;
+  border-radius: 18px;
+  border: 2px dashed var(--color-line);
+  background: color-mix(in srgb, var(--color-night) 60%, transparent);
+  color: var(--color-muted);
+}
+.cy-closed-sign {
+  padding: 4px 14px 5px;
+  border: 2px solid color-mix(in srgb, var(--color-neon) 35%, transparent);
+  border-radius: 10px;
+  font: 900 26px/1 var(--display);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-neon) 45%, var(--color-muted));
+}
+
+/* Money windows */
+.cy-modal {
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--color-night) 78%, transparent);
+  backdrop-filter: blur(6px);
+  animation: cy-fade 0.25s var(--ease) both;
+}
+.cy-window {
+  --display: 'NX Display', 'Arial Narrow', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  display: flex;
+  flex-direction: column;
+  width: min(30rem, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  background: var(--color-panel);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--color-night) 60%, transparent),
+    0 30px 80px color-mix(in srgb, var(--color-neon) 22%, transparent);
+  animation: cy-pop 0.35s var(--ease) both;
+}
+.cy-window-top {
+  position: relative;
+  padding: 18px 64px 16px 22px;
+  border-bottom: 2px solid var(--color-line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-neon) 16%, transparent), transparent), var(--color-panel);
+}
+.cy-window-title {
+  margin-top: 4px;
+  font: 900 40px/0.95 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cy-x {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 2px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.cy-x:hover {
+  color: var(--color-ink);
+  border-color: color-mix(in srgb, var(--color-ink) 45%, transparent);
+}
+.cy-window-body {
+  overflow-y: auto;
+  padding: 18px 22px 24px;
+}
+.cy-window-purse {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--color-night);
+}
+.cy-window-purse span {
+  font:
+    500 11px/1 var(--mono),
+    monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.cy-window-purse b {
+  font: 900 28px/1 var(--display);
+  color: var(--color-gold);
+}
+.cy-window-text {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.cy-field {
+  display: flex;
+  flex-direction: column;
+  font:
+    500 11px/1.4 var(--mono),
+    monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.cy-input {
+  margin-top: 6px;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 2px solid var(--color-line);
+  background: var(--color-night);
+  font-size: 15px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-ink);
+  transition: border-color 0.2s;
+}
+.cy-input:focus {
+  outline: none;
+  border-color: var(--color-neon);
+}
+.cy-quote {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-line);
+  background: var(--color-night);
+  font-size: 14px;
+}
+.cy-quote b {
+  color: var(--color-gold);
+}
+.cy-deposit {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--color-line);
+}
+.cy-note {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-violet) 50%, transparent);
+  background: color-mix(in srgb, var(--color-violet) 14%, transparent);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--color-violet) 40%, var(--color-ink));
+}
+@keyframes cy-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cy-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+
+.cy :focus-visible,
+.cy-modal :focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .cy-hud {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .cy-purse {
+    padding-right: 0;
+    border-right: 0;
+  }
+  .cy-moves {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .cy-moves > .cy-btn,
+  .cy-faucet {
+    flex: 1;
+  }
+  .cy-faucet > .cy-btn {
+    width: 100%;
+  }
+  .cy-faucet {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .cy {
+    padding-bottom: 64px;
+  }
+  .cy-where {
+    display: none;
+  }
+  .cy-nav a,
+  .cy-nav button {
+    padding: 8px;
+  }
+  .cy-pick {
+    margin-top: 18px;
+  }
+  .cy-sign {
+    font-size: 40px;
+  }
+  .cy-roles {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 12px;
+    padding-top: 18px;
+  }
+  .cy-role,
+  .cy-role.is-lead {
+    height: 132px;
+    padding: 14px 16px;
+  }
+  .cy-role.is-lead {
+    order: -1;
+    height: 168px;
+  }
+  .cy-role .cy-name {
+    font-size: 36px;
+  }
+  .cy-role .cy-line {
+    font-size: 14px;
+  }
+  .cy-role.is-picked,
+  .cy-party.is-picked {
+    transform: none;
+  }
+  .cy-key {
+    display: none;
+  }
+  .cy-foot {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .cy-hint {
+    font-size: 12px;
+    text-align: center;
+  }
+  .cy-go,
+  .cy-stage > .cy-go {
+    align-self: stretch;
+    width: auto;
+  }
+  .cy-stages {
+    grid-template-columns: 1fr;
+  }
+  .cy-stages > li.is-lead {
+    grid-column: auto;
+  }
+  .cy-party {
+    height: 200px;
+  }
+  .cy-stage > .cy-go {
+    bottom: 56px;
+  }
+  .cy-purse-value {
+    font-size: 34px;
+  }
+  .cy-moves {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+  }
+  .cy-faucet {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cy-sign,
+  .cy-open,
+  .cy-modal,
+  .cy-window {
+    animation: none;
+  }
+  .cy-crowd {
+    transform: none;
+  }
+}

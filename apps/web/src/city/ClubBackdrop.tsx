@@ -59,8 +59,8 @@ export function ClubBackdrop(props: {
       {walk ? (
         <WalkControls cam={cam} onCam={setCam} emote={emote} onEmote={setEmote} onExit={walk.onExit} />
       ) : (
-        // Keeps the menu readable over the lights.
-        <div className="absolute inset-0 bg-gradient-to-b from-night/80 via-night/35 to-night/85" />
+        // Keeps the menu readable over the lights while the room stays visible in the middle.
+        <div className="cy-club-shade absolute inset-0" />
       )}
     </div>
   )

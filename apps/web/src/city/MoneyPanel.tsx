@@ -1,6 +1,7 @@
 // Add money and Cash out, through NEAR Intents 1Click (money.ts). Pick a coin and chain, get a live quote, then on
 // mainnet send to the deposit address (Add money) or sign the transfer here (Cash out) and watch its status.
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Account } from '../auth/useAccount.ts'
 import { usd } from '../format.ts'
 import { nearProvider } from '../near/chain.ts'
@@ -26,40 +27,56 @@ export function MoneyPanel({
   kind: 'add' | 'cashout'
   onClose: () => void
 }) {
-  return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-night/80 p-4" onClick={onClose}>
+  // Escape closes it, like any game window.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [onClose])
+  // On the body: the account bar's blur would otherwise trap a fixed window inside it.
+  return createPortal(
+    <div className="cy-modal" onClick={onClose}>
       <section
         role="dialog"
+        aria-modal="true"
         aria-label={kind === 'add' ? 'Add money' : 'Cash out'}
-        className="max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-line bg-panel p-6"
+        className="cy-window"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-xl font-bold">{kind === 'add' ? 'Add money' : 'Cash out'}</h2>
-        <p className="mt-1 text-sm text-muted">
-          {kind === 'add'
-            ? 'Send crypto from any chain or exchange; it arrives as dollars (USDC) in your own account here.'
-            : 'Send your dollars to any chain or exchange. You sign it here, we pay the fees.'}
-        </p>
-        {kind === 'add' ? <AddMoney account={account} /> : <CashOut account={account} />}
-        <button
-          onClick={onClose}
-          className="mt-5 w-full rounded-xl border border-line py-2 text-sm hover:border-violet"
-        >
-          Close
-        </button>
+        <header className="cy-window-top">
+          <span className="cy-tag">{kind === 'add' ? 'Money in' : 'Money out'}</span>
+          <h2 className="cy-window-title">{kind === 'add' ? 'Add money' : 'Cash out'}</h2>
+          <button onClick={onClose} className="cy-x" aria-label="Close">
+            ✕
+          </button>
+        </header>
+        <div className="cy-window-body">
+          {account.balance !== undefined && (
+            <p className="cy-window-purse">
+              <span>Balance</span> <b>{usd(account.balance)}</b>
+            </p>
+          )}
+          <p className="cy-window-text">
+            {kind === 'add'
+              ? 'Send crypto from any chain or exchange; it arrives as dollars (USDC) in your own account here.'
+              : 'Send your dollars to any chain or exchange. You sign it here, we pay the fees.'}
+          </p>
+          {kind === 'add' ? <AddMoney account={account} /> : <CashOut account={account} />}
+        </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
 function CoinPicker({ coin, onChange }: { coin: Coin; onChange: (c: Coin) => void }) {
   return (
-    <label className="mt-4 flex flex-col text-xs text-muted">
+    <label className="cy-field mt-4">
       Coin and chain
       <select
         value={COINS.indexOf(coin)}
         onChange={(e) => onChange(COINS[Number(e.target.value)]!)}
-        className="mt-1 rounded-lg border border-line bg-night px-3 py-2 text-sm text-ink"
+        className="cy-input"
       >
         {COINS.map((c, i) => (
           <option key={i} value={i}>
@@ -73,14 +90,14 @@ function CoinPicker({ coin, onChange }: { coin: Coin; onChange: (c: Coin) => voi
 
 function Field(props: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <label className="mt-3 flex flex-col text-xs text-muted">
+    <label className="cy-field mt-3">
       {props.label}
       <input
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         placeholder={props.placeholder}
         spellCheck={false}
-        className="mt-1 rounded-lg border border-line bg-night px-3 py-2 font-mono text-sm text-ink"
+        className="cy-input font-mono"
       />
     </label>
   )
@@ -92,7 +109,7 @@ async function errorOf(r: Response): Promise<string> {
 }
 
 const DryRun = () => (
-  <p className="mt-3 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-xs text-gold">
+  <p className="cy-note">
     Test network: this is a live quote from NEAR Intents, but nothing is sent. Real transfers open on mainnet.
   </p>
 )
@@ -137,13 +154,13 @@ function AddMoney({ account }: { account: Account }) {
       <button
         onClick={() => void ask()}
         disabled={busy || !amount.trim() || refundTo.trim().length < 2}
-        className="mt-4 w-full rounded-xl bg-gold py-2 font-bold text-night disabled:opacity-40"
+        className="cy-btn cy-btn-gold cy-btn-wide mt-5"
       >
         {busy ? 'Getting a quote…' : 'Get a quote'}
       </button>
       {error && <p className="mt-3 text-sm text-down">{error}</p>}
       {quote && (
-        <div className="mt-4 text-sm">
+        <div className="cy-quote">
           <p>
             You send <b>{quote.amountInFormatted ?? amount}</b> {coinLabel(coin)}. You get about{' '}
             <b>${quote.amountOutFormatted}</b> here
@@ -164,7 +181,7 @@ function AddMoney({ account }: { account: Account }) {
 
 function Deposit({ account, intent, send }: { account: Account; intent: NonNullable<Quote['intent']>; send: string }) {
   return (
-    <div className="mt-3 rounded-lg border border-line p-3">
+    <div className="cy-deposit">
       <p className="text-xs text-muted">
         Send exactly {send} to this address before{' '}
         {new Date(intent.deadline).toLocaleTimeString([], { timeStyle: 'short' })}:
@@ -260,7 +277,7 @@ function CashOut({ account }: { account: Account }) {
 
   if (paid)
     return (
-      <div className="mt-4 text-sm">
+      <div className="cy-quote">
         <p>Sent. Your {coinLabel(coin)} is on its way.</p>
         <IntentStatus account={account} id={paid} />
       </div>
@@ -276,7 +293,7 @@ function CashOut({ account }: { account: Account }) {
         {account.balance !== undefined && account.balance >= 1_000_000 && (
           <button
             onClick={() => setAmount(String(Math.min(account.balance!, 1_000_000_000) / 1_000_000))}
-            className="mb-0.5 rounded-lg border border-line px-3 py-2 text-xs"
+            className="cy-btn cy-btn-small"
           >
             Max {usd(Math.min(account.balance, 1_000_000_000))}
           </button>
@@ -287,12 +304,12 @@ function CashOut({ account }: { account: Account }) {
         <button
           onClick={() => void ask()}
           disabled={busy !== undefined || !amount || problem !== undefined || address.trim().length < 2}
-          className="mt-4 w-full rounded-xl bg-gold py-2 font-bold text-night disabled:opacity-40"
+          className="cy-btn cy-btn-gold cy-btn-wide mt-5"
         >
           {busy === 'quote' ? 'Getting a quote…' : 'Get a quote'}
         </button>
       ) : (
-        <div className="mt-4 text-sm">
+        <div className="cy-quote">
           <p>
             You send <b>${quote.amountInFormatted ?? amount}</b>. They get about <b>{quote.amountOutFormatted}</b>{' '}
             {coinLabel(coin)}
@@ -304,7 +321,7 @@ function CashOut({ account }: { account: Account }) {
             <button
               onClick={() => void pay()}
               disabled={busy !== undefined || !account.canPay}
-              className="mt-3 w-full rounded-xl bg-gold py-2 font-bold text-night disabled:opacity-40"
+              className="cy-btn cy-btn-gold cy-btn-wide mt-3"
             >
               {busy === 'pay' ? 'Sending…' : 'Confirm cash out'}
             </button>
