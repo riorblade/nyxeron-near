@@ -18,6 +18,7 @@ export type NightEvent =
   | { minute: number; kind: 'pass'; guest: number; token?: TokenId; reason: string }
   | { minute: number; kind: 'ceo'; reason: string }
 export type Sales = { units: number; revenue: number; margin: number }
+export type Staff = { bartender: number; security: number }
 
 export type Night = {
   rng: Rng
@@ -27,6 +28,7 @@ export type Night = {
   menu: Partial<Record<TokenId, MenuItem>>
   market: Market
   dj: R.Genre
+  staff: Staff
   energy: number
   happyHourFrom: number | null
   guests: Guest[]
@@ -40,7 +42,7 @@ export type Night = {
   log: NightEvent[]
 }
 
-export type Refusal = 'unknown_token' | 'below_wholesale' | 'above_cap' | 'already_used' | 'night_over'
+export type Refusal = 'unknown_token' | 'below_wholesale' | 'above_cap' | 'already_used' | 'night_over' | 'bad_staff'
 export type Result = { ok: true; night: Night } | { ok: false; reason: Refusal }
 
 const LOG_KEEP = 400
@@ -57,6 +59,7 @@ export function startNight(opts: {
   market: Market
   dj?: R.Genre
   level?: number
+  staff?: Staff
 }): Night {
   const unlocked = venueFor(opts.reputation)
   const venue = R.VENUES.find((v) => v.level === Math.min(opts.level ?? unlocked.level, unlocked.level)) ?? unlocked
@@ -76,6 +79,7 @@ export function startNight(opts: {
     menu,
     market: opts.market,
     dj,
+    staff: opts.staff && validStaff(opts.staff) ? { ...opts.staff } : { ...R.STAFF_BY_LEVEL[venue.level - 1]! },
     energy: R.DJ_ENERGY[dj] * 0.6,
     happyHourFrom: null,
     guests: [],
@@ -132,6 +136,25 @@ export function setDj(night: Night, dj: R.Genre): Result {
   return { ok: true, night: n }
 }
 
+const validStaff = (s: Staff) =>
+  (['bartender', 'security'] as const).every(
+    (k) => Number.isInteger(s[k]) && s[k] >= R.STAFF[k].min && s[k] <= R.STAFF[k].max,
+  )
+
+/** Hire the night's crew: bartenders pour, security works the door. */
+export function setStaff(night: Night, staff: Staff): Result {
+  if (night.minute >= R.NIGHT_MINUTES) return { ok: false, reason: 'night_over' }
+  if (!validStaff(staff)) return { ok: false, reason: 'bad_staff' }
+  const n = copy(night)
+  n.staff = { bartender: staff.bartender, security: staff.security }
+  log(n, { minute: n.minute, kind: 'ceo', reason: `Staff: ${staff.bartender} bartenders, ${staff.security} security` })
+  return { ok: true, night: n }
+}
+
+/** What the crew costs for the night, in micro-USDC. */
+export const staffCost = (s: Staff) =>
+  Math.round((s.bartender * R.STAFF.bartender.wageUsd + s.security * R.STAFF.security.wageUsd) * 1_000_000)
+
 // ── What guests see ──────────────────────────────────────────────────────────────────────────────────────────────
 
 export function happyHourOn(n: Night): boolean {
@@ -177,7 +200,9 @@ export function tick(night: Night): Night {
 function step(n: Night): void {
   // Arrivals, while there's room.
   n.arrivalCarry += R.ARRIVALS_BASE + n.reputation * R.ARRIVALS_PER_REPUTATION
-  while (n.arrivalCarry >= 1 && n.guests.length < n.capacity) {
+  let door = n.staff.security * R.STAFF.security.perMinute // security lets this many in a minute
+  while (n.arrivalCarry >= 1 && n.guests.length < n.capacity && door >= 1) {
+    door -= 1
     n.arrivalCarry -= 1
     const budget = roundCent(between(n.rng, R.GUEST_BUDGET_USD.min, R.GUEST_BUDGET_USD.max) * 1_000_000)
     const g = { id: n.nextGuest++, budget, spent: 0, served: false }
@@ -197,6 +222,7 @@ function step(n: Night): void {
   // Orders, guest by guest in arrival order (the order the RNG is drawn in must never change).
   const onMenu = tokenIds.filter((id) => n.menu[id] && n.market[id])
   const orderChance = R.ORDER_CHANCE * (0.5 + n.energy / 100)
+  let pours = n.staff.bartender * R.STAFF.bartender.perMinute // drinks the bar can pour this minute
   for (const g of n.guests) {
     if (next(n.rng) >= orderChance || onMenu.length === 0) continue
     // Pick a drink with a chance in proportion to its appeal: the hot stock sells most, the others still sell.
@@ -224,6 +250,11 @@ function step(n: Night): void {
       })
       continue
     }
+    if (pours < 1) {
+      log(n, { minute: n.minute, kind: 'pass', guest: g.id, token: b.token, reason: 'the bar is too busy' })
+      continue
+    }
+    pours -= 1
     g.spent += price
     const item = n.menu[b.token]!
     const s = (n.sales[b.token] ??= { units: 0, revenue: 0, margin: 0 })
@@ -259,6 +290,9 @@ export type NightReport = {
   units: number
   revenue: number
   margin: number
+  /** Wages for the night's crew, and what is left of the margin after them. */
+  staffCost: number
+  profit: number
   wholesale: number
   guestsCame: number
   guestsServed: number
@@ -290,6 +324,8 @@ export function report(n: Night): NightReport {
     units,
     revenue,
     margin,
+    staffCost: staffCost(n.staff),
+    profit: margin - staffCost(n.staff),
     wholesale: revenue - margin,
     guestsCame: n.came,
     guestsServed: n.served,
@@ -307,11 +343,12 @@ export type Strategy = {
   markup?: number
   dj?: R.Genre
   happyHourAt?: number
+  staff?: Staff
 }
 
 /** Run a whole night at once with fixed CEO choices. */
 export function runNight(opts: { seed: number; reputation: number; market: Market }, strategy: Strategy = {}) {
-  let n = startNight({ ...opts, dj: strategy.dj })
+  let n = startNight({ ...opts, dj: strategy.dj, staff: strategy.staff })
   for (const id of tokenIds) {
     const item = n.menu[id]
     if (!item) continue

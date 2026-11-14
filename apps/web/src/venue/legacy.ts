@@ -269,7 +269,8 @@ export function toGameState(n: Night, level: number): GameState {
       tactics: happy ? { sparkler: { until: n.minute + 1 } } : {},
       bookings: { vip: TIERS[L - 1]!.vipTables },
     },
-    staff: TIERS[L - 1]!.staff,
+    // The crew the CEO hired tonight walks the floor (hosts come with the room).
+    staff: { ...TIERS[L - 1]!.staff, bartender: n.staff.bartender, security: n.staff.security },
     upgrades: TIERS[L - 1]!.upgrades,
     bookedTalent: [DJ_FOR[n.dj] ?? 'mira'],
     bookedBand: null,

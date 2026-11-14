@@ -8,6 +8,8 @@ import {
   runNight,
   setDj,
   setPrice,
+  setStaff,
+  staffCost,
   startHappyHour,
   startNight,
   tick,
@@ -163,5 +165,43 @@ describe('fast-forward and venues', () => {
     expect(startNight({ ...base, reputation: 60, level: 1 }).capacity).toBe(30)
     expect(startNight({ ...base, reputation: 60, level: 4 }).capacity).toBe(100)
     expect(startNight({ ...base, reputation: 5, level: 3 }).capacity).toBe(30)
+  })
+})
+
+describe('staff', () => {
+  const superclub = { ...base, reputation: 90 }
+  it('opens with the crew its venue level comes with', () => {
+    expect(startNight(base).staff).toEqual(R.STAFF_BY_LEVEL[venueFor(base.reputation).level - 1])
+    expect(startNight(superclub).staff).toEqual({ bartender: 4, security: 3 })
+  })
+
+  it('takes only crews inside the limits', () => {
+    const n = startNight(base)
+    expect(setStaff(n, { bartender: 0, security: 1 })).toEqual({ ok: false, reason: 'bad_staff' })
+    expect(setStaff(n, { bartender: 2, security: 9 })).toEqual({ ok: false, reason: 'bad_staff' })
+    expect(setStaff(n, { bartender: 1.5, security: 1 })).toEqual({ ok: false, reason: 'bad_staff' })
+    const r = setStaff(n, { bartender: 6, security: 5 })
+    expect(r.ok && r.night.staff).toEqual({ bartender: 6, security: 5 })
+  })
+
+  it('one bartender in a full superclub sells fewer drinks than a full bar', () => {
+    const units = (bartender: number) =>
+      avg(seeds.map((seed) => runNight({ ...superclub, seed }, { staff: { bartender, security: 3 } }).report.units))
+    expect(units(1)).toBeLessThan(units(4) * 0.8)
+  })
+
+  it('one bouncer lets fewer guests in than a full door', () => {
+    const came = (security: number) =>
+      avg(
+        seeds.map((seed) => runNight({ ...superclub, seed }, { staff: { bartender: 4, security } }).report.guestsCame),
+      )
+    expect(came(1)).toBeLessThan(came(3))
+  })
+
+  it('pays the crew out of the margin', () => {
+    const { report } = runNight(superclub, { staff: { bartender: 2, security: 2 } })
+    expect(report.staffCost).toBe(staffCost({ bartender: 2, security: 2 }))
+    expect(report.staffCost).toBe((2 * R.STAFF.bartender.wageUsd + 2 * R.STAFF.security.wageUsd) * 1_000_000)
+    expect(report.profit).toBe(report.margin - report.staffCost)
   })
 })
